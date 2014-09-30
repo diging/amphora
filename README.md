@@ -1,4 +1,4 @@
 jar
 ===
 
-Just Another Repository
+Just Another Repository for Scholars
