@@ -1,4 +1,4 @@
-jar
-===
+jars
+====
 
 Just Another Repository for Scholars
