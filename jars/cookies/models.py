@@ -6,7 +6,7 @@ from django.contrib.contenttypes.models import ContentType
 def resource_file_name(instance, filename):
     return '/'.join(['content', instance.name, filename])
 
-class InheritanceCastModel(models.Model):
+class HeritableObject(models.Model):
     real_type = models.ForeignKey(ContentType, editable=False)
 
     def save(self, *args, **kwargs):
@@ -23,7 +23,10 @@ class InheritanceCastModel(models.Model):
     class Meta:
         abstract = True
 
-class NamedObject(models.Model):
+class Entity(HeritableObject):
+    entity_type = models.ForeignKey('Type', blank=True, null=True)
+
+class NamedEntity(Entity):
     name = models.CharField(max_length=500, unique=True)
 
     def __unicode__(self):
@@ -32,15 +35,8 @@ class NamedObject(models.Model):
     class Meta:
         abstract = True
 
-class Authority(NamedObject):
-    endpoint = models.TextField()
-    namespace = models.TextField()
-
-class Entity(NamedObject, InheritanceCastModel):
+class Resource(NamedEntity):
     pass
-
-class Resource(Entity):
-    description = models.TextField(blank=True, null=True)
 
 class RemoteMixin(models.Model):
     url = models.URLField(max_length=2000)
@@ -73,68 +69,58 @@ class RemoteResource(Resource, RemoteMixin):
 
 class LocalResource(Resource, LocalMixin):
     pass
-    
-class Text(Resource):
+
+class Collection(NamedEntity):
+    resources = models.ManyToManyField( 'Entity', related_name='part_of',
+                                        blank=True, null=True  )
+
+### Types and Fields ###
+
+class Schema(NamedEntity):
     pass
 
-class LocalText(Text, LocalMixin):
-    pass
-
-class RemoteText(Text, RemoteMixin):
-    pass
-
-class Corpus(Resource):
-    contains = models.ManyToManyField('Resource', related_name='in_corpus')
-
-    class Meta:
-        verbose_name_plural = 'corpora'
-        
-class Concept(Resource):
-    pass
-#    
-#    class Meta:
-#        abstract=True
-    
-class LocalConcept(Concept, LocalMixin):
-    pass
-
-class RemoteConcept(Concept, RemoteMixin):
-    pass
-
-### Fields and Relations ###
-
-class Schema(NamedObject):
-    pass
-
-class SchemaField(models.Model):
+class Type(NamedEntity):
     """
-    
+    If :attr:`.domain` is null, can be applied to any :class:`.Entity` 
+    regardless of its :attr:`.Entity.entity_type`\.
     """
 
-    schema = models.ForeignKey('Schema')
-    field = models.ForeignKey('Field')
-    verbose_name = 'field'
+    domain = models.ManyToManyField(    'Type', related_name='in_domain_of',
+                                        blank=True, null=True   )
 
-class FieldRelation(InheritanceCastModel):
-    source = models.ForeignKey('Entity', related_name='relations_from')
-    field = models.ForeignKey('Field')
+    schema = models.ForeignKey(    'Schema', related_name='types',
+                                    blank=True, null=True   )
+                                    
+    parent = models.ForeignKey(     'Type', related_name='children',
+                                    blank=True, null=True   )
 
-class ValueRelation(FieldRelation):
-    target = models.ForeignKey('Value')
-
-class EntityRelation(FieldRelation):
-    target = models.ForeignKey('Entity', related_name='relations_to')
-
-class Value(models.Model):
-    
-    def type(self):
-        if hasattr(self, 'integervalue'):   return 'integervalue'
-        if hasattr(self, 'textvalue'):      return 'textvalue'
-        if hasattr(self, 'floatvalue'):     return 'floatvalue'
-        if hasattr(self, 'datetimevalue'):  return 'datetimevalue'
+    def full_path(self):
+        obj = self
+        parents = [obj]
+        while obj.parent is not None:
+            parents.append(obj.parent)
+            obj = obj.parent
+        parents.reverse()
+        return [ self.schema.name ] + parents
     
     def __unicode__(self):
-        return getattr(self, self.type()).value.strftime('%Y-%m-%d')
+        return '.'.join(self.full_path())
+
+class Field(Type):
+    """
+    A :class:`.Field` is a :class:`.Type` for :class:`.Relation`\s.
+    
+    If range is null, can be applied to any Entity regardless of Type.
+    """
+
+    range = models.ManyToManyField(    'Type', related_name='in_range_of',
+                                        blank=True, null=True   )
+
+
+### Values ###
+
+class Value(Entity):
+    pass
     
 class IntegerValue(Value):
     value = models.IntegerField(default=0, unique=True)
@@ -142,7 +128,7 @@ class IntegerValue(Value):
     def __unicode__(self):
         return unicode(self.value)    
 
-class TextValue(Value):
+class StringValue(Value):
     value = models.TextField(unique=True)
 
     def __unicode__(self):
@@ -160,59 +146,22 @@ class DateTimeValue(Value):
     def __unicode__(self):
         return unicode(self.datetimevalue.value)
 
-class Field(NamedObject):
-    FIELDTYPES = (
-        ('Values', (
-            ('IN', 'Integer'),
-            ('FL', 'Float'),
-            ('TX', 'Text'),
-            ('DT', 'Date'),
-            )
-        ),
-        ('Entities', (
-            ('RS', 'Resource'),
-            ('CP', 'Concept'),
-            ('CO', 'Corpus'),
-            ('TT', 'Text'),
-            )
-        )
-    )
+### Relations ###
 
-    VALUE_TYPES = {
-        'IN': IntegerValue,
-        'FL': FloatValue,
-        'TX': TextValue,
-        'DT': DateTimeValue
-    }
-    schema = models.ForeignKey('Schema', related_name='schema_fields')
-    parent = models.ForeignKey('Field', related_name='children', blank=True, null=True)
-
-    description = models.TextField(null=True, blank=True)
-    type = models.CharField(max_length=2, choices=FIELDTYPES)
-    max_values = models.IntegerField(default=1)
-    
-    def full_path(self):
-        obj = self
-        parents = [obj]
-        while obj.parent is not None:
-            parents.append(obj.parent)
-            obj = obj.parent
-        parents.reverse()
-        return parents
-    
-    def __unicode__(self):
-        return '.'.join([ self.schema.name ] + [p.name for p in  self.full_path()])
+class Relation(Entity):
+    source = models.ForeignKey( 'Entity', related_name='relations_from' )
+    predicate = models.ForeignKey(  'Field', related_name='instances'   )
+    target = models.ForeignKey( 'Entity', related_name='relations_to'   )
 
 ### Actions and Events ###
 
-class Event(models.Model):
-    occurred = models.DateTimeField(auto_now_add=True)
-    by = models.ForeignKey(User)
-    did = models.ForeignKey('Action')
-    on = models.ForeignKey('Entity')
+class Event(HeritableObject):
+    when = models.DateTimeField(auto_now_add=True)
+    by = models.ForeignKey(User, related_name='events')
+    did = models.ForeignKey('Action', related_name='events')
+    on = models.ForeignKey('Entity', related_name='events')
 
-
-class Action(models.Model):
+class Action(HeritableObject):
     GRANT = 'GR'
     DELETE = 'DL'
     CHANGE = 'CH'
@@ -228,14 +177,26 @@ class Action(models.Model):
 
     def __unicode__(self):
         return unicode(self.get_type_display())
-
-    def do(self, entity, user, **kwargs):
+    
+    def is_authorized(self, actor, entity):
         """
+        Checks for a related :class:`.Authorization` matching the specified
+        :class:`.Actor` and :class:`.Entity`\.
+        """
+        
+        auth = self.authorizations.filter(actor__id=actor.id).filter(on__id=entity.id)
+        if auth.count() == 0:
+            return False
+        return True
+
+    def log(self, entity, actor, **kwargs):
+        """
+        Log this :class:`.Action` as an :class:`.Event`\.
         
         Parameters
         ----------
         entity : :class:`.Entity`
-        user : :class:`django.contrib.auth.models.User`
+        actor : :class:`django.contrib.auth.models.User`
         
         Returns
         -------
@@ -244,7 +205,7 @@ class Action(models.Model):
 
         # Log the action as an Event.
         event = Event(
-                    by=user,
+                    by=actor,
                     did=self.type,
                     on=entity
                     )
@@ -252,9 +213,9 @@ class Action(models.Model):
 
         return event
 
-class Authorization(models.Model):
-    actor = models.ForeignKey(User)
-    to_do = models.ForeignKey('Action')
+class Authorization(HeritableObject):
+    actor = models.ForeignKey(User, related_name='is_authorized_to')
+    to_do = models.ForeignKey('Action', related_name='authorizations')
     on = models.ForeignKey('Entity')
 
     def __unicode__(self):
