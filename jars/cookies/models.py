@@ -12,7 +12,7 @@ class HeritableObject(models.Model):
     def save(self, *args, **kwargs):
         if not self.id:
             self.real_type = self._get_real_type()
-        super(InheritanceCastModel, self).save(*args, **kwargs)
+        super(HeritableObject, self).save(*args, **kwargs)
 
     def _get_real_type(self):
         return ContentType.objects.get_for_model(type(self))
@@ -20,22 +20,23 @@ class HeritableObject(models.Model):
     def cast(self):
         return self.real_type.get_object_for_this_type(pk=self.pk)
 
+    def __unicode__(self):
+        return self.cast().__unicode__()
+
     class Meta:
         abstract = True
 
 class Entity(HeritableObject):
     entity_type = models.ForeignKey('Type', blank=True, null=True)
-
-class NamedEntity(Entity):
     name = models.CharField(max_length=500, unique=True)
+    
+    class Meta:
+        verbose_name_plural = 'entities'
 
     def __unicode__(self):
         return unicode(self.name)
 
-    class Meta:
-        abstract = True
-
-class Resource(NamedEntity):
+class Resource(Entity):
     pass
 
 class RemoteMixin(models.Model):
@@ -70,16 +71,16 @@ class RemoteResource(Resource, RemoteMixin):
 class LocalResource(Resource, LocalMixin):
     pass
 
-class Collection(NamedEntity):
+class Collection(Entity):
     resources = models.ManyToManyField( 'Entity', related_name='part_of',
                                         blank=True, null=True  )
 
 ### Types and Fields ###
 
-class Schema(NamedEntity):
+class Schema(Entity):
     pass
 
-class Type(NamedEntity):
+class Type(Entity):
     """
     If :attr:`.domain` is null, can be applied to any :class:`.Entity` 
     regardless of its :attr:`.Entity.entity_type`\.
@@ -94,17 +95,20 @@ class Type(NamedEntity):
     parent = models.ForeignKey(     'Type', related_name='children',
                                     blank=True, null=True   )
 
-    def full_path(self):
-        obj = self
-        parents = [obj]
-        while obj.parent is not None:
-            parents.append(obj.parent)
-            obj = obj.parent
-        parents.reverse()
-        return [ self.schema.name ] + parents
-    
-    def __unicode__(self):
-        return '.'.join(self.full_path())
+#    def full_path(self):
+#        obj = self
+#        parents = [obj]
+#        while obj.parent is not None:
+#            parents.append(obj.parent)
+#            obj = obj.parent
+#        parents.reverse()
+#        
+#        if self.schema.name is not None:
+#            parents = [ self.schema ] + parents
+#        return parents
+
+#    def __unicode__(self):
+#        return '.'.join([s.name for s in self.full_path()])
 
 class Field(Type):
     """

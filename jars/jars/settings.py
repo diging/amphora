@@ -21,8 +21,18 @@ SECRET_KEY = '#_8=6+i296891#wg9(04o18y2(%6u6*&+fds5wri@tafmni2em'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
+TEMPLATE_DIRS = [os.path.join(BASE_DIR, 'templates')]
 TEMPLATE_DEBUG = True
+TEMPLATE_CONTEXT_PROCESSORS = (
+    "django.contrib.auth.context_processors.auth",
+    "django.core.context_processors.debug",
+    "django.core.context_processors.i18n",
+    "django.core.context_processors.media",
+    "django.core.context_processors.static",
+    "django.core.context_processors.tz",
+    "django.contrib.messages.context_processors.messages",
+#    "audit_log.middleware.UserLoggingMiddleware",    
+)
 
 ALLOWED_HOSTS = []
 
