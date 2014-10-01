@@ -1,5 +1,5 @@
 """
-Django settings for jar project.
+Django settings for jars project.
 
 For more information on this file, see
 https://docs.djangoproject.com/en/1.6/topics/settings/
@@ -36,8 +36,8 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'autocomplete_light',
     'cookies',
-    'south',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -49,9 +49,9 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
-ROOT_URLCONF = 'jar.urls'
+ROOT_URLCONF = 'jars.urls'
 
-WSGI_APPLICATION = 'jar.wsgi.application'
+WSGI_APPLICATION = 'jars.wsgi.application'
 
 
 # Database

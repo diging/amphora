@@ -42,15 +42,14 @@ class EntityRelationInline(admin.TabularInline):
     fk_name = 'source'
 
 class ResourceAdmin(admin.ModelAdmin):
-    inlines = (ValueRelationInline, EntityRelationInline)
+    pass
+#    inlines = (ValueRelationInline, EntityRelationInline)
 
 class SchemaAdmin(admin.ModelAdmin):
     inlines = (FieldInline,)
 
 class CorpusAdmin(admin.ModelAdmin):
     pass
-
-
 
 admin.site.register(RemoteResource, ResourceAdmin)
 admin.site.register(LocalResource, ResourceAdmin)
@@ -60,8 +59,17 @@ admin.site.register(Authorization)
 admin.site.register(Action)
 
 admin.site.register(Schema, SchemaAdmin)
-admin.site.register(Field, FieldAdmin)
+admin.site.register(Field)#, FieldAdmin)
+
+admin.site.register(EntityRelation)
+admin.site.register(ValueRelation)
 
 admin.site.register(Corpus, CorpusAdmin)
 
 admin.site.register(Value)
+
+admin.site.register(LocalText)
+
+admin.site.register(LocalConcept)
+
+admin.site.register(Concept)
