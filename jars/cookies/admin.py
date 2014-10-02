@@ -1,17 +1,8 @@
 from django.contrib import admin
-from django import forms
-from django.forms.models import inlineformset_factory
 import autocomplete_light
 
-from models import *
-
-class RelationForm(forms.ModelForm):
-    model = Relation
-    
-    def __init__(self, *args, **kwargs):
-        super(RelationForm, self).__init__(*args, **kwargs)
-        self.fields['target'].widget = autocomplete_light.ChoiceWidget('EntityAutocomplete')
-        self.fields['predicate'].widget.widget.attrs.update({'class': 'autocomplete_filter', 'target': 'target'})
+from .models import *
+from .forms import *
 
 class RelationInline(admin.TabularInline):
     model = Relation
@@ -19,11 +10,10 @@ class RelationInline(admin.TabularInline):
     fk_name = 'source'
     exclude = ('entity_type','name')
 
+
 class ResourceAdmin(admin.ModelAdmin):
     inlines = (RelationInline,)
     model = Resource
-
-
 
 class HiddenAdmin(admin.ModelAdmin):
     """
@@ -47,9 +37,16 @@ class HiddenAdmin(admin.ModelAdmin):
         
         return {}
 
+class DateTimeValueAdmin(admin.ModelAdmin):
+    model = DateTimeValue
+
+
+
 admin.site.register(Entity)
 admin.site.register(Resource, ResourceAdmin)
 admin.site.register(Type)
 admin.site.register(Field)
 admin.site.register(Schema)
 admin.site.register(Relation)
+admin.site.register(LocalResource, ResourceAdmin)
+admin.site.register(IntegerValue)

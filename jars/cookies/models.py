@@ -1,7 +1,11 @@
-from django.db import models
+from django.db import models, IntegrityError, transaction
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
-
+from django.core.exceptions import ValidationError
+import iso8601
+import sys
+import six
+from uuid import uuid4
 
 def resource_file_name(instance, filename):
     return '/'.join(['content', instance.name, filename])
@@ -95,20 +99,6 @@ class Type(Entity):
     parent = models.ForeignKey(     'Type', related_name='children',
                                     blank=True, null=True   )
 
-#    def full_path(self):
-#        obj = self
-#        parents = [obj]
-#        while obj.parent is not None:
-#            parents.append(obj.parent)
-#            obj = obj.parent
-#        parents.reverse()
-#        
-#        if self.schema.name is not None:
-#            parents = [ self.schema ] + parents
-#        return parents
-
-#    def __unicode__(self):
-#        return '.'.join([s.name for s in self.full_path()])
 
 class Field(Type):
     """
@@ -120,35 +110,125 @@ class Field(Type):
     range = models.ManyToManyField(    'Type', related_name='in_range_of',
                                         blank=True, null=True   )
 
-
 ### Values ###
 
-class Value(Entity):
-    pass
-    
-class IntegerValue(Value):
-    value = models.IntegerField(default=0, unique=True)
+class ValueQueryset(models.QuerySet):
+    def get_or_create(self, defaults=None, **kwargs):
+        lookup, params = self._extract_model_params(defaults, **kwargs)
 
-    def __unicode__(self):
-        return unicode(self.value)    
+        if 'name' in lookup:
+            name = self.model()._convert(lookup['name'])
+            lookup['name'] = name
+            kwargs['name'] = name
+            params['name'] = name
+        self._for_write = True
+        try:
+            return self.get(**lookup), False
+        except self.model.DoesNotExist:
+            return self._create_object_from_params(lookup, params)
+
+    def _create_object_from_params(self, lookup, params):
+        """
+        Tries to create an object using passed params.
+        Used by get_or_create and update_or_create
+        """
+        try:
+            with transaction.atomic(using=self.db):
+                obj = self.create(**params)
+            return obj, True
+        except IntegrityError:
+            exc_info = sys.exc_info()
+            try:
+                return self.get(**lookup), False
+            except self.model.DoesNotExist:
+                pass
+            six.reraise(*exc_info)
+
+    def create(self, **kwargs):
+        """
+        Creates a new object with the given kwargs, saving it to the database
+        and returning the created object.
+        """
+
+        obj = self.model(**kwargs)
+        if 'name' in kwargs:
+            obj.name = kwargs['name']
+        self._for_write = True
+        obj.save(force_insert=True, using=self.db)
+        return obj
+
+class ValueManager(models.Manager):
+    def get_queryset(self):
+        return ValueQueryset(self.model, using=self._db, hints=self._hints)
+
+class Value(Entity):
+    """
+    Value should never be instantiated directly. We may want to make this
+    abstract.
+    """
+    
+    def save(self, *args, **kwargs):
+        # There are a few housekeeping tasks when a Value is created.
+        if not self.id and self.entity_type is None:
+            
+            # First, we need to establish its 'real_type', so that we can
+            #  down-cast it, below. This is handled by the HeritableObject
+            #  save method.
+            super(Value, self).save(force_insert=False)
+            
+            # Next, we ensure that the value for name is of the correct type.
+            self.name = self._convert(self.name)
+
+            # All instances of Value subclasses should have a Type in the
+            #  "System" Schema. In case this hasn't been created yet, we use
+            #  the Schema Manager's get_or_create method.
+            schema, created = Schema.objects.get_or_create(name='System')
+            
+            # We're looking for the Type that is identical to the name of the
+            #  'real_type' of this Value object. E.g. if this is an
+            #  IntegerValue, then it should have the Type "IntegerValue".
+            cast_name = type(self.cast()).__name__
+            self.entity_type, created = Type.objects.get_or_create(
+                                            name=cast_name,
+                                            defaults={'schema': schema}
+                                            )
+
+            # Since we just assigned a value to entity_type, we'll save again.
+            super(Value, self).save(force_insert=False)
+
+    def _convert(self, value):
+        """
+        Re-casts a string or unicode input as the datatype expected by a
+        Value subclass.
+        """
+        
+        # Each Value subclass should have a staticmethod called pytype that
+        #  will return the correct Python object for a given str or unicode
+        #  value.
+        try:
+            return globals()[type(self).__name__].pytype(str(value))
+        except ValueError:
+            raise ValidationError('Invalid input type')
+
+class IntegerValue(Value):
+    objects = ValueManager()
+    name = models.IntegerField(default=0, unique=True)
+    pytype = staticmethod(int)
 
 class StringValue(Value):
-    value = models.TextField(unique=True)
-
-    def __unicode__(self):
-        return unicode(self.value)    
+    objects = ValueManager()
+    name = models.TextField(unique=True)
+    pytype = staticmethod(str)
 
 class FloatValue(Value):
-    value = models.FloatField(unique=True)
-    
-    def __unicode__(self):
-        return unicode(self.value)    
+    objects = ValueManager()
+    name = models.FloatField(unique=True)
+    pytype = staticmethod(float)
 
 class DateTimeValue(Value):
-    value = models.DateTimeField(unique=True)
-    
-    def __unicode__(self):
-        return unicode(self.datetimevalue.value)
+    objects = ValueManager()
+    name = models.DateTimeField(unique=True, null=True, blank=True)
+    pytype = staticmethod(iso8601.parse_date)
 
 ### Relations ###
 
@@ -156,6 +236,10 @@ class Relation(Entity):
     source = models.ForeignKey( 'Entity', related_name='relations_from' )
     predicate = models.ForeignKey(  'Field', related_name='instances'   )
     target = models.ForeignKey( 'Entity', related_name='relations_to'   )
+
+    def save(self, *args, **kwargs):
+        self.name = uuid4()
+        super(Relation, self).save(*args, **kwargs)
 
 ### Actions and Events ###
 

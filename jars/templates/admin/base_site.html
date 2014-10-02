@@ -1,27 +1,9 @@
 {% extends "admin/base.html" %}
+{% load staticfiles %}
 
 {% block extrahead %}
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.js" type="text/javascript"></script>
     {% include 'autocomplete_light/static.html' %}
     
-    <script>
-    $('body').ready(function(e) {
-        $('.autocomplete_filter').on('change', function(e) {
-            var target = $(this).attr('target');
-            var predicate_id = $(this).val();
-            var name = $(this).attr('name');
-            var name_split = name.split('-');
-            var prefix = name_split.slice(0,name_split.length - 1);
-            prefix.push(target);
-            var target_element_name = prefix.join('-');
-            var target_widget = $('select[name='+target_element_name+']').parents('.autocomplete-light-widget');
-            console.log(target_widget);
-            target_widget.yourlabsWidget().autocomplete.data = {
-                'in_range_of': predicate_id,
-            };
-        });
-    });    
-//    $('.autocomplete-light-widget select[name$=target])
-
-    </script>
+    <script src="{% static "cookies/js/autocomplete_filter.js" %}" type="text/javascript"></script>
 {% endblock %}
