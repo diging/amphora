@@ -16,7 +16,8 @@ Some notable features:
 * Can talk to a Handle server to generate unique handles for resources,
 * Curate and retrieve collections of resources (e.g. a corpus for text mining), including
   remote resources.
-
+* Friendly and simple content access control for projects working with copyright or
+  otherwise restricted data.
 
 The target audience is primarily scholars working with digitized texts that need a more
 robust storage facility than whatever mess is on their harddrive, and need stable URIs.
