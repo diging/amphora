@@ -8,6 +8,36 @@ import inspect
 
 from . import models
 
+class ChooseResourceTypeForm(forms.Form):
+    RTYPES = (
+        ('localresource', 'Local'),
+        ('remoteresource', 'Remote'),
+    )
+    description = 'Resources can be local (e.g. a text that you upload) or' + \
+                  ' remote (e.g. a text in someone else\'s repository. You' + \
+                  ' will be redirected to the appropriate form for adding a' +\
+                  ' a resource based on your selection.'
+
+    resource_type = forms.ChoiceField(choices=RTYPES)
+
+#    def save(self, *args, **kwargs):
+#        """
+#        Instead of saving the :class:`.Resource`\, redirect to a form for
+#        :class:`.LocalResource` or :class:`.RemoteResource`\.
+#        """
+#        obj = super(ChooseResourceTypeForm, self).save(commit=False)
+#        print self.cleaned_data['resource_type']
+
+class LocalResourceForm(forms.ModelForm):
+    model = models.LocalResource
+
+    def __init__(self, *args, **kwargs):
+        super(LocalResourceForm, self).__init__(*args, **kwargs)
+
+        print self.fields
+        print self.model
+
+
 class TargetField(forms.models.ModelChoiceField):
     """
     Supports the target field in the :class:`.RelationForm`\.
@@ -178,7 +208,7 @@ class RelationForm(forms.ModelForm):
             if hasattr(target_obj, 'entity_type'):
             
                 # Here we check wheter the Entity's type is in range.
-                if not cast_entity.entity_type in range:
+                if not target_obj.entity_type in range:
                     self._errors['target'] = self.error_class([range_msg])
                     del cleaned_data['target']
             

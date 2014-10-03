@@ -63,8 +63,10 @@ class Resource(Entity):
     Should be instantiated as one of its subclasses, :class:`.LocalResource` or
     :class:`.RemoteResource`\.
     """
-    
     pass
+#    part_of = models.ManyToManyField('Collection', related_name='contains',
+#                                    blank=True, null=True)
+
 
 class RemoteMixin(models.Model):
     """
@@ -121,8 +123,8 @@ class Collection(Entity):
     """
     A set of :class:`.Entity` instances.
     """
-    
-    resources = models.ManyToManyField( 'Entity', related_name='part_of',
+
+    resources = models.ManyToManyField( 'Resource', related_name='part_of',
                                         blank=True, null=True  )
 
 ### Types and Fields ###
