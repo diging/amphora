@@ -19,6 +19,7 @@ class HeritableObject(models.Model):
     An object that is aware of its "real" type, i.e. the subclass that it 
     instantiates.
     """
+    
     real_type = models.ForeignKey(ContentType, editable=False)
 
     def save(self, *args, **kwargs):
@@ -159,13 +160,32 @@ class Field(Type):
 
 class ValueQueryset(models.QuerySet):
     def get_or_create(self, defaults=None, **kwargs):
+        """
+        Get a :class:`.Value` based on the parameters in **kwargs. If a matching
+        :class:`.Value` can't be found, create a new one.
+        
+        This is customized so that queries against the ``name`` field get recast
+        as the appropriate type, depending on which :class:`.Value` subclass
+        is using this :class:`.ValueQueryset`\.
+        
+        """
         lookup, params = self._extract_model_params(defaults, **kwargs)
 
+        # The value of the lookup for ``name`` may not be the right datatype
+        #  for this subclass of Value. E.g. if the request was generated from
+        #  user data entered through a :class:`.TargetField` (which just passes
+        #  the raw input along).
         if 'name' in lookup:
+        
+            # The _convert method will recast the value for the ``name`` lookup.
             name = self.model()._convert(lookup['name'])
+            
+            # Update lookup, kwargs, and params just for good measure.
             lookup['name'] = name
             kwargs['name'] = name
             params['name'] = name
+        
+        # The rest of this is straight from the original Django sourcecode.
         self._for_write = True
         try:
             return self.get(**lookup), False
@@ -175,7 +195,11 @@ class ValueQueryset(models.QuerySet):
     def _create_object_from_params(self, lookup, params):
         """
         Tries to create an object using passed params.
-        Used by get_or_create and update_or_create
+        
+        Used by get_or_create and update_or_create.
+        
+        This is identical to the method in the Github sourcecode, it's just nice
+        to have access to it for debugging.
         """
         try:
             with transaction.atomic(using=self.db):
@@ -193,23 +217,36 @@ class ValueQueryset(models.QuerySet):
         """
         Creates a new object with the given kwargs, saving it to the database
         and returning the created object.
+        
+        This is identical to the original method, except that we are explicitly
+        setting the :attr:`.name` attribute. For some reason passing ``name``
+        in kwargs doesn't always work on some models.
         """
 
         obj = self.model(**kwargs)
+        
+        # Here we set ``name`` explicitly based on kwargs.
         if 'name' in kwargs:
             obj.name = kwargs['name']
+        
+        # Everything else is the same as the original method.
         self._for_write = True
         obj.save(force_insert=True, using=self.db)
         return obj
 
 class ValueManager(models.Manager):
+    """
+    Allows us to use a custom :class:`.QuerySet`\, the :class:`.ValueQueryset`\.
+    """
+    
     def get_queryset(self):
         return ValueQueryset(self.model, using=self._db, hints=self._hints)
 
 class Value(Entity):
     """
-    Value should never be instantiated directly. We may want to make this
-    abstract.
+    Value should never be instantiated directly. 
+    
+    TODO: We may want to make this abstract.
     """
     
     def save(self, *args, **kwargs):
