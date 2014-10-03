@@ -13,7 +13,10 @@ Some notable features:
 * Can interface with remote authority services, and include references to remote resources
   in metadata,
 * Provides a simple REST API for interacting with your resources,
-* Can talk to a Handle server to generate unique handles for resources.
+* Can talk to a Handle server to generate unique handles for resources,
+* Curate and retrieve collections of resources (e.g. a corpus for text mining), including
+  remote resources.
+
 
 The target audience is primarily scholars working with digitized texts that need a more
 robust storage facility than whatever mess is on their harddrive, and need stable URIs.
