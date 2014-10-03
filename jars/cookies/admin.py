@@ -83,6 +83,7 @@ class ResourceAdmin(admin.ModelAdmin):
     """
     
     inlines = (RelationInline,)
+    form = ResourceForm
     model = Resource
 
 class CollectionAdmin(admin.ModelAdmin):

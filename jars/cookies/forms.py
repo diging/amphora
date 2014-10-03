@@ -22,16 +22,6 @@ class ChooseResourceTypeForm(forms.Form):
 
     resource_type = forms.ChoiceField(choices=RTYPES)
 
-class LocalResourceForm(forms.ModelForm):
-    model = models.LocalResource
-
-    def __init__(self, *args, **kwargs):
-        super(LocalResourceForm, self).__init__(*args, **kwargs)
-
-        print self.fields
-        print self.model
-
-
 class TargetField(forms.models.ModelChoiceField):
     """
     Supports the target field in the :class:`.RelationForm`\.
@@ -64,6 +54,34 @@ class TargetField(forms.models.ModelChoiceField):
             else:
                 return value
         return None
+
+
+class ResourceForm(forms.ModelForm):
+    model = models.Resource
+
+    def clean_name(self):
+        """
+        Ensure that an :class:`.Entity` with this name does not already exist.
+        
+        This is necessary because Django only checks against objects of the
+        instantiated subclass, but we want to enforce the UNIQUE constraint
+        across all Entities.
+        """
+        
+        name = self.cleaned_data['name']
+        
+        # count() minimizes database impact.
+        if models.Entity.objects.filter(name=name).count() > 0:
+        
+            # This is the error displayed above the field.
+            self._errors['name'] = self.error_class(
+                ['Something with that name already exists. Please try another.']
+                )
+            del self.cleaned_data['name']
+
+        # If the name is unique, pass it back.
+        else:
+            return name
 
 
 class RelationForm(forms.ModelForm):

@@ -52,6 +52,11 @@ class Entity(HeritableObject):
     
     class Meta:
         verbose_name_plural = 'entities'
+    
+    def save(self, *args, **kwargs):
+        print args
+        print kwargs
+        super(Entity, self).save(*args, **kwargs)
 
     def __unicode__(self):
         return unicode(self.name)
@@ -64,9 +69,6 @@ class Resource(Entity):
     :class:`.RemoteResource`\.
     """
     pass
-#    part_of = models.ManyToManyField('Collection', related_name='contains',
-#                                    blank=True, null=True)
-
 
 class RemoteMixin(models.Model):
     """
