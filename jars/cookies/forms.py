@@ -13,20 +13,14 @@ class ChooseResourceTypeForm(forms.Form):
         ('localresource', 'Local'),
         ('remoteresource', 'Remote'),
     )
+    
+    # The description attribute is rendered in admin/generic_form.html
     description = 'Resources can be local (e.g. a text that you upload) or' + \
                   ' remote (e.g. a text in someone else\'s repository. You' + \
                   ' will be redirected to the appropriate form for adding a' +\
                   ' a resource based on your selection.'
 
     resource_type = forms.ChoiceField(choices=RTYPES)
-
-#    def save(self, *args, **kwargs):
-#        """
-#        Instead of saving the :class:`.Resource`\, redirect to a form for
-#        :class:`.LocalResource` or :class:`.RemoteResource`\.
-#        """
-#        obj = super(ChooseResourceTypeForm, self).save(commit=False)
-#        print self.cleaned_data['resource_type']
 
 class LocalResourceForm(forms.ModelForm):
     model = models.LocalResource

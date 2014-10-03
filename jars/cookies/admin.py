@@ -68,9 +68,9 @@ class ResourceAdminForward(admin.ModelAdmin):
             #  LocalResource).
             form = ChooseResourceTypeForm()
             
-            # The admin/resource_choosetype.html template is nothing special;
+            # The admin/generic_form.html template is nothing special;
             #  it just embeds the form in the admin base_site template.
-            return render(request, 'admin/resource_choosetype.html',
+            return render(request, 'admin/generic_form.html',
                             {'form': form}  )
 
 class ResourceAdmin(admin.ModelAdmin):
