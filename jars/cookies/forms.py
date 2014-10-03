@@ -14,17 +14,23 @@ class TargetField(forms.models.ModelChoiceField):
     """
     def to_python(self, value):
         """
-        Just pass the value (str/unicode) on through, so that we can evaluate
-        it later.
+        Supposed to convert a value entered into the field into an appropriate
+        Python object for storage.
+        
+        In fact, here we just pass the value (str/unicode) on through, so that 
+        we can evaluate it in :meth:`.RelationForm.clean`\.
         """
         
         return value
 
     def prepare_value(self, value):
         """
-        If value is an int, it is a primary key for Entity. Otherwise (e.g.
-        where there was a ValidationError) it is a value for ``name`` and should
-        be displayed directly.
+        Converts a Python object (``value``) back into something that we can
+        display in the form.
+        
+        If value is an int, it is a primary key for :class:.`Entity`\. Otherwise
+        (e.g. where there was a ValidationError) it is a value for ``name`` and 
+        should be displayed directly.
         """
         
         if value is not None:
@@ -48,8 +54,29 @@ class RelationForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super(RelationForm, self).__init__(*args, **kwargs)
-        self.fields['target'] = TargetField(queryset=models.Entity.objects.all())
-        self.fields['target'].widget = autocomplete_light.TextWidget('EntityAutocomplete')
+        
+        # We use a custom ModelChoiceField for target. This field will skip the
+        #  usual conversions prior to passing the entered value along to
+        #  the validation process. This lets us evaluate it directly in
+        #  RelationForm.clean(), below.
+        self.fields['target'] = TargetField(
+                                    queryset=models.Entity.objects.all()    )
+                                    
+        # This autocomplete widget handles all Entity objects in the system. The
+        #  desired outcome is that the user can use the same widget to select
+        #  (and, in the case of Values, create) target Entities that are within
+        #  the range of the selected predicate.
+        self.fields['target'].widget = autocomplete_light.TextWidget(
+                                        'EntityAutocomplete' )
+
+        #  The admnin/base_site.html template includes a javascript
+        #  (autocomplete_filter.js) that will listen for changes to the
+        #  predicate field with class="autocomplete_filter" in a RelationInline,
+        #  and pass the ID of the specified predicate (a Field) to the widget
+        #  for "target" for inclusion in the suggestion GET request. The
+        #  EntityAutocomplete (in autocomplete_light_registry) then uses a
+        #  custom choice_for_request() method to filter Entities based on the
+        #  range of the predicate Field.
         self.fields['predicate'].widget.widget.attrs.update(
             {
                 'class': 'autocomplete_filter',
@@ -60,16 +87,30 @@ class RelationForm(forms.ModelForm):
         return self.cleaned_data['target']
 
     def clean(self):
+        """
+        This custom :meth:`.clean` method adds extra data handling and
+        validation for the ``target`` field.
+        """
+    
+        # First get the usual cleanining out of the way.
         cleaned_data = super(RelationForm, self).clean()
+        
+        # Our main objective is to ensure that the selected target Entity is
+        #  appropriate given the selected predicate Field. In other words,
+        #  whether the Entity's "real" class is in the predicate Field's range.
         predicate = cleaned_data.get('predicate')
 
-        # Handle target field.
+        # Get the user's input; this is untouched, since the TargetField's
+        #  to_python() method just passed it along rather than recasting it. The
+        #  reason we do it this way is that in some cases -- e.g. when the
+        #  target Entity is a Value of some kind -- we will want to create a new
+        #  Entity to store that input.
         target_data = cleaned_data.get('target')
         
-        # First, attempt to get an Entity by name.
+        # First, attempt to get an Entity by name. At this point we don't know
+        #  what kind of Entity it is (i.e. which subclass).
         try:
             target_obj = models.Entity.objects.get(name=target_data)
-            target_obj = target_obj.cast()
         
         # If that fails, try to cast the data based on any System fields in the
         #  predicate Field's range.
@@ -83,15 +124,19 @@ class RelationForm(forms.ModelForm):
                     # It is unlikely, but if there is no model corresponding to
                     #  the System type (ftype), then we should move on.
                     try:
-                        candidate_model = models.__dict__[ftype.name]
+                        candidate = models.__dict__[ftype.name]
                     except:
                         continue
                     
                     # If the model is retrieved successfully, we instantiate it
                     #  and assign the data to its name attribute.
                     try:
-                        target_obj, created = candidate_model.objects.get_or_create(name=target_data)
+                        target_obj, created = candidate.objects.get_or_create(
+                                                name=target_data)
+
+
                         target_obj = target_obj.cast()
+                        
                         # If the data is successfully cast as the selected
                         #  model, then we will stop here and proceed with saving
                         #  the Relation.
@@ -115,6 +160,10 @@ class RelationForm(forms.ModelForm):
 
         # If we made it this far, then we have succesfully created or retrieved
         #  an Entity that is a candidate for the Relation's target.
+        
+        # The cast() method will return the Entity retrieved above, but as an
+        #  instance of its "real" class.
+        target_obj = target_obj.cast()
 
         # The target must be in the Relation's Field's range. If the range is
         #  empty, then any Entity will do.
@@ -125,9 +174,8 @@ class RelationForm(forms.ModelForm):
             range_msg = 'Value must be one of: {0}'.format(
                             ', '.join([str(r) for r in range])  )
             
-            # Cast will re-cast the Entity as its 'real' model class.
-            cast_entity = target_obj.cast()
-            if hasattr(cast_entity, 'entity_type'):
+            # The target Entity may nor may not have a Type associated with it.
+            if hasattr(target_obj, 'entity_type'):
             
                 # Here we check wheter the Entity's type is in range.
                 if not cast_entity.entity_type in range:
@@ -140,7 +188,7 @@ class RelationForm(forms.ModelForm):
                 self._errors['target'] = self.error_class([range_msg])
                 del cleaned_data['target']
 
-        # Success!
+        # Success! Update cleaned_data to include the target Entity.
         cleaned_data['target'] = target_obj
         return cleaned_data
 

@@ -8,9 +8,17 @@ import six
 from uuid import uuid4
 
 def resource_file_name(instance, filename):
+    """
+    Generates a file name for Files added to a :class:`.LocalResource`\.
+    """
+    
     return '/'.join(['content', instance.name, filename])
 
 class HeritableObject(models.Model):
+    """
+    An object that is aware of its "real" type, i.e. the subclass that it 
+    instantiates.
+    """
     real_type = models.ForeignKey(ContentType, editable=False)
 
     def save(self, *args, **kwargs):
@@ -22,15 +30,22 @@ class HeritableObject(models.Model):
         return ContentType.objects.get_for_model(type(self))
 
     def cast(self):
-        return self.real_type.get_object_for_this_type(pk=self.pk)
+        """
+        Re-cast this object using its "real" subclass.
+        """
 
-    def __unicode__(self):
-        return self.cast().__unicode__()
+        return self.real_type.get_object_for_this_type(pk=self.pk)
 
     class Meta:
         abstract = True
 
 class Entity(HeritableObject):
+    """
+    A named object that represents some element in the data.
+    
+    TODO: Add URI property.
+    """
+
     entity_type = models.ForeignKey('Type', blank=True, null=True)
     name = models.CharField(max_length=500, unique=True)
     
@@ -41,15 +56,30 @@ class Entity(HeritableObject):
         return unicode(self.name)
 
 class Resource(Entity):
+    """
+    An :class:`.Entity` that contains potentially useful information.
+    
+    Should be instantiated as one of its subclasses, :class:`.LocalResource` or
+    :class:`.RemoteResource`\.
+    """
+    
     pass
 
 class RemoteMixin(models.Model):
+    """
+    A Remote object has a URL.
+    """
+
     url = models.URLField(max_length=2000)
     
     class Meta:
         abstract = True
 
 class LocalMixin(models.Model):
+    """
+    A Local object can (optionally) have a File attached to it.
+    """
+    
     file = models.FileField(upload_to=resource_file_name, blank=True, null=True)
 
     def __init__(self, *args, **kwargs):
@@ -70,12 +100,27 @@ class LocalMixin(models.Model):
         abstract = True
 
 class RemoteResource(Resource, RemoteMixin):
+    """
+    An :class:`.Entity` that contains some potentially useful information,
+    stored remotely (e.g. a Wikipedia article).
+    """
+    
     pass
 
 class LocalResource(Resource, LocalMixin):
+    """
+    An :class:`.Entity` that contains some potentially useful information,
+    stored locally, maybe in a File (e.g. a stored Text document, or a 
+    concept of a person.
+    """
+    
     pass
 
 class Collection(Entity):
+    """
+    A set of :class:`.Entity` instances.
+    """
+    
     resources = models.ManyToManyField( 'Entity', related_name='part_of',
                                         blank=True, null=True  )
 
@@ -199,7 +244,7 @@ class Value(Entity):
     def _convert(self, value):
         """
         Re-casts a string or unicode input as the datatype expected by a
-        Value subclass.
+        :class:`.Value` subclass.
         """
         
         # Each Value subclass should have a staticmethod called pytype that
@@ -233,9 +278,19 @@ class DateTimeValue(Value):
 ### Relations ###
 
 class Relation(Entity):
-    source = models.ForeignKey( 'Entity', related_name='relations_from' )
-    predicate = models.ForeignKey(  'Field', related_name='instances'   )
-    target = models.ForeignKey( 'Entity', related_name='relations_to'   )
+    """
+    Defines a relationship beteween two :class:`Entity` instances.
+    
+    The :class:`.Entity` indicated by :attr:`.target` should fall within
+    the range of the :class:`.Field` indicated by :attr:`.predicate`\. In other
+    words, the :class:`.Type` of the target Entity should be listed in the
+    predicate's :attr:`.Field.range` (unless the ``range`` is empty, in which
+    case anything goes).
+    """
+    
+    source = models.ForeignKey(     'Entity', related_name='relations_from' )
+    predicate = models.ForeignKey(  'Field', related_name='instances'       )
+    target = models.ForeignKey(     'Entity', related_name='relations_to'   )
 
     def save(self, *args, **kwargs):
         self.name = uuid4()
@@ -246,8 +301,8 @@ class Relation(Entity):
 class Event(HeritableObject):
     when = models.DateTimeField(auto_now_add=True)
     by = models.ForeignKey(User, related_name='events')
-    did = models.ForeignKey('Action', related_name='events')
-    on = models.ForeignKey('Entity', related_name='events')
+    did = models.ForeignKey(    'Action', related_name='events' )
+    on = models.ForeignKey(     'Entity', related_name='events' )
 
 class Action(HeritableObject):
     GRANT = 'GR'
@@ -272,7 +327,14 @@ class Action(HeritableObject):
         :class:`.Actor` and :class:`.Entity`\.
         """
         
-        auth = self.authorizations.filter(actor__id=actor.id).filter(on__id=entity.id)
+        # Filter first for Authorizations that belong to the User actor...
+        auth = self.authorizations.filter(actor__id=actor.id)
+        
+        # ...and then for those that belong on the Entity.
+        auth = auth.filter(on__id=entity.id)
+        
+        # If there is a responsive Authorization, then the User actor is
+        #  authorized to perform this :class:`.Action`\.
         if auth.count() == 0:
             return False
         return True
