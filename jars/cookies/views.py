@@ -9,9 +9,12 @@ import inspect
 
 import autocomplete_light
 
-
 from forms import *
 from cookies import models
+
+
+
+#######
 
 def resource_change(request, id):
     fields = list(models.Field.objects.all())
@@ -116,26 +119,22 @@ def serializable_resource(result):
     remote = hasattr(result, 'remoteresource')
     local = hasattr(result, 'localresource')
 
-    url = cast_result.url
-
     sresult =  {
         'id': result.id,
         'name': result.name,
-        'description': result.description,
         'relations': [ {
-                        'field': rel.field.__unicode__(), 
+                        'field': rel.predicate.__unicode__(),
                         'value': rel.cast().target.__unicode__()
                         } for rel in result.relations_from.all() ],
         'remote': 'RemoteMixin' in bases,
         'local': 'LocalMixin' in bases,
-        'url': url,
         'rtype': rtype,
         }
     return sresult
 
 def serializable(result):
     if result is None:
-        return []
+        pass
     elif type(result) is QuerySet:
         resource_based = models.Resource in inspect.getmro(result.model)
         if result.model == models.Resource or resource_based:
@@ -143,6 +142,7 @@ def serializable(result):
 
     elif type(result) is models.Resource or models.Resource in inspect.getmro(result.model):
         return [ serializable_resource(result) ]
+    return []
         
 def articulate_response(user_request, result_items):
     return JsonResponse({

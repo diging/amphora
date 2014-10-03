@@ -50,6 +50,9 @@ class Entity(HeritableObject):
     entity_type = models.ForeignKey('Type', blank=True, null=True)
     name = models.CharField(max_length=500, unique=True)
     
+    hidden = models.BooleanField(default=False)
+    public = models.BooleanField(default=True)
+    
     class Meta:
         verbose_name_plural = 'entities'
     
@@ -121,7 +124,7 @@ class LocalResource(Resource, LocalMixin):
     
     pass
 
-class Collection(Entity):
+class Collection(Resource):
     """
     A set of :class:`.Entity` instances.
     """
