@@ -7,6 +7,8 @@ import sys
 import six
 from uuid import uuid4
 
+from jars import settings
+
 def resource_file_name(instance, filename):
     """
     Generates a file name for Files added to a :class:`.LocalResource`\.
@@ -53,12 +55,16 @@ class Entity(HeritableObject):
     hidden = models.BooleanField(default=False)
     public = models.BooleanField(default=True)
     
+    uri = models.CharField(max_length=500, unique=True, blank=True, null=True)
+    
     class Meta:
         verbose_name_plural = 'entities'
     
     def save(self, *args, **kwargs):
-        print args
-        print kwargs
+        super(Entity, self).save(*args, **kwargs)
+
+        if not self.uri:
+            self.uri = '/'.join([ settings.URI_NAMESPACE, str(self.real_type.model), str(self.id) ])
         super(Entity, self).save(*args, **kwargs)
 
     def __unicode__(self):

@@ -17,7 +17,12 @@ urlpatterns = patterns('',
 
     url(r'^admin/', include(admin.site.urls)),
     url(r'^autocomplete/', include('autocomplete_light.urls')),
-    url(r'^resource/([0-9]+)/edit/$', views.resource_change),
-    url(r'^rest/resource/([0-9]+)/$', views.resource),
-    url(r'^rest/resource/$', views.resources),    
+
+    url(r'^localresource/([0-9]+)/$', views.localresource),
+    url(r'^remoteresource/([0-9]+)/$', views.remoteresource),
+    url(r'^relation/([0-9]+)/$', views.relation),
+    url(r'^collection/([0-9]+)/$', views.collection),
+    
+    url(r'^rest/resource/([0-9]+)/$', views.rest_resource),
+    url(r'^rest/resource/$', views.rest_resources),
 )

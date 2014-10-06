@@ -70,18 +70,27 @@ class ResourceForm(forms.ModelForm):
         
         name = self.cleaned_data['name']
         
-        # count() minimizes database impact.
-        if models.Entity.objects.filter(name=name).count() > 0:
+        # Look for Entities with the name that the user entered.
+        matching = models.Entity.objects.filter(name=name)
         
-            # This is the error displayed above the field.
-            self._errors['name'] = self.error_class(
-                ['Something with that name already exists. Please try another.']
-                )
-            del self.cleaned_data['name']
+        # count() minimizes database impact.
+        if matching.count() > 0:
+        
+            # If instance.id is None, this is a new Resource; matching names
+            #  should not be allowed under any circumstance. If the instance
+            #  is the same as the only matching Entity, then the user is simply
+            #  updating an existing Resource and a match is allowed.
+            if self.instance.id is None or matching[0].id != self.instance.id:
+            
+                # Add an error to be displayed above the name input.
+                self._errors['name'] = self.error_class(
+                    ['Something with that name already exists.']
+                    )
+                del self.cleaned_data['name']
+                return
 
-        # If the name is unique, pass it back.
-        else:
-            return name
+        # If the name is indeed unique, pass it back.
+        return name
 
 
 class RelationForm(forms.ModelForm):

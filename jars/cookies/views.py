@@ -12,7 +12,46 @@ import autocomplete_light
 from forms import *
 from cookies import models
 
+def _prep_resource_for_view(resource):
+    context_data = {
+        'id': resource.id,
+        'name': resource.name,
+        'uri': resource.uri,
+        'entity_type': resource.entity_type,
+        'relations': [{
+            'id': relation.id,
+            'uri': relation.uri,
+            'predicate': {
+                'id': relation.predicate.id,
+                'uri': relation.predicate.uri,
+                'name': relation.predicate.name,
+                },
+            'target': {
+                'id': relation.target.id,
+                'uri': relation.target.uri,
+                'name': relation.target.name,
+                },
+            } for relation in resource.relations_from.all() ],
+        }
+    return context_data
 
+# Replicate this for all terminal classes.
+def resource_view(request, rclass, id):
+    obj = get_object_or_404(rclass, pk=id)
+    context = { 'resource': _prep_resource_for_view(obj) }
+    return render(request, 'resource_view.html', context)
+
+def localresource(request, id):
+    return resource_view(request, models.LocalResource, id)
+
+def remoteresource(request, id):
+    return resource_view(request, models.RemoteResource, id)
+
+def relation(request, id):
+    return resource_view(request, models.Relation, id)
+
+def collection(request, id):
+    return resource_view(request, models.Collection, id)
 
 #######
 
@@ -26,7 +65,7 @@ def resource_change(request, id):
         # Just pull out the form-related keys in the POST request.
         formkeys = [    key for key in request.POST.keys() 
                         if key.split('_')[0] == 'form'      ]
-        print request.POST
+
         for key in formkeys:
 
             parts = key.split('_')
@@ -55,7 +94,6 @@ def resource_change(request, id):
                     try:
                         value = iso8601.parse_date(value)
                     except iso8601.iso8601.ParseError:
-                        print 'parserror'
                         pass    # TODO: error handling.
                 
                 target_class = models.Field.VALUE_TYPES[field.type]
@@ -79,7 +117,7 @@ def resource_change(request, id):
 
     data = []
     for rel in source.relations_from.all():
-        print rel.field
+
         if rel.field.type in ['IN', 'FL', 'TX', 'DT']:
             target = rel.valuerelation.target
             value = getattr(target, target.type())
@@ -87,7 +125,7 @@ def resource_change(request, id):
             value = rel.entityrelation.target.name
 
         data.append( (rel.field.id, value) )
-    print data
+
     
     resource_widget = autocomplete_light.TextWidget('ResourceAutocomplete')
     resource_rendered = resource_widget.render('resource', None)
@@ -129,6 +167,7 @@ def serializable_resource(result):
         'remote': 'RemoteMixin' in bases,
         'local': 'LocalMixin' in bases,
         'rtype': rtype,
+        'uri': result.uri,
         }
     return sresult
 
@@ -153,7 +192,7 @@ def articulate_response(user_request, result_items):
                     }
                 }, safe=False)
 
-def resource(request, id):
+def rest_resource(request, id):
     result = get_object_or_404(models.Resource, pk=id)
     user_request = {
         'type': 'resource',
@@ -163,7 +202,7 @@ def resource(request, id):
 
     return articulate_response(user_request, result_items)
 
-def resources(request):
+def rest_resources(request):
     # ``start`` is the (0-based) index of the first Resource to be returned in
     #  the results. This is NOT the id (pk) of the Resource. Responding 
     #  Resources are ordered by ID, but ``start`` refers simply to the position
@@ -197,7 +236,6 @@ def resources(request):
     results = models.__dict__[rtype].objects.all().order_by('id')
     count = results.count()         # More efficient than len() which evaluates 
                                     #  the QuerySet.
-    print count
     if count == 0:
         pass
     elif start >= count:  # Fail quietly; simply return no results.
