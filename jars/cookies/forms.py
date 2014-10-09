@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext as _
@@ -7,6 +8,27 @@ import autocomplete_light
 import inspect
 
 from . import models
+
+class ChooseSchemaMethodForm(forms.Form):
+    METHODS = (
+        ('manual', 'Manual'),
+        ('remote', 'Remote (RDF)'),
+    )
+
+    description = 'You can either create a schema manually or generate one' + \
+                  ' from a RDF document.'
+    schema_method = forms.ChoiceField(choices=METHODS)
+
+class RemoteSchemaForm(forms.Form):
+    schema_url = forms.URLField()
+    domain = forms.models.ModelMultipleChoiceField(
+                            queryset=models.Type.objects.all(),
+                            required=False,
+                            widget=FilteredSelectMultiple('types', False))
+
+    class Media:
+        css = {'all': ('/static/admin/css/widgets.css',),}
+        js = ('/admin/jsi18n/',)
 
 class ChooseResourceTypeForm(forms.Form):
     RTYPES = (
@@ -57,7 +79,8 @@ class TargetField(forms.models.ModelChoiceField):
 
 
 class ResourceForm(forms.ModelForm):
-    model = models.Resource
+    class Meta:
+        model = models.Resource
 
     def clean_name(self):
         """
@@ -158,6 +181,14 @@ class RelationForm(forms.ModelForm):
         #  Entity to store that input.
         target_data = cleaned_data.get('target')
         
+        # Target data can't be blank.
+        if len(target_data) == 0:
+            self._errors['target'] = self.error_class(
+                                        ['Cannot be blank.']
+                                        )
+            del cleaned_data['target']
+            return cleaned_data     # We're completely done here.
+        
         # First, attempt to get an Entity by name. At this point we don't know
         #  what kind of Entity it is (i.e. which subclass).
         try:
@@ -166,42 +197,58 @@ class RelationForm(forms.ModelForm):
         # If that fails, try to cast the data based on any System fields in the
         #  predicate Field's range.
         except ObjectDoesNotExist:
-        
-            # Try to get a model for each System type in the predicate's range.
-            cast = False
-            for ftype in predicate.range.all():
-                if ftype.schema.name == 'System':
-                
-                    # It is unlikely, but if there is no model corresponding to
-                    #  the System type (ftype), then we should move on.
-                    try:
-                        candidate = models.__dict__[ftype.name]
-                    except:
-                        continue
+            
+            # Some Fields have an explicit range. If that's true for this
+            #  predicate, we can use that to try to generate a Value for the
+            #  target.
+            if predicate.range.count() > 0:
+            
+                # Try to get a model for each System type in the predicate's
+                #  range.
+                cast = False
+                for ftype in predicate.range.all():
+                    if ftype.schema.name == 'System':
                     
-                    # If the model is retrieved successfully, we instantiate it
-                    #  and assign the data to its name attribute.
-                    try:
-                        target_obj, created = candidate.objects.get_or_create(
-                                                name=target_data)
-
-
-                        target_obj = target_obj.cast()
+                        # It is unlikely, but if there is no model corresponding
+                        #  to the System type (ftype), then we should move on.
+                        try:
+                            candidate = models.__dict__[ftype.name]
+                        except:
+                            continue
                         
-                        # If the data is successfully cast as the selected
-                        #  model, then we will stop here and proceed with saving
-                        #  the Relation.
-                        cast = True     # Evaluated below.
-                        break
-                        
-                    # Otherwise, move on to the next type in the predicate's
-                    #  range.
-                    except (ValidationError, ValueError):
-                        continue
+                        # If the model is retrieved successfully, we instantiate
+                        #  it and assign the data to its name attribute.
+                        try:
+                            target_obj = candidate.objects.get_or_create(
+                                                            name=target_data
+                                                            )[0]
 
-            # If the data cannot be cast as one of the model classes indicated
-            #  by the System Types in the Field's range, there is no further
-            #  recourse; the data is invalid for this Field.
+                            target_obj = target_obj.cast()
+                            
+                            # If the data is successfully cast as the selected
+                            #  model, then we will stop here and proceed with
+                            #  saving the Relation.
+                            cast = True     # Evaluated below.
+                            break
+                            
+                        # Otherwise, move on to the next type in the predicate's
+                        #  range.
+                        except (ValidationError, ValueError):
+                            continue
+
+            # If there is no explicit range for this predicate Field, just use
+            #  a StringValue.
+            else:
+                try:
+                    target_obj = models.Entity.objects.get(name=str(target_data)).cast()
+                except ObjectDoesNotExist:
+                    target_obj = models.StringValue()
+                    target_obj.name = str(target_data)
+                    target_obj.save()
+                cast = True
+
+            # If we can't find a way to represent the data that the user
+            #  provided, we have no further recourse.
             if not cast:
                 self._errors['target'] = self.error_class(
                                             ['Invalid value for this Field']

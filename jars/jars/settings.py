@@ -95,3 +95,6 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 URI_NAMESPACE = 'http://jars'
+
+RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
+LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'

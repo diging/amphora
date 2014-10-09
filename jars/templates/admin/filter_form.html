@@ -1,0 +1,27 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrahead %}
+    <script type="text/javascript" src="/static/admin/js/jquery.min.js"></script>
+    <script type="text/javascript" src="/static/admin/js/jquery.init.js"></script>
+    {% if form %} {{ form.media }} {% endif %}    
+    
+    <style>
+    .selector {
+/*        width: 800px;
+        height: 600px; */
+        display: block;
+        position: relative;
+        float: none;
+    }
+    </style>
+{% endblock %}
+
+{% block content %}
+<form action="" method="post">
+    {% csrf_token %}
+    <div>{{ form.description }}</div>
+    <div>{{ form }}</div>
+    <input type="submit" value="Submit" />
+</form>
+
+{% endblock %}

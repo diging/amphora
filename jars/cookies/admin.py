@@ -8,9 +8,104 @@ from django.core.urlresolvers import reverse
 
 import autocomplete_light
 
+import rdflib
+
 
 from .models import *
 from .forms import *
+
+def import_schema(schema_url, domain=None):
+    """
+    'http://dublincore.org/2012/06/14/dcterms.rdf'
+    """
+
+    # Load RDF from remote location.
+    g = rdflib.Graph()
+    g.parse(schema_url)
+
+    # Define some elements.
+    title = rdflib.term.URIRef('http://purl.org/dc/terms/title')
+    property = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#Property')
+    type = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
+
+
+
+    # Get the title of the schema.
+    titled = [ p for p in g.subjects(predicate=title) ][0]
+    title = str([ o for o in g.objects(titled, title) ][0])
+    namespace = str(titled)
+    
+    # Get all of the properties.
+    properties = [ _handle_rdf_property(p,g) for p in g.subjects(type, property) ]
+
+    # Create a new Schema.
+    schema = Schema(name=title, uri=namespace, namespace=namespace)
+    schema.save()
+
+    # Generate new Fields from properties.
+    fields = {}
+    for property in properties:
+        f = Field(
+                name=property['label'],
+                uri=property['uri'],
+                description=property['description'],
+                namespace=namespace,
+                schema=schema
+                )
+        f.save()
+        fields[property['uri']] = f
+
+    # Now go back and assign parenthood to each Field, where appropriate.
+    for property in properties:
+        if len(property['parents']) > 0:    # Not all properties have parents.
+
+            for parent in property['parents']:
+            
+                # Only consider parents that we know about in this schema.
+                if parent in fields:
+                    parent_field = fields[parent]
+                    fields[property['uri']].parent = parent_field
+                    fields[property['uri']].save()
+
+                    # Each Type (=> Field) can have only one parent. So we'll
+                    #  take the first valid parent and quit.
+                    break
+
+def _handle_rdf_property(p, g):
+    description = rdflib.term.URIRef('http://purl.org/dc/terms/description')
+    comment = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#comment')
+    
+    label = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#label')
+    range = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#range')
+    subPropertyOf = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#subPropertyOf')
+
+    # Get the description for this Field. First try for the DC description,
+    #  then try for the RDF comment. If neither is available, give up.
+    try:
+        this_description = [ s for s in g.objects(p, description)][0]
+    except IndexError:
+        try:
+            this_description = [ s for s in g.objects(p, comment)][0]
+        except IndexError:
+            this_description = ''
+
+    # Get the range, if available. We'll interpret this later.
+    try:
+        this_range = [ s for s in g.objects(p, range)][0]
+    except IndexError:
+        this_range = []
+
+    # Grab only the attributes we'll need, and string-ify so we're not
+    #  reliant on rdflib downstream.
+    prop = {
+        'uri': str(p),
+        'label': str([ s for s in g.objects(p, label) ][0]),
+        'description': this_description,
+        'range': this_range,
+        'parents': [ str(s) for s in g.objects(p, subPropertyOf) ],
+        }
+
+    return prop
 
 class RelationInline(admin.TabularInline):
     model = Relation
@@ -20,11 +115,14 @@ class RelationInline(admin.TabularInline):
 
 class ResourceAdminForward(admin.ModelAdmin):
     """
-    Since we don't want the user to instantiate :class:`.Resource` directly,
-    we will ask them to select a resource type and then direct them to the
-    appropriate add view.
+    
     """
 
+    list_display = ('name','stored')
+    
+    form = ResourceForm
+    inlines = (RelationInline,)
+    
     def get_urls(self):
         """
         Here we override the add view to use a :class:`.ChooseResourceTypeForm`
@@ -39,6 +137,10 @@ class ResourceAdminForward(admin.ModelAdmin):
 
     def add_redirect(self, request):
         """
+        Since we don't want the user to instantiate :class:`.Resource` directly,
+        we will ask them to select a resource type and then direct them to the
+        appropriate add view.
+        
         Presents a :class:`.ChooseResourceTypeForm`\. When the form is submitted
         will redirect the user to an add view for the chosen subclass of
         :class:`.Resource`\.
@@ -73,6 +175,13 @@ class ResourceAdminForward(admin.ModelAdmin):
             return render(request, 'admin/generic_form.html',
                             {'form': form}  )
 
+    def stored(self, obj, **kwargs):
+        if type(obj.cast()) is LocalResource:
+            return 'Local'
+        elif type(obj.cast()) is RemoteResource:
+            return 'Remote'
+        return None
+
 class ResourceAdmin(admin.ModelAdmin):
     """
     Admin interface for managing :class:`.Resource`\s.
@@ -85,6 +194,7 @@ class ResourceAdmin(admin.ModelAdmin):
     inlines = (RelationInline,)
     form = ResourceForm
     model = Resource
+
 
 class CollectionAdmin(admin.ModelAdmin):
     """
@@ -116,16 +226,41 @@ class HiddenAdmin(admin.ModelAdmin):
         
         return {}
 
-class DateTimeValueAdmin(admin.ModelAdmin):
-    model = DateTimeValue
+class FieldAdmin(admin.ModelAdmin):
+    list_display = ('schema', 'parent', 'name')
+
+class SchemaAdmin(admin.ModelAdmin):
+    def add_view(self, request):
+        if request.method == 'POST':
+            if 'schema_method' in request.POST:
+                request.method = 'GET'
+                if request.POST['schema_method'] == 'remote':
+                    return self.add_remote_schema(request)
+            return self.changeform_view(request)
+        else:
+            form = ChooseSchemaMethodForm()
+            return render(request, 'admin/generic_form.html',
+                            {'form': form}  )
+
+    def add_remote_schema(self, request):
+        if request.method == 'POST':
+            pass
+        else:
+            form = RemoteSchemaForm()
+            return render(request, 'admin/filter_form.html',
+                            {'form': form}  )
 
 
 
 admin.site.register(Type)
-admin.site.register(Field)
-admin.site.register(Schema)
+admin.site.register(Field, FieldAdmin)
+admin.site.register(Schema, SchemaAdmin)
 
 admin.site.register(Resource, ResourceAdminForward)
 admin.site.register(LocalResource, ResourceAdmin)
 admin.site.register(RemoteResource, ResourceAdmin)
 admin.site.register(Collection, CollectionAdmin)
+
+admin.site.register(Relation)
+admin.site.register(Value)
+admin.site.register(IntegerValue)

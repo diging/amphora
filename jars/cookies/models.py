@@ -2,6 +2,7 @@ from django.db import models, IntegrityError, transaction
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist
 import iso8601
 import sys
 import six
@@ -55,6 +56,7 @@ class Entity(HeritableObject):
     hidden = models.BooleanField(default=False)
     public = models.BooleanField(default=True)
     
+    namespace = models.CharField(max_length=500, blank=True, null=True)
     uri = models.CharField(max_length=500, unique=True, blank=True, null=True)
     
     class Meta:
@@ -157,6 +159,8 @@ class Type(Entity):
                                     
     parent = models.ForeignKey(     'Type', related_name='children',
                                     blank=True, null=True   )
+
+    description = models.TextField(blank=True, null=True)
 
 
 class Field(Type):
@@ -277,16 +281,47 @@ class Value(Entity):
             # All instances of Value subclasses should have a Type in the
             #  "System" Schema. In case this hasn't been created yet, we use
             #  the Schema Manager's get_or_create method.
-            schema, created = Schema.objects.get_or_create(name='System')
+            schema = Schema.objects.get_or_create(name='System')[0]
+            schema.save()
             
             # We're looking for the Type that is identical to the name of the
             #  'real_type' of this Value object. E.g. if this is an
             #  IntegerValue, then it should have the Type "IntegerValue".
+            try:
+                rdf_schema = Entity.objects.get(
+                                uri = settings.RDFNS,
+                                namespace = settings.RDFNS,
+                                name ='RDF').cast()
+            except ObjectDoesNotExist:
+                rdf_schema = Schema(
+                                uri = settings.RDFNS,
+                                namespace = settings.RDFNS,
+                                name ='RDF',
+                                )
+                rdf_schema.save()
+            
+            try:
+                literal = Entity.objects.get(name='Literal').cast()
+            except ObjectDoesNotExist:
+                literal = Type(
+                            uri = settings.LITERAL,
+                            schema = rdf_schema,
+                            namespace = settings.RDFNS,
+                            name = 'Literal',
+                            )
+                literal.save()
+            
             cast_name = type(self.cast()).__name__
-            self.entity_type, created = Type.objects.get_or_create(
-                                            name=cast_name,
-                                            defaults={'schema': schema}
-                                            )
+            try:
+                e_type = Type.objects.get(name=cast_name)
+            except ObjectDoesNotExist:
+                e_type = Type(
+                            name = cast_name,
+                            schema = schema,
+                            parent = literal,
+                            )
+                e_type.save()
+            self.entity_type = e_type
 
             # Since we just assigned a value to entity_type, we'll save again.
             super(Value, self).save(force_insert=False)
