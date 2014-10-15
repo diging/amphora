@@ -1,4 +1,4 @@
-jars<img src="https://github.com/erickpeirson/jars/blob/master/docs/jar.jpg" style="float:right;" height="50" />
+jars<img src="https://github.com/erickpeirson/jars/blob/master/docs/jar.jpg" style="float:left;" height="50" />
 ====
 
 Just Another Repository for Scholars
