@@ -51,20 +51,40 @@ class Entity(HeritableObject):
     """
 
     entity_type = models.ForeignKey('Type', blank=True, null=True)
-    name = models.CharField(max_length=500, unique=True)
+    name = models.CharField(max_length=255)
     
     hidden = models.BooleanField(default=False)
     public = models.BooleanField(default=True)
     
-    namespace = models.CharField(max_length=500, blank=True, null=True)
-    uri = models.CharField(max_length=500, unique=True, blank=True, null=True)
+    namespace = models.CharField(max_length=255, blank=True, null=True)
+    uri = models.CharField(max_length=255, blank=True, null=True)
     
     class Meta:
         verbose_name_plural = 'entities'
     
     def save(self, *args, **kwargs):
+        # Enforce unique name.
+        if self.name is not None:
+            with_name = Entity.objects.filter(name=self.name)
+            if with_name.count() == 0: pass
+            elif with_name.count() == 1 and with_name[0].id == self.id: pass
+            else: raise IntegrityError(
+                            'An Entity with that name already exists.')
+
+        # Enforce unique URI.
+        if self.uri is not None:
+            with_uri = Entity.objects.filter(uri=self.uri)
+            if with_uri.count() == 0: pass
+            elif with_uri.count() == 1 and with_uri[0].id == self.id: pass
+            else: raise IntegrityError(
+                            'An Entity with that URI already exists.')
+
+        # Parent class save operation.
         super(Entity, self).save(*args, **kwargs)
 
+        # Generate a URI if one has not already been assigned.
+        #  TODO: this should call a method to generate a URI, to allow for more
+        #        flexibility (e.g. calling a Handle server).
         if not self.uri:
             self.uri = '/'.join([ settings.URI_NAMESPACE, str(self.real_type.model), str(self.id) ])
         super(Entity, self).save(*args, **kwargs)
@@ -86,7 +106,7 @@ class RemoteMixin(models.Model):
     A Remote object has a URL.
     """
 
-    url = models.URLField(max_length=2000)
+    url = models.URLField(max_length=255)
     
     class Meta:
         abstract = True
@@ -347,7 +367,7 @@ class IntegerValue(Value):
 
 class StringValue(Value):
     objects = ValueManager()
-    name = models.TextField(unique=True)
+    name = models.TextField()
     pytype = staticmethod(str)
 
 class FloatValue(Value):
