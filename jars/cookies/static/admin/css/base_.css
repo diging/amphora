@@ -1,21 +1,21 @@
 /*
-    DJANGO Admin styles??
+    DJANGO Admin styles!!!
 */
 
 body {
-    /* margin: 0; */
-    /* padding: 0; */
-    /* font-size: 12px; */
-    /* font-family: "Lucida Grande","DejaVu Sans","Bitstream Vera Sans",Verdana,Arial,sans-serif; */
-    /* color: #333; */
-    /* background: #fff; */
+    margin: 0;
+    padding: 0;
+    font-size: 12px;
+    font-family: "Lucida Grande","DejaVu Sans","Bitstream Vera Sans",Verdana,Arial,sans-serif;
+    color: #333;
+    background: #fff;
 }
 
 /* LINKS */
 
 a:link, a:visited {
-    /* color: #5b80b2; */
-    /* text-decoration: none; */
+    color: #666;
+    text-decoration: none;
 }
 
 a:hover {
@@ -27,7 +27,7 @@ a img {
 }
 
 a.section:link, a.section:visited {
-    color: white;
+    color: #fff;
     text-decoration: none;
 }
 
@@ -239,17 +239,18 @@ p img, h1 img, h2 img, h3 img, h4 img, td img {
 /* TABLES */
 
 table {
-    /* border-collapse: collapse; */
-    /* border-color: #ccc; */
+    border-collapse: collapse;
+    border-color: #ccc;
+	border-top: 6px double #ccc;
 }
 
 td, th {
-    /* font-size: 11px; */
-    /* line-height: 13px; */
+    font-size: 11px;
+    line-height: 13px;
     border-bottom: 1px solid #eee;
-    /* vertical-align: top; */
-    /* padding: 5px; */
-    /* font-family: "Lucida Grande", Verdana, Arial, sans-serif; */
+    vertical-align: top;
+    padding: 5px;
+    font-family: "Lucida Grande", Verdana, Arial, sans-serif;
 }
 
 th {
@@ -300,11 +301,11 @@ tr.alt {
 }
 
 .row1 {
-    background: #EDF3FE;
+    background: #ECECEC;
 }
 
 .row2 {
-    background: white;
+    background: #fff;
 }
 
 /* SORTABLE TABLES */
@@ -323,7 +324,7 @@ thead th.sorted {
 }
 
 thead th.sorted .text {
-	padding-right: 42px;
+    padding-right: 42px;
 }
 
 table thead th .text span {
@@ -338,7 +339,7 @@ table thead th .text a {
 }
 
 table thead th.sortable:hover {
-    background: white url(../img/nav-bg-reverse.gif) 0 -5px repeat-x;
+    background: #fff url(../img/nav-bg-reverse.gif) 0 -5px repeat-x;
 }
 
 thead th.sorted a.sortremove {
@@ -432,7 +433,7 @@ textarea, select, .vTextField {
 /* FORM BUTTONS */
 
 .button, input[type=submit], input[type=button], .submit-row input {
-    background: white url(../img/nav-bg.gif) bottom repeat-x;
+    background: #fff url(../img/nav-bg.gif) bottom repeat-x;
     padding: 3px 5px;
     color: black;
     border: 1px solid #bbb;
@@ -445,16 +446,16 @@ textarea, select, .vTextField {
 }
 
 .button[disabled], input[type=submit][disabled], input[type=button][disabled] {
-	background-image: url(../img/nav-bg.gif);
-	background-position: bottom;
-	opacity: 0.4;
+    background-image: url(../img/nav-bg.gif);
+    background-position: bottom;
+    opacity: 0.4;
 }
 
 .button.default, input[type=submit].default, .submit-row input.default {
     border: 2px solid #5b80b2;
-    background: #7CA0C7 url(../img/default-bg.gif) bottom repeat-x;
+    background: #DB8B25 url(../img/default-bg_.gif) bottom repeat-x;
     font-weight: bold;
-    color: white;
+    color: #fff;
     float: right;
 }
 
@@ -464,9 +465,9 @@ textarea, select, .vTextField {
 }
 
 .button[disabled].default, input[type=submit][disabled].default, input[type=button][disabled].default {
-	background-image: url(../img/default-bg.gif);
-	background-position: bottom;
-	opacity: 0.4;
+    background-image: url(../img/default-bg_.gif);
+    background-position: bottom;
+    opacity: 0.4;
 }
 
 
@@ -475,7 +476,13 @@ textarea, select, .vTextField {
 .module {
     border: 1px solid #ccc;
     margin-bottom: 5px;
-    background: white;
+    background: #fff;
+   	border-top-left-radius: 5px; 
+   	border-top-right-radius: 5px; 
+   	border-bottom-left-radius: 15px; 
+   	border-bottom-right-radius: 15px; 
+   	
+   	overflow: hidden;
 }
 
 .module p, .module ul, .module h3, .module h4, .module dl, .module pre {
@@ -501,66 +508,75 @@ textarea, select, .vTextField {
     font-size: 11px;
     text-align: left;
     font-weight: bold;
-    background: #7CA0C7 url(../img/default-bg.gif) top left repeat-x;
-    color: white;
+    background: #DB8B25 url(../img/default-bg_.gif) top left repeat-x;
+    color: #fff;
 }
 
 .module table {
-    /* border-collapse: collapse; */
+    border-collapse: collapse;
 }
 
 /* MESSAGES & ERRORS */
 
 ul.messagelist {
-    padding: 0 0 5px 0;
+    padding: 0;
     margin: 0;
 }
 
 ul.messagelist li {
     font-size: 12px;
+    font-weight: bold;
     display: block;
-    padding: 4px 5px 4px 25px;
+    padding: 5px 5px 4px 25px;
     margin: 0 0 3px 0;
     border-bottom: 1px solid #ddd;
     color: #666;
-    background: #ffc url(../img/icon_success.gif) 5px .3em no-repeat;
+    background: #dfd url(../img/icon_success.gif) 5px .3em no-repeat;
 }
 
-ul.messagelist li.warning{
-    background-image: url(../img/icon_alert.gif);
+ul.messagelist li.warning {
+    background: #ffc url(../img/icon_alert.gif) 5px .3em no-repeat;
 }
 
-ul.messagelist li.error{
-    background-image: url(../img/icon_error.gif);
+ul.messagelist li.error {
+    background: #ffefef url(../img/icon_error.gif) 5px .3em no-repeat;
 }
 
 .errornote {
     font-size: 12px !important;
+    font-weight: bold;
     display: block;
-    padding: 4px 5px 4px 25px;
+    padding: 5px 5px 4px 25px;
     margin: 0 0 3px 0;
-    border: 1px solid red;
-    color: red;
-    background: #ffc url(../img/icon_error.gif) 5px .3em no-repeat;
+    border: 1px solid #c22;
+    color: #c11;
+    background: #ffefef url(../img/icon_error.gif) 5px .38em no-repeat;
+}
+
+.errornote, ul.errorlist {
+    border-radius: 1px;
 }
 
 ul.errorlist {
-    margin: 0 !important;
+    margin: 0 0 4px !important;
     padding: 0 !important;
+    color: #fff;
+    background: #c11;
 }
 
-.errorlist li {
+ul.errorlist li {
     font-size: 12px !important;
     display: block;
-    padding: 4px 5px 4px 25px;
-    margin: 0 0 3px 0;
-    border: 1px solid red;
-    color: white;
-    background: red url(../img/icon_alert.gif) 5px .3em no-repeat;
+    padding: 5px 5px 4px 7px;
+    margin: 3px 0 0 0;
 }
 
-.errorlist li a {
- 	color: white;
+ul.errorlist li:first-child {
+    margin-top: 0;
+}
+
+ul.errorlist li a {
+    color: #fff;
     text-decoration: underline;
 }
 
@@ -573,12 +589,17 @@ td ul.errorlist li {
     margin: 0 !important;
 }
 
-.errors {
-    background: #ffc;
+.errors, .form-row.errors {
+    background: #ffefef;
+}
+
+.form-row.errors {
+    border: 1px solid #c22;
+    margin: -1px;
 }
 
 .errors input, .errors select, .errors textarea {
-    border: 1px solid red;
+    border: 1px solid #c11;
 }
 
 div.system-message {
@@ -591,8 +612,8 @@ div.system-message {
 div.system-message p.system-message-title {
     padding: 4px 5px 4px 25px;
     margin: 0;
-    color: red;
-    background: #ffc url(../img/icon_error.gif) 5px .3em no-repeat;
+    color: #c11;
+    background: #ffefef url(../img/icon_error.gif) 5px .3em no-repeat;
 }
 
 .description {
@@ -603,12 +624,12 @@ div.system-message p.system-message-title {
 /* BREADCRUMBS */
 
 div.breadcrumbs {
-    background: white url(../img/nav-bg-reverse.gif) 0 -10px repeat-x;
+    background: #fff url(../img/nav-bg-reverse.gif) 0 -10px repeat-x;
     padding: 2px 8px 3px 8px;
     font-size: 11px;
     color: #999;
-    border-top: 1px solid white;
-    border-bottom: 1px solid #ccc;
+    border-top: 1px solid #fff;
+    border-bottom: 1px solid #ddd;
     text-align: left;
 }
 
@@ -661,45 +682,34 @@ a.deletelink:hover {
 .object-tools li {
     display: block;
     float: left;
-    background: url(../img/tool-left.gif) 0 0 no-repeat;
-    padding: 0 0 0 8px;
-    margin-left: 2px;
+    margin-left: 5px;
     height: 16px;
 }
 
-.object-tools li:hover {
-    background: url(../img/tool-left_over.gif) 0 0 no-repeat;
+.object-tools a {
+    border-radius: 15px;
 }
 
 .object-tools a:link, .object-tools a:visited {
     display: block;
     float: left;
-    color: white;
-    padding: .1em 14px .1em 8px;
-    height: 14px;
-    background: #999 url(../img/tool-right.gif) 100% 0 no-repeat;
+    color: #fff;
+    padding: .2em 10px;
+    background: #999;
 }
 
 .object-tools a:hover, .object-tools li:hover a {
-    background: #5b80b2 url(../img/tool-right_over.gif) 100% 0 no-repeat;
+    background-color: #5b80b2;
 }
 
 .object-tools a.viewsitelink, .object-tools a.golink {
-    background: #999 url(../img/tooltag-arrowright.gif) top right no-repeat;
-    padding-right: 28px;
-}
-
-.object-tools a.viewsitelink:hover, .object-tools a.golink:hover {
-    background: #5b80b2 url(../img/tooltag-arrowright_over.gif) top right no-repeat;
+    background: #999 url(../img/tooltag-arrowright.png) 95% center no-repeat;
+    padding-right: 26px;
 }
 
 .object-tools a.addlink {
-    background: #999 url(../img/tooltag-add.gif) top right no-repeat;
-    padding-right: 28px;
-}
-
-.object-tools a.addlink:hover {
-    background: #5b80b2 url(../img/tooltag-add_over.gif) top right no-repeat;
+    background: #999 url(../img/tooltag-add.png) 95% center no-repeat;
+    padding-right: 26px;
 }
 
 /* OBJECT HISTORY */
@@ -723,10 +733,6 @@ table#change-history tbody th {
 
 #content {
     margin: 10px 15px;
-}
-
-#header {
-    width: 100%;
 }
 
 #content-main {
@@ -783,25 +789,37 @@ table#change-history tbody th {
 /* HEADER */
 
 #header {
-    background: #0000000;
-    color: #ffc;
+    width: 100%;
+    background: #ffffff;
+    color: #666;
     overflow: hidden;
 }
 
 #header a:link, #header a:visited {
-    color: white;
+    color: #3A6AAA;
 }
 
 #header a:hover {
     text-decoration: underline;
 }
 
+#branding {
+    float: left;
+}
 #branding h1 {
-    padding: 0 10px;
-    font-size: 18px;
+    padding: 5px 10px;
+    font-size: 22px;
     margin: 8px 0;
     font-weight: normal;
-    color: #f4f379;
+    vertical-align: top;
+}
+
+#branding h1, #branding h1 a:link, #branding h1 a:visited {
+    color: #666;
+}
+
+#branding h1.inline {
+	display: inline-block;
 }
 
 #branding h2 {
@@ -812,10 +830,12 @@ table#change-history tbody th {
     color: #ffc;
 }
 
+#branding a:hover {
+    text-decoration: none;
+}
+
 #user-tools {
-    position: absolute;
-    top: 0;
-    right: 0;
+    float: right;
     padding: 1.2em 10px;
     font-size: 11px;
     text-align: right;
@@ -836,9 +856,4 @@ table#change-history tbody th {
 #content-related .module h2 {
     background: #eee url(../img/nav-bg.gif) bottom left repeat-x;
     color: #666;
-}
-
-
-.hidden {
-    display: none;
 }

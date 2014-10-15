@@ -61,7 +61,7 @@ class Entity(HeritableObject):
     
     class Meta:
         verbose_name_plural = 'entities'
-    
+
     def save(self, *args, **kwargs):
         # Enforce unique name.
         if self.name is not None:
