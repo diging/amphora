@@ -195,6 +195,26 @@ class ResourceAdmin(admin.ModelAdmin):
     form = ResourceForm
     model = Resource
 
+    def response_add(self, request, obj, post_url_continue=None):
+        return HttpResponseRedirect(
+                    reverse("admin:cookies_resource_changelist"))
+
+    def get_model_perms(self, request):
+        """
+        Return empty perms dict thus hiding the model from admin index.
+        
+        Parameters
+        ----------
+        request : :class:`django.http.HttpRequest`
+        
+        Returns
+        -------
+        perms : dict
+            An empty dict.
+        """
+        
+        return {}
+
 
 class CollectionAdmin(admin.ModelAdmin):
     """
@@ -260,7 +280,3 @@ admin.site.register(Resource, ResourceAdminForward)
 admin.site.register(LocalResource, ResourceAdmin)
 admin.site.register(RemoteResource, ResourceAdmin)
 admin.site.register(Collection, CollectionAdmin)
-
-admin.site.register(Relation)
-admin.site.register(Value)
-admin.site.register(IntegerValue)
