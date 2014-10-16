@@ -1,0 +1,12 @@
+django
+django-extensions
+django-autocomplete-light
+iso8601
+rdflib
+unidecode
+mysql-python
+six
+isodate
+pyparsing
+SPARQLWrapper
+html5lib
