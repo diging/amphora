@@ -14,7 +14,7 @@ import rdflib
 from .models import *
 from .forms import *
 
-def import_schema(schema_url, domain=None):
+def import_schema(schema_url, schema_title):
     """
     'http://dublincore.org/2012/06/14/dcterms.rdf'
     """
@@ -32,14 +32,14 @@ def import_schema(schema_url, domain=None):
 
     # Get the title of the schema.
     titled = [ p for p in g.subjects(predicate=title) ][0]
-    title = str([ o for o in g.objects(titled, title) ][0])
+#    title = str([ o for o in g.objects(titled, title) ][0])
     namespace = str(titled)
     
     # Get all of the properties.
     properties = [ _handle_rdf_property(p,g) for p in g.subjects(type, property) ]
 
     # Create a new Schema.
-    schema = Schema(name=title, uri=namespace, namespace=namespace)
+    schema = Schema(name=schema_title, uri=namespace, namespace=namespace)
     schema.save()
 
     # Generate new Fields from properties.
@@ -111,7 +111,7 @@ class RelationInline(admin.TabularInline):
     model = Relation
     form = RelationForm
     fk_name = 'source'
-    exclude = ('entity_type','name')
+    exclude = ('entity_type','name', 'hidden', 'public', 'namespace', 'uri',)
 
 class ResourceAdminForward(admin.ModelAdmin):
     """
@@ -247,30 +247,97 @@ class HiddenAdmin(admin.ModelAdmin):
         return {}
 
 class FieldAdmin(admin.ModelAdmin):
-    list_display = ('schema', 'parent', 'name')
+    list_display = (    'schema', 'parent', 'name', )
+    exclude = ( 'entity_type', 'hidden', 'public',  )
+
+class FieldInline(admin.TabularInline):
+    fk_name = 'schema'
+    model = Field
+    exclude = ( 'entity_type', 'hidden', 'public', 'namespace', 'uri',
+                'description',  )
+    extra = 1
 
 class SchemaAdmin(admin.ModelAdmin):
+    exclude = ('entity_type', 'hidden', 'public')
+
+    inlines = (FieldInline,)
+
     def add_view(self, request):
+        """
+        Supports an extra step, in which the user chooses whether to add a
+        :class:`.Schema` manually, or from a remote RDF file.
+        """
+        
         if request.method == 'POST':
+            # If a form was submitted, this may have been either to choose the
+            #  method (manual or remote) for adding a schema, or a submission
+            #  of the actual add form.
             if 'schema_method' in request.POST:
-                request.method = 'GET'
+            
+                # If the 'schema_method' field is present, then the user has
+                #  submitted (presently, or in an earlier step) the method
+                #  choice form. Now we determine which one they chose.
                 if request.POST['schema_method'] == 'remote':
+                
+                    # If the 'schema_url' field is present, then the user has
+                    #  just submitted the remote schema form.
+                    if 'schema_url' not in request.POST:
+                    
+                        # If they have not yet submitted the remote schema form,
+                        #  we set the method to GET so that add_remote_schema
+                        #  (below) knows to serve a fresh form.
+                        request.method = 'GET'
+                        
+                    # Otherwise we just pass the request through (as a POST) to
+                    #  add_remote_schema for processing.
                     return self.add_remote_schema(request)
+            
+                elif request.POST['schema_method'] == 'manual':
+                    # If the 'name' field is present, it means that the user has
+                    #  submitted the manual schema add form.
+                    if 'name' not in request.POST:
+                        
+                        # If the user hasn't submitted the manual schema add
+                        #  form, set the request method to GET so that
+                        #  changeform_view knows to serve a fresh form.
+                        request.method = 'GET'
+
+            # The changeform should be the default response.
             return self.changeform_view(request)
+
         else:
+            # If no form has been submitted (i.e. a GET request), then we should
+            #  serve a fresh form that prompts the user to choose a schema add
+            #  method (manual or remote).
             form = ChooseSchemaMethodForm()
-            return render(request, 'admin/generic_form.html',
-                            {'form': form}  )
+            return render(request, 'admin/schema_choose_method_form.html', {'form': form}  )
 
     def add_remote_schema(self, request):
+        """
+        Handles the case in which the user selects to add a :class:`.Schema`
+        from a remote RDF file.
+        """
+        
+        # The user has elected to add a schema from a remote RDF file.
+        
         if request.method == 'POST':
-            pass
+            # If a form was submitted, then the user just submitted the remote
+            #  schema add form.
+            schema_url = request.POST['schema_url']
+            schema_title = request.POST['schema_name']
+            
+            # TODO: handle exceptions (especially IntegrityError).
+            import_schema(schema_url, schema_title)
+            return HttpResponseRedirect(
+                        reverse("admin:cookies_schema_changelist"))
+        
         else:
+            # If no form was submitted (i.e. a GET request), then we should give
+            #  the user a fresh form asking for a schema name and the URL of the
+            #  remote RDF file.
             form = RemoteSchemaForm()
-            return render(request, 'admin/filter_form.html',
+            return render(request, 'admin/schema_remote_form.html',
                             {'form': form}  )
-
-
 
 admin.site.register(Type)
 admin.site.register(Field, FieldAdmin)

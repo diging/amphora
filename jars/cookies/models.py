@@ -87,7 +87,7 @@ class Entity(HeritableObject):
         #        flexibility (e.g. calling a Handle server).
         if not self.uri:
             self.uri = '/'.join([ settings.URI_NAMESPACE, str(self.real_type.model), str(self.id) ])
-        super(Entity, self).save(*args, **kwargs)
+        super(Entity, self).save()
 
     def __unicode__(self):
         return unicode(self.name)

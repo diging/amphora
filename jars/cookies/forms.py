@@ -20,11 +20,16 @@ class ChooseSchemaMethodForm(forms.Form):
     schema_method = forms.ChoiceField(choices=METHODS)
 
 class RemoteSchemaForm(forms.Form):
+    description = 'Enter the location of a remote RDF schema.'
+
+    schema_name = forms.CharField()
     schema_url = forms.URLField()
-    domain = forms.models.ModelMultipleChoiceField(
-                            queryset=models.Type.objects.all(),
-                            required=False,
-                            widget=FilteredSelectMultiple('types', False))
+    
+
+#    domain = forms.models.ModelMultipleChoiceField(
+#                            queryset=models.Type.objects.all(),
+#                            required=False,
+#                            widget=FilteredSelectMultiple('types', False))
 
     class Media:
         css = {'all': ('/static/admin/css/widgets.css',),}
@@ -68,8 +73,13 @@ class TargetField(forms.models.ModelChoiceField):
         (e.g. where there was a ValidationError) it is a value for ``name`` and 
         should be displayed directly.
         """
-        
+    
         if value is not None:
+            try:    # Try to cast the value as an int.
+                value = int(value)
+            except:
+                pass
+            
             if type(value) is int:
                 entity = models.Entity.objects.get(pk=value)
                 return entity.name

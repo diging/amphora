@@ -1,0 +1,33 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+
+<h1>Add a remote schema</h1>
+<div id="content-main">
+    <form action="" method="post">
+        {% csrf_token %}
+        <div>{{ form.description }}</div>
+        <input type="hidden" name="schema_method" value="remote" />
+        <div>
+            <fieldset class="module aligned">
+                <div class="form-row">
+                    <div>
+                        <label for="id_schema_name">Schema name:</label>
+                        <input id="id_schema_name" name="schema_name" type="text">
+                    </div>
+                </div>
+                <div class="form-row">            
+                    <div>
+                        <label for="id_schema_url">Schema URL:</label>
+                        <input id="id_schema_url" name="schema_url" type="url"><br />
+                    </div>
+                </div>
+            </fieldset>
+            <div class="submit-row">
+                <input type="submit" value="Submit" />
+            </div>
+        </div>
+
+    </form>
+</div>
+{% endblock %}
