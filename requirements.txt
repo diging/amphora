@@ -1,6 +1,9 @@
 django
 django-extensions
 django-autocomplete-light
+djangorestframework
+markdown
+django-filter
 iso8601
 rdflib
 unidecode

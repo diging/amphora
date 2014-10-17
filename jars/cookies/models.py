@@ -99,7 +99,11 @@ class Resource(Entity):
     Should be instantiated as one of its subclasses, :class:`.LocalResource` or
     :class:`.RemoteResource`\.
     """
-    pass
+
+    @property
+    def stored(self):
+        if hasattr(self, 'remoteresource'): return 'Remote'
+        if hasattr(self, 'localresource'): return 'Local'
 
 class RemoteMixin(models.Model):
     """
