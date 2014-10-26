@@ -9,8 +9,7 @@ import six
 from uuid import uuid4
 
 from jars import settings
-from concepts.models import Concept
-
+import concepts
 def resource_file_name(instance, filename):
     """
     Generates a file name for Files added to a :class:`.LocalResource`\.
@@ -483,4 +482,7 @@ class Authorization(HeritableObject):
 
 
 class ConceptEntity(Entity):
-    concept = models.ForeignKey(Concept)
+    concept = models.ForeignKey('concepts.Concept')
+
+class ConceptType(Type):
+    type_concept = models.ForeignKey('concepts.Type')

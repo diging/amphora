@@ -4,6 +4,7 @@ from django.http import HttpResponseRedirect
 from django.conf.urls import patterns, include, url
 from django.shortcuts import render
 from django.core.urlresolvers import reverse
+from django.utils.translation import ugettext_lazy as _
 
 
 import autocomplete_light
@@ -113,13 +114,33 @@ class RelationInline(admin.TabularInline):
     fk_name = 'source'
     exclude = ('entity_type','name', 'hidden', 'public', 'namespace', 'uri',)
 
+class StoredListFilter(admin.SimpleListFilter):
+    """
+    Filter :class:`.Resource`\s based on whether they are 
+    :class:`.LocalResource`\s or :class:`.RemoteResource`\s.
+    """
+    title = _('storage location')
+    parameter_name = 'stored'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('local', _('Local')),
+            ('remote', _('Remote')),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'local':
+            return queryset.filter(real_type__model='localresource')
+        elif self.value() == 'remote':
+            return queryset.filter(real_type__model='remoteresource')
+
 class ResourceAdminForward(admin.ModelAdmin):
     """
     
     """
 
     list_display = ('name','stored')
-    
+    list_filter = ( StoredListFilter, )
     form = ResourceForm
     inlines = (RelationInline,)
     
@@ -175,13 +196,6 @@ class ResourceAdminForward(admin.ModelAdmin):
             return render(request, 'admin/generic_form.html',
                             {'form': form}  )
 
-    def stored(self, obj, **kwargs):
-        if type(obj.cast()) is LocalResource:
-            return 'Local'
-        elif type(obj.cast()) is RemoteResource:
-            return 'Remote'
-        return None
-
 class ResourceAdmin(admin.ModelAdmin):
     """
     Admin interface for managing :class:`.Resource`\s.
@@ -194,6 +208,7 @@ class ResourceAdmin(admin.ModelAdmin):
     inlines = (RelationInline,)
     form = ResourceForm
     model = Resource
+
 
     def response_add(self, request, obj, post_url_continue=None):
         return HttpResponseRedirect(
@@ -248,6 +263,7 @@ class HiddenAdmin(admin.ModelAdmin):
 
 class FieldAdmin(admin.ModelAdmin):
     list_display = (    'schema', 'parent', 'name', )
+    list_filter = ( 'schema',   )
     exclude = ( 'entity_type', 'hidden', 'public',  )
 
 class FieldInline(admin.TabularInline):
@@ -339,7 +355,18 @@ class SchemaAdmin(admin.ModelAdmin):
             return render(request, 'admin/schema_remote_form.html',
                             {'form': form}  )
 
-admin.site.register(Type)
+class TypeAdmin(admin.ModelAdmin):
+
+    def get_queryset(self, request):
+        """
+        Should include only direct instances of :class:`.Type` and 
+        :class:`.ConceptType`\.
+        """
+        
+        qs = super(TypeAdmin, self).queryset(request)
+        return qs.filter(real_type__model__in=('type', 'concepttype'))
+
+admin.site.register(Type, TypeAdmin)
 admin.site.register(Field, FieldAdmin)
 admin.site.register(Schema, SchemaAdmin)
 
@@ -347,4 +374,3 @@ admin.site.register(Resource, ResourceAdminForward)
 admin.site.register(LocalResource, ResourceAdmin)
 admin.site.register(RemoteResource, ResourceAdmin)
 admin.site.register(Collection, CollectionAdmin)
-admin.site.register(ConceptEntity)
