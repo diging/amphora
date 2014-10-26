@@ -9,6 +9,7 @@ import six
 from uuid import uuid4
 
 from jars import settings
+from concepts.models import Concept
 
 def resource_file_name(instance, filename):
     """
@@ -481,3 +482,5 @@ class Authorization(HeritableObject):
         return u'{0} can {1} {2}'.format(self.actor, self.to_do, self.on)
 
 
+class ConceptEntity(Entity):
+    concept = models.ForeignKey(Concept)

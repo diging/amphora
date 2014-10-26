@@ -24,12 +24,6 @@ class RemoteSchemaForm(forms.Form):
 
     schema_name = forms.CharField()
     schema_url = forms.URLField()
-    
-
-#    domain = forms.models.ModelMultipleChoiceField(
-#                            queryset=models.Type.objects.all(),
-#                            required=False,
-#                            widget=FilteredSelectMultiple('types', False))
 
     class Media:
         css = {'all': ('/static/admin/css/widgets.css',),}

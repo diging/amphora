@@ -49,6 +49,7 @@ INSTALLED_APPS = (
     'django_extensions',
     'autocomplete_light',
     'cookies',
+    'concepts',
     'rest_framework',
 )
 
