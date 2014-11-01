@@ -805,13 +805,20 @@ table#change-history tbody th {
 
 #branding {
     float: left;
+    width: 550px;
 }
+
 #branding h1 {
     padding: 5px 10px;
     font-size: 22px;
     margin: 8px 0;
     font-weight: normal;
     vertical-align: top;
+}
+
+#branding img {
+    float:left;
+    margin-right: 10px;
 }
 
 #branding h1, #branding h1 a:link, #branding h1 a:visited {
@@ -841,6 +848,25 @@ table#change-history tbody th {
     text-align: right;
 }
 
+.index-head {
+    margin-top: 5%;
+    margin-bottom: -25px;
+    width: 150px;
+    margin-left: auto;
+    margin-right: auto;
+
+}
+img.bigjar {
+    margin-left: auto;
+    margin-right: auto;
+}
+.index-login {
+    margin-left: auto;
+    margin-right: auto;
+    width: 200px;    
+    text-align: center;
+}
+
 /* SIDEBAR */
 
 #content-related h3 {
@@ -857,3 +883,94 @@ table#change-history tbody th {
     background: #eee url(../img/nav-bg.gif) bottom left repeat-x;
     color: #666;
 }
+
+/* Custom form columns */
+
+
+.field-edit {
+    width: 100px;
+}
+
+.login #container {
+    width: 510px;
+}
+
+/* Search */
+
+div.search {
+    text-align: center;
+}
+    div.search .search-input {
+        margin-top: 75px;
+        margin-bottom: 75px;
+    }
+
+    div.search li {
+        list-style: none;
+    }
+    
+        div.search-results {
+            text-align: center;
+        }
+          
+        
+        table.results-table {
+            margin-left: auto;
+            margin-right:auto;
+            width: 70%;
+        }
+    
+        span.highlighted {
+            color: orange;
+        }
+        
+    .search-input {
+        width: 60%; 
+        height: 2.25em;
+        outline: none;
+        border: 1px solid gray;
+    }
+    
+/* Custom views */
+
+.resource_summary div{
+    padding: 4px 0px;
+}
+    .resource_name {
+        padding: 6px 0px;
+    }
+    
+.collection_summary div{
+    padding: 4px 0px;
+}
+    .collection_name {
+        padding: 6px 0px;
+    }    
+    
+.resource_collections {
+    width: 80%;
+}
+    .resource_collections table {
+        width: 100%;
+    }
+    
+.resource_relations {
+    width: 80%;
+}
+    .resource_relations table {
+        width: 100%;
+    }       
+    
+.collection_resources {
+    width: 80%;
+}
+    .collection_resources table {
+        width: 100%;
+    }    
+    
+.collection_relations {
+    width: 80%;
+}
+    .collection_relations table {
+        width: 100%;
+    }        

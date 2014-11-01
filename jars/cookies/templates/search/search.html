@@ -1,0 +1,53 @@
+{% extends 'base_site.html' %}
+{% load highlight %}
+
+{% load breadcrumbs %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">Home</a>
+    {% breadcrumb_url 'Search'  %}
+</div>
+{% endblock %}
+
+{% block content %}
+    <div class="search">
+        <form method="get" action=".">
+            <input id="id_q" name="q" type="search" value="{{query}}" class="search-input" />
+                        <input type="submit" value="Search">
+
+            {% if query %}
+                <div class="search-results">
+                <table class="results-table">
+                {% for result in page.object_list %}
+                    <tr>
+                        <td>
+                            <a href="{{ result.object.get_absolute_url }}">{{ result.object.name }}</a> ({{ result.object.stored }})
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <p class="highlight"> {% highlight result.object.indexable_content with query %}</p>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td>
+                            <p>No results found.</p>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </table>
+                {% if page.has_previous or page.has_next %}
+                    <div>
+                        {% if page.has_previous %}<a href="?q={{ query }}&amp;page={{ page.previous_page_number }}">{% endif %}&laquo; Previous{% if page.has_previous %}</a>{% endif %}
+                        |
+                        {% if page.has_next %}<a href="?q={{ query }}&amp;page={{ page.next_page_number }}">{% endif %}Next &raquo;{% if page.has_next %}</a>{% endif %}
+                    </div>
+                {% endif %}
+                </div>
+            {% else %}
+                {# Show some example queries to run, maybe query syntax, something else? #}
+            {% endif %}
+        </form>
+    </div>
+{% endblock %}

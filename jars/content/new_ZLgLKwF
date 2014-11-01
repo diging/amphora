@@ -1,0 +1,257 @@
+﻿A phenetic comparison of some Fumaria spp.
+{Fumariaceae)
+J. Bastow Wilson, Michael G. Daker, and John P. Savidge
+Received June 20, 1989; in revised version March 6, 1990
+Key words: Angiosperms, Fumariaceae, Papaveraceae, Fumaria.  Phenetics, numerical
+taxonomy.
+Abstract: The taxonomy of the genus Fumaria has not been considered in detail since
+Pugsley's work in 1919 ff., and few modern methods have been applied to it. In a phenetic
+study, 33 populations of 11 Fumaria spp. were grown in uniform conditions, and seven
+morphological characters measured. After re-expression and transformation the data were
+analysed by cluster analysis and principal components analysis. Alternative analyses did
+not indicate contradictory taxonomic conclusions. Artificial crosses gave some evidence on
+interfertility, and suggested F. occidentalis to be an allopolyploid of F. bastardii x F.
+capreolaia. Pugsley's subsectional classification is supported within sect. Parviflora, but
+not within sect. Grandiflora. His two sections are seen to be meaningful, but not discrete.
+Fumaria is a widespread genus of the Fumariaceae jPapaveraceae. Its members have
+some economic significance as weeds, and as sources of medical alkaloid drugs.
+The most recent sub-generic classification of Fumaria was that of Pugsley (1919,
+1927, 1932, 1934, 1937) (Table 1). The present study applies phenetic methods to
+the study of relationships within the genus, based on 11 species grown in uniform
+conditions. Where possible, seed was obtained from several populations. This enables some examination of specific delimitation, judgement of species distinctions
+in the light of within-species variation, and a check on the methods used. However,
+practical constraints limited the total number of populations that could be handled.
+Material and methods
+Character measurement. Seeds were collected from wild populations of 11 species (Table
+2), germinated, and the plants grown in uniform garden conditions at Aberystwyth, W.
+Wales. More than one population was sampled for four species, and for two subspecies of
+one of those. The populations were from Wales, England, and Germany. There were 33
+populations in all. (All populations of F. muralis sampled were of subsp. boraei.) Preserved
+racemes and seed samples were deposited in the Herbarium of the University College of
+Wales.
+It was intended to measure characters accurately on a reasonable number of plants.
+Practical limitations therefore dictated that only characters that were useful discriminants,
+and could be objectively quantified, be used. After preliminary investigation, these criteria
+led to the selection of the following characters, which were then measured on all plants:
+Raceme length: racemes were taken from 10 plants per population in the middle of the
+flowering period, and 20 racemes measured per plant where available.
+Number of flowers per raceme: sampled as for raceme length. Flowers that had matured
+into fruits and aborted flowers amongst fruits on the main rachis were counted, but not
+aborted flowers at the apex nor the occasional aborted flowers arising in the axils of other
+flowers.
+Peduncle length: sampled as for raceme length.
+Corolla length: 10 mature flowers were measured from each raceme.
+Sepal length: sampled as for corolla length; defined as the distance from the apex to
+the point of attachment.
+Sepal width (at the widest point): sampled as for corolla length.
+Pollen grain diameter: Pollen was taken from four plants per population, from the
+oldest flower in each raceme not yet dehisced. 25 grains were measured per plant.
+Character expression. The calculation of simple correlation coefficients between the
+seven morphological characters showed high collinearity (Fig. 1). Sepal width, sepal length,
+corolla length and peduncle length formed a highly inter-correlated group, all reflecting
+overall size. Most of these characters were therefore re-expressed:
+Corolla length was included in the analysis as a simple measure.
+Sepal length was re-expressed as:
+sepal: corolla length = sepal length/corolla length.
+Sepal width was re-expressed:
+sepal shape = sepal width/sepal length.
+Peduncle length was re-expressed:
+peduncle: corolla length = peduncle length/corolla length.
+Pollen diameter was less highly correlated with this group; moreover whilst there is
+logical reason to expect the above group of characters to be intercorrelated, there is little
+a priori expectation (except perhaps via ploidy level) why pollen diameter should be correlated with them. Pollen diameter was therefore left as a simple measure.
+Raceme length and the number of flowers per raceme were less strongly, and negatively,
+correlated with the characters discussed above. However, they were highly positively correlated with each other. Therefore:
+Raceme length was left as a simple measure.
+Number of flowers per raceme was re-expressed as:
+flower spacing = raceme length/number of flower per raceme.
+Variation in corolla and raceme length seemed likely, a priori, to be proportional to the
+mean, rather than additive; inspection of the distributions confirmed this. They were therefore log transformed. The distribution of ratios is intrinsically skewed; all ratios were
+therefore also log transformed. Since the units of measurement of length and of pollen
+diameter were arbitrary, all characters were standardized to zero mean and unit variance.
+Analysis methods. Classification was performed by cluster analysis ( Sneath & Sokal
+1973), after re-expression, transformations and standardization as described above. Group
+average (=UPGMA) was the primary sorting strategy used, selected for its space conservation and lack of reversals (Lance & Williams 1967). However, median ( = weighted
+centroid) and nearest neighbour (= single linkage) sorting strategies were also used. The
+primary dissimilarity measure used was Euclidean distance (divided by the number of
+characters):
+deJk = nJi=(XiJ"Xlk)2
+where: dejk = the Euclidean distance between OTU (operational taxonomic unit) j and
+OTU k, n = the number of characters, Xy = the value of character i in OTU j, xik = the
+value of character i in OTU k.
+Euclidean distance was selected as the primary measure of dissimilarity, because an
+Euclidean model seemed natural for log transformed and standardized data. However, cityblock metric (divided by the number of characters) was also used:
+1    n
+dcjk = -    jXij-xik|.
+n i=i
+This is proportional to the Manhattan metric of Lance & Williams (1967); it is the mean
+character difference of Sneath & Sokal (1973).
+Principal components ordination was performed on the correlation coefficient matrix,
+after the same re-expression, transformation and standardization as above.
+Interfertility. Artificial crosses were attempted between seven pairs of species/subspecies
+by hand pollination. Resulting seeds were germinated, and the growth of seedlings from
+them followed.
+Results and interpretation
+Populations within species. All subspecies and species represented by more than one
+population form discrete groups in the classification (Fig. 2). This supports traditional species delimitation in the genus. It is also support for the adequacy of
+using only seven characters, for the character transformation etc. and for the type
+of numerical classification used. Whilst perfect species discrimination could be
+coincidence, with inappropriate methods and indistinct species, it seems most likely
+that the methods a priori preferred supported the traditional species because those
+species are real and the methods are appropriate ones. Zajac (1974) also found
+that numerical classification distinguished between the two subspecies of F. officinalis^ though with intermediates classified with both subspecies.
+In the ordination too (Fig. 3, Table 3), the populations of any subspecies or
+species form a contiguous area. However, it is clear that there is considerable
+variation within some species, and the gaps between some species are quite small
+compared with this variation  for example between F* capreolata and F. muralis.
+Species relationships. The phenetic classification is compared with Pugsley's
+(1919, etc.) classification in Fig. 4. There is considerable agreement, even allowing
+for rearrangement that has been made in Pugsley's order of taxa. Sections Grandiflora and Parviflora are supported to the extent that the representatives of subsectt.
+Eu-Agrariae and Capreolatae, and one representative of subsect. Murales form a
+group in the dendrogram. However, two other members of Pugsley's subsect.
+Murales of sect. Grandiflora fuse first with F. officinalis from the other section.
+The other two subsections of sect. Parviflora chain onto the other species, indicating
+that they are not particularly similar to each other.
+The ordination (Fig. 3) confirms this. Although Pugsley's sections form two
+halves of the ordination diagram, there is no corresponding discontinuity. F. officinalis is indeed as close to F. martinii and F. bastardii of sect. Grandiflora as it
+is to F. densiflora and F. bractcosa of its own section. In terms of discontinuity,
+subsect. Latisepalae is indeed no closer to subsect. Microsepalae than it is to the
+remainder of the genus.
+Subsections within sect. Parviflora are confirmed in that F. vaillantii and F.
+parviflora fuse first with each other (Fig. 4). F. bracteosa and F. densiflora also
+fuse first with each other, though at a high dissimilarity level, suggesting that from
+this evidence the subsection could be split.
+Within sect. Grandiflora, Pugsley's subsections are not supported by this phenetic analysis. The two species representing subsect. Capreolatae fuse first with
+species in other subsections. The similarity across subsection boundaries between
+F. capreolata and F. muralis is seen also in the ordination (Fig. 3), where some
+populations of the two species approach each other closely. The dendrogram (Fig.
+4) indicates them to be more closely related in the characters used than the two
+subspecies of F. officinalis. This supports Hooker's (1884) treatment of F. capreolata and F. muralis as subspecies of one species.
+Likewise, F. occidentalis and F. purpurea are shown by both the dendrogram
+(Fig. 2) and the ordination (Fig. 3) to be close, although Pugsley placed them in
+different subsections (Fig. 4). F. martinii and jF. bastardii are indicated in the
+dendrogram as closer than some of the populations of F. muralis are to each other
+(Fig. 2), or some of those of F. officinalis subsp. officinalis.
+Interferfility. There is a generally high degree of interfertility amongst these
+species (Table 4).
+F1 seedlings from the F. muralis x F. martinii cross were grown on, and they
+proved fully fertile, setting good seed. This supports Pugsley's classification, which
+placed them in the same series (Fig. 4) rather than our phenetic analysis, which
+placed them in rather separate groups.
+The F. bastardii x F. capreolata F1 seedlings were also grown on, but failed
+to produce good seed. Meiotic analysis of pollen mother cells from the hybrid
+showed some bivalent formation, together with numbers of univalents scattered
+throughout the cells. However, colchicine application to the stem apices of the F1
+plants produced some branches with the characters of F. occidentalis. Cytogenetic
+studies of mitotic chromosomes from apices of these branches, gave chromosome
+counts of approximately 2n=112, indicating a doubling-up of the hybrid component. Wild F. occidentalis also has a chromosome number of 2n= 112, the sum
+of those of F. bastardii (48) and F. capreolata (64). The induced tetraploid branches
+set good seed. We suggest that F. occidentalis arose as a natural allopolyploid
+between F. bastardii and F. capreolata. Neither Pugsley's classification, nor our
+phenetic analysis, had predicted such an origin for it, both placing the putative
+parents and their offspring in rather different groups.
+F. rnuralis x F. officinalis subsp. wirtgenii formed only two mature fruits, but
+the numbers are too small to draw conclusions. Anyway, both Pugsley and the
+present phenetic analysis indicate them as only distantly related.
+F. rnuralis x F. capreolata failed to produce viable seedlings. This supports
+Pugsley, who placed them in different subsections, rather than the phenetic analysis, Hammar (1858) and Hooker (1884), all of which classifications indicated
+them to be neighbours.
+F. purpurea x F. capreolata also failed to produce viable seedlings. This supports
+the phenetic analysis, rather than Pugsley who put them in the same series.
+Discussion
+Robustness of the conclusions to analysis variants. Johnson (1970) points out that
+phenetic analyses can be subjective if the measure of dissimilarity or the sorting
+strategy are chosen subjectively. Here, character expression, transformation and
+standardization, as well as sorting strategy and dissimilarity measure were all chosen
+for a priori reasons (see Material and methods). Moreover, an independent test of
+the choice of methods is available from the treatment of populations of one species.
+The preferred method succeeded in forming pure groupings of the populations for
+all species and subspecies (Fig. 2). The results of alternative analyses (not presented)
+will be briefly described, to indicate the extent to which taxonomic conclusions
+would differ.
+Using the city block metric in place of Euclidean distance, the dendrogram was
+almost identical; the only topographical difference was that one population of F.
+rnuralis, the last to join others of the species in our primary analysis, joined them
+after F. capreolata. This emphasizes the close similarity of those two species, and
+does not affect taxonomic conclusions.
+Median sorting strategy is also space-conserving, and has the theoretical advantage over group average that it is less affected by a group of similar OTUs.
+However, it gave a dendrogram that was hard to use because of the presence of
+reversals, as is typical for this strategy (Lance & Williams 1967). Differences from
+our primary analysis were minor. F. purpurea and F. occidentalis jointed the F.
+capreolata/F. rnuralis/F. martimijF. bastardii group later and singly, and F. vaillantii
+and F. parviflora also joined singly.
+Nearest-neighbour sorting, favoured by some numerical taxonomists (Jardine
+& Sibson 1968) gave, as usual (Sokal & Sneath 1973) considerable chaining.
+However, no contradictory taxonomic conclusions were indicated. For example,
+F. officinalis still joined first with species of Pugsley's sect. Grandiflora. There was
+still no support for Pugsley's sect. Eu~Capreolatae and ser. Eu-Murales; rather
+the affinity of F. muralis and F. capreolata was again emphasized.
+Omitting all transformation resulted only in F. purpurea joining first with F.
+capreolata.
+The ordination diagram (Fig. 3) indicates these variations as being alternative
+expressions of the relationships seen there, rather than as indicating different taxonomic conclusions.
+We therefore believe our taxonomic conclusions from these analyses to be robust.
+Seven variates is a very small number, dictated largely by the paucity of differences
+between the species. However, our results suggest that seven variates, carefully
+measured and carefully analysed, can give meaningful results.
+When multivariate methods such as these are used in ecology, they are used
+simply for data summary, and methods can be evaluated on the basis of their
+performance (e.g., Williams & al. 1973). In taxonomy, numerical methods should
+be a realization of the intended basis of taxonomy; there is little agreement on what
+that basis should be.
+Evidence from cytology. F. purpurea, with a reported chromosome number of
+2n = 80, would fit reasonably into subsect. Agrariae, as suggested by the dendrogram, since this number has been reported from subsect, Agrariae and not from
+other members of subsect. Capreolatae (Table 1). Pugsley's association of F.
+muralis and F. martinii is supported against the evidence of our analysis by their
+sharing a chromosome number of 2 n = 48 (Table 1). However, the association of
+F. bastardii with F. martinii, suggested by the dendrogram, is supported by its
+having a diploid number of 48 also.
+Pugsley's placement of F. officinalis in sect. Parviflora is supported by the
+commonest diploid chromosome number in F. officinalis being 32, and by this
+number being common in subsect. Microsepalae (Table 1). However, 2n = 48 is
+found in F. officinalis subsp. wirtgenii, and whilst this is also found in species and
+populations of subsect. Microsepalae it is the most common chromosome number
+in sect. Grandiflorae. No conclusion can be drawn in this case from the chromosome
+number.
+Phenetics and biosystematics. We have suggested that F. occidentalis arose as a
+natural hybrid between F. bastardii and F. capreolata, yet our phenetic analysis
+separates the three, as does Pugsley's classification. There is no necessary conflict
+here. The infertility of the F1 hybrid between them (without polyploidy) confirms
+that the putative parents are not closely related, in which case their hybrid could
+not be in the same grouping as both, and could well show similarities to a third
+grouping.                                                                             /
+If a phenetic/biosystematic conflict is seen, it would be similar to that found
+by Jackson & Crovello (1971) in Haplopappus, using many more characters (29
+or 31), and by Small (1984) in Medicago. Small concluded that his phenetic
+analysis was more reliable than the similarity of a hybrid to a third species, but
+he did not have the confirmation from chromosome numbers that we have. Jackson
+& Crovello (1971) suggested that such conflict was an estimation of the amount
+of parallel evolution. Characters that have evolved in parallel can be valid evidence
+of relationship, since a tendency to evolve a character is evidence of genetic, epigenetic and hence phylogenetic affinity (Cantino 1985).
+p.iytochemical evidence. The alkaloid parfumidine has been found in F. officinalis, F. parviflora and F. vaillantii, amongst other species (Preisner & Shamma
+1980), as have (-)styl opine and fumaritine (Forgacs & al. 1982). This could
+conarm Pugsley's placement, though it could be an artefact of the species that
+have been investigated, as evidenced by the more recent finding of fumaritine in
+F. capreolata (Sener 1985).
+Conclusions
+Al+hough the classification (Fig. 2) and ordination (Fig. 3) are congruent with
+previous species boundaries, it must be noted that the dissimilarities between some
+species are smaller than those between others. F. marxinii and F, bastardii fuse
+before all the populations of F. muralis and F. officinalis subsp. officinalis.
+F. capreolata and F. muralis fuse before the two subspecies of F. officinalis.
+However, phenetic information on more characters would be required, with
+farther information on incompatibility, before a definite conclusion could be made.
+The present information supports Pugsley's subsectional classification within
+sect. Parviflora. Within sect. Grandiflora his subsections and series are suggested
+not to reflect the true relationships. F. capreolata and F. muralis, close in the present
+analysis, were placed in separate subsections by Pugsley, and in separate groups
+by Haussknecht (1873), though Hammar (1858) and Hooker (1884) did show
+them as very close.
+Pugsley's two sections are seen to be meaningful, but especially in the case of
+sect. Parviflora to represent in arbitrary division of continuous variation, especially
+in that F. officinalis is as close to members of the other section (Figs. 2 and 4).
+Close similarity between F. parviflora and F. vaillantii, and alignment at a higher
+level with F. densiflora and F. officinalis, are also seen in Haussknecht's (1873)
+classification, and Hammar's (1858) sections. Possibly, a desire to keep section
+sizes comparable affected the sectional delimitations of these authors.
+We thank Dr G. L. Rapson for assistance with the analyses.

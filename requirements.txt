@@ -1,7 +1,9 @@
 django
 django-extensions
 django-autocomplete-light
+django-haystack
 djangorestframework
+whoosh
 markdown
 django-filter
 iso8601

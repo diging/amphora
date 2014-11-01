@@ -1,10 +1,24 @@
 {% extends "admin/base_site.html" %}
 
 {% block content %}
-<form action="" method="post">
+<form action="" enctype="multipart/form-data" method="post">
     {% csrf_token %}
     <div>{{ form.description }}</div>
-    {{ form }}
+    {% if form.management_form %} {{ form.management_form }} {% endif %}
+    <div>
+        <fieldset class="module aligned">
+            {% for field in form %}
+            <div class="form-row">
+                <div class="fieldWrapper">
+                    {{ field.errors }}
+                    {{ field.label_tag }} {{ field }}
+                </div>
+                {% if field.help_text %}<p class="help">{{ field.help_text }}</p>{% endif %}                                                
+
+            </div>
+            {% endfor %}
+        </fieldset>
+    </div>
     <input type="submit" value="Submit" />
 </form>
 

@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.urlresolvers import reverse
+
 import iso8601
 import sys
 import six
@@ -10,12 +12,13 @@ from uuid import uuid4
 
 from jars import settings
 import concepts
+
 def resource_file_name(instance, filename):
     """
     Generates a file name for Files added to a :class:`.LocalResource`\.
     """
     
-    return '/'.join(['content', instance.name, filename])
+    return '/'.join(['content', filename])
 
 class HeritableObject(models.Model):
     """
@@ -46,18 +49,30 @@ class HeritableObject(models.Model):
 class Entity(HeritableObject):
     """
     A named object that represents some element in the data.
-    
-    TODO: Add URI property.
     """
 
-    entity_type = models.ForeignKey('Type', blank=True, null=True)
-    name = models.CharField(max_length=255)
+    entity_type = models.ForeignKey(
+        'Type', blank=True, null=True, verbose_name='type',
+        help_text='Specifying a type helps to determine what metadata fields'+\
+        ' are appropriate for this resource, and can help with searching.'   +\
+        ' Note that type-specific filtering of metadata fields will only take'+\
+        ' place after this resource has been saved.')
+    name = models.CharField(max_length=255,
+        help_text='Names are unique accross ALL entities in the system.')
     
-    hidden = models.BooleanField(default=False)
-    public = models.BooleanField(default=True)
+    hidden = models.BooleanField(default=False,
+        help_text='If a resource is hidden it will not appear in search' +\
+        ' results and will not be accessible directly, even for logged-in' +\
+        ' users.')
+    public = models.BooleanField(default=True,
+        help_text='If a resource is not public it will only be accessible'+\
+        ' to logged-in users and will not appear in public search results.')
     
     namespace = models.CharField(max_length=255, blank=True, null=True)
-    uri = models.CharField(max_length=255, blank=True, null=True)
+    uri = models.CharField(max_length=255, blank=True, null=True,
+        verbose_name='URI',
+        help_text='You may provide your own URI, or allow the system to'+\
+        ' assign one automatically (recommended).')
     
     class Meta:
         verbose_name_plural = 'entities'
@@ -100,17 +115,24 @@ class Resource(Entity):
     :class:`.RemoteResource`\.
     """
 
+    indexable_content = models.TextField(blank=True, null=True)
+
     @property
     def stored(self):
         if hasattr(self, 'remoteresource'): return 'Remote'
         if hasattr(self, 'localresource'): return 'Local'
+
+    @property
+    def get_absolute_url(self):
+        return reverse("cookies.views.resource", args=(self.id,))
+
 
 class RemoteMixin(models.Model):
     """
     A Remote object has a URL.
     """
 
-    url = models.URLField(max_length=255)
+    url = models.URLField(max_length=255, verbose_name='URL')
     
     class Meta:
         abstract = True
@@ -120,8 +142,10 @@ class LocalMixin(models.Model):
     A Local object can (optionally) have a File attached to it.
     """
     
-    file = models.FileField(upload_to=resource_file_name, blank=True, null=True)
-
+    file = models.FileField(upload_to=resource_file_name, blank=True, null=True,
+        help_text='Drop a file onto this field, or click "Choose File" to'+\
+        ' select a file on your computer.')
+        
     def __init__(self, *args, **kwargs):
         super(LocalMixin, self).__init__(*args, **kwargs)
         setattr(self, 'url', self._url())
@@ -153,7 +177,7 @@ class LocalResource(Resource, LocalMixin):
     stored locally, maybe in a File (e.g. a stored Text document, or a 
     concept of a person.
     """
-    
+
     pass
 
 class Collection(Resource):
@@ -163,6 +187,10 @@ class Collection(Resource):
 
     resources = models.ManyToManyField( 'Resource', related_name='part_of',
                                         blank=True, null=True  )
+
+    @property
+    def get_absolute_url(self):
+        return reverse("cookies.views.collection", args=(self.id,))
 
 ### Types and Fields ###
 
@@ -175,14 +203,17 @@ class Type(Entity):
     regardless of its :attr:`.Entity.entity_type`\.
     """
 
-    domain = models.ManyToManyField(    'Type', related_name='in_domain_of',
-                                        blank=True, null=True   )
+    domain = models.ManyToManyField(
+        'Type', related_name='in_domain_of', blank=True, null=True,
+        help_text='The domain specifies the resource types to which this Type'+\
+        ' or Field can apply. If no domain is specified, then this Type or'   +\
+        ' Field can apply to any resource.')
 
-    schema = models.ForeignKey(    'Schema', related_name='types',
-                                    blank=True, null=True   )
+    schema = models.ForeignKey(
+        'Schema', related_name='types', blank=True, null=True   )
                                     
-    parent = models.ForeignKey(     'Type', related_name='children',
-                                    blank=True, null=True   )
+    parent = models.ForeignKey(
+        'Type', related_name='children', blank=True, null=True   )
 
     description = models.TextField(blank=True, null=True)
 
@@ -194,8 +225,11 @@ class Field(Type):
     If range is null, can be applied to any Entity regardless of Type.
     """
 
-    range = models.ManyToManyField(    'Type', related_name='in_range_of',
-                                        blank=True, null=True   )
+    range = models.ManyToManyField(
+        'Type', related_name='in_range_of', blank=True, null=True,
+        help_text='The field\'s range specifies the resource types that are' +\
+        ' valid values for this field. If no range is specified, then this'  +\
+        ' field will accept any value.')
 
 ### Values ###
 
@@ -398,9 +432,14 @@ class Relation(Entity):
     """
     
     source = models.ForeignKey(     'Entity', related_name='relations_from' )
-    predicate = models.ForeignKey(  'Field', related_name='instances'       )
-    target = models.ForeignKey(     'Entity', related_name='relations_to'   )
-
+    predicate = models.ForeignKey(
+        'Field', related_name='instances', verbose_name='field')
+    target = models.ForeignKey(
+        'Entity', related_name='relations_to', verbose_name='value')
+    
+    class Meta:
+        verbose_name = 'metadata relation'
+    
     def save(self, *args, **kwargs):
         self.name = uuid4()
         super(Relation, self).save(*args, **kwargs)

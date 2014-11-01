@@ -8,18 +8,49 @@
         {% csrf_token %}
         <div>{{ form.description }}</div>
         <input type="hidden" name="schema_method" value="remote" />
+        {{ form.management_form }}
         <div>
             <fieldset class="module aligned">
                 <div class="form-row">
                     <div>
+                        {% if form.schema_name.errors %}
+                            <ul>
+                            {% for error in form.schema_name.errors %}
+                                <li><strong>{{ error|escape }}</strong></li>
+                            {% endfor %}
+                            </ul>
+                        {% endif %}
                         <label for="id_schema_name">Schema name:</label>
-                        <input id="id_schema_name" name="schema_name" type="text">
+                        {{ form.schema_name }}
+                        {% if form.schema_name.help_text %}<p class="help">{{ form.schema_name.help_text }}</p>{% endif %}                                                
                     </div>
                 </div>
                 <div class="form-row">            
                     <div>
+                        {% if form.schema_url.errors %}
+                            <ul>
+                            {% for error in form.schema_url.errors %}
+                                <li><strong>{{ error|escape }}</strong></li>
+                            {% endfor %}
+                            </ul>
+                        {% endif %}
                         <label for="id_schema_url">Schema URL:</label>
-                        <input id="id_schema_url" name="schema_url" type="url"><br />
+                        {{ form.schema_url }}
+                        {% if form.schema_url.help_text %}<p class="help">{{ form.schema_url.help_text }}</p>{% endif %}                        
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div>
+                        {% if form.default_domain.errors %}
+                            <ul>
+                            {% for error in form.default_domain.errors %}
+                                <li><strong>{{ error|escape }}</strong></li>
+                            {% endfor %}
+                            </ul>
+                        {% endif %}
+                        <label for = "id_default_domain">Default domain:</label>
+                        {{ form.default_domain }}
+                        {% if form.default_domain.help_text %}<p class="help">{{ form.default_domain.help_text }}</p>{% endif %}
                     </div>
                 </div>
             </fieldset>

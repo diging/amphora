@@ -5,17 +5,26 @@ from django.conf.urls import patterns, include, url
 from django.shortcuts import render
 from django.core.urlresolvers import reverse
 from django.utils.translation import ugettext_lazy as _
+from django.template import RequestContext
+from django import forms
+from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q
 
+
+from urllib2 import HTTPError
+
+from functools import partial
+from itertools import chain
 
 import autocomplete_light
 
 import rdflib
 
-
 from .models import *
 from .forms import *
+from . import content
 
-def import_schema(schema_url, schema_title):
+def import_schema(schema_url, schema_title, default_domain=None):
     """
     'http://dublincore.org/2012/06/14/dcterms.rdf'
     """
@@ -28,49 +37,80 @@ def import_schema(schema_url, schema_title):
     title = rdflib.term.URIRef('http://purl.org/dc/terms/title')
     property = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#Property')
     type = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
+    class_element = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#Class')
 
+#    # Get the title of the schema.
+#    titled = [ p for p in g.subjects(predicate=title) ][0]
+#    namespace = str(titled)
+    namespace = schema_url
 
-
-    # Get the title of the schema.
-    titled = [ p for p in g.subjects(predicate=title) ][0]
-#    title = str([ o for o in g.objects(titled, title) ][0])
-    namespace = str(titled)
-    
     # Get all of the properties.
     properties = [ _handle_rdf_property(p,g) for p in g.subjects(type, property) ]
+    
+    # Get all of the Classes.
+    classes = [ _handle_rdf_property(p,g) for p in g.subjects(type, class_element) ]
 
     # Create a new Schema.
-    schema = Schema(name=schema_title, uri=namespace, namespace=namespace)
+    schema = Schema(name=schema_title, uri=namespace)#, namespace=namespace)
     schema.save()
+    
+
+    # Get the default domain Type, if specified.
+    if default_domain is not None and default_domain != '':
+        default_type = Type.objects.get(pk=int(default_domain))
+    else:
+        default_type = None
 
     # Generate new Fields from properties.
     fields = {}
     for property in properties:
-        f = Field(
-                name=property['label'],
-                uri=property['uri'],
-                description=property['description'],
-                namespace=namespace,
-                schema=schema
-                )
-        f.save()
-        fields[property['uri']] = f
+        try:    # If the Field already exists, skip it.
+            f = Field(
+                    name='{0}.{1}'.format(schema_title, property['label']),
+                    uri=property['uri'],
+                    description=property['description'],
+                    namespace=namespace,
+                    schema=schema
+                    )
+            f.save()
+            if default_type is not None:
+                f.domain.add(default_type)
+                f.save()
+            fields[property['uri']] = f
+        except IntegrityError:
+            pass
 
     # Now go back and assign parenthood to each Field, where appropriate.
     for property in properties:
         if len(property['parents']) > 0:    # Not all properties have parents.
 
             for parent in property['parents']:
-            
-                # Only consider parents that we know about in this schema.
-                if parent in fields:
-                    parent_field = fields[parent]
-                    fields[property['uri']].parent = parent_field
-                    fields[property['uri']].save()
+                # Only consider parents that we already know about.
+                try:
+                    parent_field = Field.objects.get(uri=parent)
+                except ObjectDoesNotExist:
+                    continue
+                
+                fields[property['uri']].parent = parent_field
+                fields[property['uri']].save()
 
-                    # Each Type (=> Field) can have only one parent. So we'll
-                    #  take the first valid parent and quit.
-                    break
+                # Each Type (=> Field) can have only one parent. So we'll
+                #  take the first valid parent and quit.
+                break
+
+    # Generate new Types from Classes.
+    for class_description in classes:
+        try:    # If the Type already exists, skip it.
+            t = Type(
+                    name='{0}.{1}'.format(schema_title, class_description['label']),
+                    uri=class_description['uri'],
+                    description=class_description['description'],
+                    namespace=namespace,
+                    schema=schema,
+                    )
+            t.save()
+        except IntegrityError:
+            pass
 
 def _handle_rdf_property(p, g):
     description = rdflib.term.URIRef('http://purl.org/dc/terms/description')
@@ -114,6 +154,40 @@ class RelationInline(admin.TabularInline):
     fk_name = 'source'
     exclude = ('entity_type','name', 'hidden', 'public', 'namespace', 'uri',)
 
+    def get_formset(self, request, obj=None, **kwargs):
+        """
+        Modified to include ``obj`` in the call to 
+        :meth:`.formfield_for_dbfield`\, so that we can apply instance-specific
+        modifications to fields.
+        """
+
+        kwargs['formfield_callback'] = partial(
+            self.formfield_for_dbfield, request=request, obj=obj)
+        return super(RelationInline, self).get_formset(request, obj, **kwargs)
+
+    def formfield_for_dbfield(self, db_field, **kwargs):
+        """
+        Modified to alter QuerySet for the Relation.predicate.
+        """
+        obj = kwargs.pop('obj', None)
+
+        formfield = super(RelationInline, self).formfield_for_dbfield(
+                                                            db_field, **kwargs)
+
+        # The field for Relation.predicate is labeled 'Field'.
+        if obj and hasattr(formfield, 'label'):
+            if formfield.label == 'Field' and obj.entity_type is not None:
+            
+                # Limit predicate Fields to those for which this Resource is
+                #  in their domain.
+                query = Q(domain=obj.entity_type) | Q(domain=None)
+                qs = Field.objects.filter(query)
+                # ... or Fields for which a domain is not specified.
+
+                formfield.queryset = qs
+
+        return formfield
+
 class StoredListFilter(admin.SimpleListFilter):
     """
     Filter :class:`.Resource`\s based on whether they are 
@@ -123,12 +197,20 @@ class StoredListFilter(admin.SimpleListFilter):
     parameter_name = 'stored'
 
     def lookups(self, request, model_admin):
+        """
+        Defines filter options.
+        """
+        
         return (
             ('local', _('Local')),
             ('remote', _('Remote')),
         )
 
     def queryset(self, request, queryset):
+        """
+        Generates querysets based on user's filter selection.
+        """
+        
         if self.value() == 'local':
             return queryset.filter(real_type__model='localresource')
         elif self.value() == 'remote':
@@ -139,10 +221,14 @@ class ResourceAdminForward(admin.ModelAdmin):
     
     """
 
-    list_display = ('name','stored')
+    list_display =  (   'id', 'name','stored' )
+    list_editable = (   'name', )
     list_filter = ( StoredListFilter, )
     form = ResourceForm
     inlines = (RelationInline,)
+    
+    class Media:
+        js = ('admin/js/contenteditable.js',)
     
     def get_urls(self):
         """
@@ -152,11 +238,55 @@ class ResourceAdminForward(admin.ModelAdmin):
         """
         urls = super(ResourceAdminForward, self).get_urls()
         my_urls = patterns('',
-            (r'^add/$', self.add_redirect)
+            url(r'^bulk/$', self.bulk_view, name='bulk-resource')
         )
         return my_urls + urls
+    
+    def get_changelist_formset(self, request, **kwargs):
+        """
+        Changes the 'name' field to use a :class:`.ContenteditableInput`
+        widget.
+        """
+        formset = super(ResourceAdminForward, self).get_changelist_formset(
+                                                            request, **kwargs)
 
-    def add_redirect(self, request):
+        formset.form.base_fields['name'].widget = ContenteditableInput()
+        print formset.form
+        return formset
+    
+    def get_form(self, request, obj=None, **kwargs):
+        form = super(ResourceAdminForward, self).get_form(request,obj,**kwargs)
+        
+        # Use different forms for Local and RemoteResources.
+        if obj:
+            if type(obj.cast()) is LocalResource:
+                form = LocalResourceForm
+            elif type(obj.cast()) is RemoteResource:
+                form = RemoteResourceForm
+        
+        # Limit entity_type to direct instantiations of Type and ConceptType.
+        form.base_fields['entity_type'].queryset = Type.objects.filter(
+            real_type__model__in=['type', 'concepttype'])
+        
+        return form
+
+    def change_view(self, request, obj_id, **kwargs):
+        """
+        Redirect to the appropriate change view based on the Resource subclass
+        of the object with ``obj_id``.
+        """
+
+        obj = Resource.objects.get(pk=obj_id).cast()
+        if isinstance(obj, LocalResource):
+            url = reverse("admin:cookies_localresource_change", args=(obj_id,))
+        elif isinstance(obj, RemoteResource):
+            url = reverse("admin:cookies_remoteresource_change", args=(obj_id,))
+        else:
+            return super(ResourceAdminForward, self).change_view(
+                                                      request, obj_id, **kwargs)
+        return HttpResponseRedirect(url)
+
+    def add_view(self, request, **kwargs):
         """
         Since we don't want the user to instantiate :class:`.Resource` directly,
         we will ask them to select a resource type and then direct them to the
@@ -172,8 +302,11 @@ class ResourceAdminForward(admin.ModelAdmin):
         if request.method == 'POST':
             rtype = request.POST['resource_type']
             
-            # Get the url for the add view based on the selected resource type.
-            rurl = reverse("admin:cookies_{0}_add".format(rtype))
+            if rtype == 'bulk':
+                rurl = reverse("admin:bulk-resource")
+            else:
+                # Get the url for the add view based on the selected resource type.
+                rurl = reverse("admin:cookies_{0}_add".format(rtype))
             
             # Since this view may be loaded in a popup (e.g. to add a Resource
             #  to a Collection) we should pass along any GET parameters to the
@@ -193,8 +326,32 @@ class ResourceAdminForward(admin.ModelAdmin):
             
             # The admin/generic_form.html template is nothing special;
             #  it just embeds the form in the admin base_site template.
-            return render(request, 'admin/generic_form.html',
-                            {'form': form}  )
+            return render(request, 'admin/generic_form.html', {'form': form}  )
+
+    def bulk_view(self, request, **kwargs):
+        """
+        View for bulk uploads.
+        """
+
+        if request.method == 'POST':
+            form = BulkResourceForm(request.POST, request.FILES)
+            if form.is_valid():
+                content.handle_bulk(request.FILES['file'], form)
+                return HttpResponseRedirect(reverse("admin:cookies_resource_changelist"))
+    
+        else:
+            form = BulkResourceForm()
+
+            return render(request, 'admin/generic_form.html', {'form':form})
+
+
+    def get_queryset(self, request):
+        """
+        Limit the QuerySet to :class:`.LocalResource` and 
+        :class:`.RemoteResource` instances.
+        """
+        qs = super(ResourceAdminForward, self).get_queryset(request)
+        return qs.filter(real_type__model__in=['localresource','remoteresource'])
 
 class ResourceAdmin(admin.ModelAdmin):
     """
@@ -208,11 +365,32 @@ class ResourceAdmin(admin.ModelAdmin):
     inlines = (RelationInline,)
     form = ResourceForm
     model = Resource
-
-
-    def response_add(self, request, obj, post_url_continue=None):
-        return HttpResponseRedirect(
-                    reverse("admin:cookies_resource_changelist"))
+    
+    def changelist_view(self, request, **kwargs):
+        """
+        Redirect the user to the Resource changelist (rather than displaying
+        the subtype changelist).
+        """
+        url = reverse("admin:cookies_resource_changelist")
+        return HttpResponseRedirect(url)
+    
+    def get_form(self, request, obj=None, **kwargs):
+        """
+        Use different forms for Local and RemoteResources.
+        """
+        
+        if self.model is LocalResource:
+            form = LocalResourceForm
+        elif self.model is RemoteResource:
+            form = RemoteResourceForm
+        else:
+            form = super(ResourceAdmin, self).get_form(request, obj, **kwargs)
+        
+        # Limit entity_type to direct instantiations of Type and ConceptType.
+        form.base_fields['entity_type'].queryset = Type.objects.filter(
+            real_type__model__in=['type', 'concepttype'])
+        
+        return form
 
     def get_model_perms(self, request):
         """
@@ -237,6 +415,9 @@ class CollectionAdmin(admin.ModelAdmin):
     """
 
     filter_horizontal = ('resources',)
+    list_display = ('name',)
+    exclude = ('entity_type','hidden','namespace','uri','indexable_content')
+    
     model = Collection
 
 class HiddenAdmin(admin.ModelAdmin):
@@ -262,9 +443,27 @@ class HiddenAdmin(admin.ModelAdmin):
         return {}
 
 class FieldAdmin(admin.ModelAdmin):
+    fields = (  'name', 'namespace', 'uri', 'schema', 'parent', 'description',
+                'domain', 'range'   )
     list_display = (    'schema', 'parent', 'name', )
     list_filter = ( 'schema',   )
     exclude = ( 'entity_type', 'hidden', 'public',  )
+    filter_vertical = (   'domain', 'range'   )
+    form = FieldAdminForm
+
+    def get_form(self, request, obj=None, **kwargs):
+        """
+        Available values for :prop:`.domain` and :prop:`.range` should be 
+        limited to :class:`.Type` objects that directly instantiate the
+        :class:`.Type` or :class:`.ConceptType` classes.
+        """
+
+        form = super(FieldAdmin, self).get_form(request, obj, **kwargs)
+        form.base_fields['domain'].queryset = Type.objects.filter(
+            real_type__model__in=['type','concepttype'])
+        form.base_fields['range'].queryset = Type.objects.filter(
+            real_type__model__in=['type','concepttype'])
+        return form
 
 class FieldInline(admin.TabularInline):
     fk_name = 'schema'
@@ -285,6 +484,7 @@ class SchemaAdmin(admin.ModelAdmin):
         """
         
         if request.method == 'POST':
+        
             # If a form was submitted, this may have been either to choose the
             #  method (manual or remote) for adding a schema, or a submission
             #  of the actual add form.
@@ -298,21 +498,51 @@ class SchemaAdmin(admin.ModelAdmin):
                     # If the 'schema_url' field is present, then the user has
                     #  just submitted the remote schema form.
                     if 'schema_url' not in request.POST:
-                    
+
                         # If they have not yet submitted the remote schema form,
                         #  we set the method to GET so that add_remote_schema
                         #  (below) knows to serve a fresh form.
                         request.method = 'GET'
-                        
-                    # Otherwise we just pass the request through (as a POST) to
-                    #  add_remote_schema for processing.
-                    return self.add_remote_schema(request)
-            
+
+                        # If no form was submitted (i.e. a GET request), then we
+                        #  give the user a fresh form asking for a schema name
+                        #  and the URL of the remote RDF file.
+                        form = RemoteSchemaForm()
+                        return render(request, 'admin/schema_remote_form.html',
+                                        {'form': form}  )
+                
+                    # Instantiate the Form and validate.
+                    form = RemoteSchemaForm(request.POST)
+                    if form.is_valid():
+                    
+                        # If the form is valid, add the remote schema.
+#                        try:
+                        self.add_remote_schema(form)
+                        return HttpResponseRedirect(
+                                reverse("admin:cookies_schema_changelist"))
+
+#                        # Provide an informative error message if we can't
+#                        #  connect to the specified URL.
+#                        except HTTPError:
+#                            if 'schema_url' not in form.errors:
+#                                form.errors['schema_url'] = []
+#                            form.errors['schema_url'] += ('Cannot access URL',)
+#
+#                        # ...or if we encounter a problem parsing the RDF doc.
+#                        except IndexError as E:
+#                            print E
+#                            if 'schema_url' not in form.errors:
+#                                form.errors['schema_url'] = []
+#                            form.errors['schema_url'] += ('Not valid RDF',)
+
+
+                    # Pass the invalid form back to the view.
+                    return render(request, 'admin/schema_remote_form.html',
+                                    {'form': form}  )
                 elif request.POST['schema_method'] == 'manual':
                     # If the 'name' field is present, it means that the user has
                     #  submitted the manual schema add form.
                     if 'name' not in request.POST:
-                        
                         # If the user hasn't submitted the manual schema add
                         #  form, set the request method to GET so that
                         #  changeform_view knows to serve a fresh form.
@@ -326,9 +556,10 @@ class SchemaAdmin(admin.ModelAdmin):
             #  serve a fresh form that prompts the user to choose a schema add
             #  method (manual or remote).
             form = ChooseSchemaMethodForm()
-            return render(request, 'admin/schema_choose_method_form.html', {'form': form}  )
+            return render(request,
+                        'admin/schema_choose_method_form.html', {'form': form} )
 
-    def add_remote_schema(self, request):
+    def add_remote_schema(self, form):
         """
         Handles the case in which the user selects to add a :class:`.Schema`
         from a remote RDF file.
@@ -336,24 +567,14 @@ class SchemaAdmin(admin.ModelAdmin):
         
         # The user has elected to add a schema from a remote RDF file.
         
-        if request.method == 'POST':
-            # If a form was submitted, then the user just submitted the remote
-            #  schema add form.
-            schema_url = request.POST['schema_url']
-            schema_title = request.POST['schema_name']
-            
-            # TODO: handle exceptions (especially IntegrityError).
-            import_schema(schema_url, schema_title)
-            return HttpResponseRedirect(
-                        reverse("admin:cookies_schema_changelist"))
-        
-        else:
-            # If no form was submitted (i.e. a GET request), then we should give
-            #  the user a fresh form asking for a schema name and the URL of the
-            #  remote RDF file.
-            form = RemoteSchemaForm()
-            return render(request, 'admin/schema_remote_form.html',
-                            {'form': form}  )
+        # If a form was submitted, then the user just submitted the remote
+        #  schema add form.
+        schema_url = form.cleaned_data['schema_url']
+        schema_title = form.cleaned_data['schema_name']
+        default_domain = form.cleaned_data['default_domain']
+
+        # TODO: handle exceptions (especially IntegrityError).
+        import_schema(schema_url, schema_title, default_domain)
 
 class TypeAdmin(admin.ModelAdmin):
 
@@ -374,3 +595,4 @@ admin.site.register(Resource, ResourceAdminForward)
 admin.site.register(LocalResource, ResourceAdmin)
 admin.site.register(RemoteResource, ResourceAdmin)
 admin.site.register(Collection, CollectionAdmin)
+

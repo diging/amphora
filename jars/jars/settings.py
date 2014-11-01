@@ -46,11 +46,13 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'haystack',    
     'django_extensions',
     'autocomplete_light',
     'cookies',
     'concepts',
     'rest_framework',
+ 
 )
 
 MIDDLEWARE_CLASSES = (
@@ -61,6 +63,13 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
+
+HAYSTACK_CONNECTIONS = {
+    'default': {
+        'ENGINE': 'haystack.backends.whoosh_backend.WhooshEngine',
+        'PATH': os.path.join(os.path.dirname(__file__), 'whoosh_index'),
+    },
+}
 
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
@@ -110,6 +119,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.6/howto/static-files/
 
 STATIC_URL = '/static/'
+MEDIA_ROOT = '/Users/erickpeirson/Programming/jar/jars/'
+MEDIA_URL = '/'
 
 URI_NAMESPACE = 'http://jars'
 

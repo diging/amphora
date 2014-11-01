@@ -61,9 +61,12 @@ class EntityAutocomplete(autocomplete_light.AutocompleteModelBase):
         for concept in concepts:
             # An Entity with a name matching the Concept's label may already
             #  exist. If so, we check whether it is a ConceptEntity.
-            if Entity.objects.filter(name=concept.label).count() > 0:
+            qs = Entity.objects.filter(name=concept.label)
+            
+            # TODO: *** CHECK ALL ENTITIES HERE ***
+            if qs.count() > 0:
                 # Get the object as its "real" type.
-                candidate_entity = Entity.objects.get(name=concept.label).cast()
+                candidate_entity = qs[0].cast()
                 
                 # If it is a ConceptEntity and the URI is correct, then we'll
                 #  just use it.

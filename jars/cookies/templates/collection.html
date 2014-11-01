@@ -1,0 +1,44 @@
+{% extends "base_site.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Collections' 'collections' %}
+    {% breadcrumb_url collection.name 'collection' collection.id  %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="collection_summary">
+    <h2 class="collection_name">{{ collection.name }}</h1>
+    <div class="collection_uri"><strong>URI:</strong> {{ collection.uri }}</div>
+</div>
+
+<h3>Resources</h2>
+<div class="collection_resources">
+    <table>
+    {% for resource in collection.resources.all %}
+    <tr class="resource" id="resource_{{ resource.id }}">
+        <td class="resource-name"><a href="{{ resource.get_absolute_url }}">{{ resource.name }}</a></td>
+    </tr>
+    {% endfor %}
+    </table>
+</div>
+
+<h3>Metadata</h2>
+<div class="collection_relations">
+    <table>
+        {% for relation in collection.relations_from.all %}
+        <tr class="relation" id="relation_{{ relation.id }}" uri="{{ relation.uri }}">
+            <td class="predicate" id="predicate_{{ relation.predicate.id }}" uri="{{ relation.predicate.uri }}">{{ relation.predicate.name }}</td>
+            <td class="target" id="target_{{ relation.target.id }}" uri="{{ relation.target.uri }}">{{ relation.target.name }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+
+{% endblock %}

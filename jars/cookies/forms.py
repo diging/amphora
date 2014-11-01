@@ -1,13 +1,33 @@
 from django import forms
 from django.contrib.admin.widgets import FilteredSelectMultiple
-from django.core.exceptions import ObjectDoesNotExist
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.forms.utils import flatatt
 from django.utils.translation import ugettext as _
+from django.db.models import Q
+from django.utils.encoding import force_text
+from django.utils.html import conditional_escape, format_html
 
 import autocomplete_light
 import inspect
 
 from . import models
+
+
+class ContenteditableInput(forms.TextInput):
+    """
+    A contenteditable widget to include in your form
+    """
+
+    def render(self, name, value, attrs):
+        attributes = attrs
+        attributes['type'] = 'hidden'
+
+        res = super(ContenteditableInput, self).render(name, value, attrs = attributes)
+        res += '<div id="{0}" contenteditable="true">{1}</div>'.format(name, value)
+        return res
+
+class FieldAdminForm(forms.ModelForm):
+    model = models.Field
 
 class ChooseSchemaMethodForm(forms.Form):
     METHODS = (
@@ -22,17 +42,49 @@ class ChooseSchemaMethodForm(forms.Form):
 class RemoteSchemaForm(forms.Form):
     description = 'Enter the location of a remote RDF schema.'
 
-    schema_name = forms.CharField()
-    schema_url = forms.URLField()
+    schema_name = forms.CharField(required=True)
+    schema_url = forms.URLField(required=True)
+    default_domain = forms.ChoiceField(
+        choices=[('','--------')] + [
+            (t.id,t.name) for t in models.Type.objects.filter(
+                ~Q(real_type__model='field'))
+        ],
+        required=False,
+        help_text='The domain specifies the resource types to which this Type'+\
+        ' or Field can apply. If no domain is specified, then this Type or'   +\
+        ' Field can apply to any resource. This resource type will be used'   +\
+        ' as the domain for all fields in this schema, unless the schema'     +\
+        ' explicitly specifies domains for its fields.')
 
     class Media:
         css = {'all': ('/static/admin/css/widgets.css',),}
         js = ('/admin/jsi18n/',)
 
+
+class BulkResourceForm(forms.Form):
+    file = forms.FileField(
+        help_text='Drop or select a ZIP archive. A new LocalResource will be'+\
+        ' generated for each file in the archive.')
+    default_type = forms.ChoiceField(
+        choices=[('', '---------')] + [
+                (t.id,t.name) for t in models.Type.objects.filter(
+                    real_type__model__in=['type', 'concepttype'])
+        ],
+        required=False,
+        help_text='All resources in this upload will be assigned the' + \
+        ' specified type, unless a metadata file is included (not yet' + \
+        ' implemented).')
+    ignore_duplicates = forms.BooleanField(
+        required=False,
+        help_text='If selected, if a file in this upload shares a name with' +\
+        ' an existing resource it will simply be ignored. Otherwise, its name'+\
+        ' will be modified slightly so that it is unique.')
+
 class ChooseResourceTypeForm(forms.Form):
     RTYPES = (
         ('localresource', 'Local'),
         ('remoteresource', 'Remote'),
+        ('bulk', 'Bulk'),
     )
     
     # The description attribute is rendered in admin/generic_form.html
@@ -84,7 +136,11 @@ class TargetField(forms.models.ModelChoiceField):
 
 class ResourceForm(forms.ModelForm):
     class Meta:
+        exclude = ('indexable_content',)
         model = models.Resource
+
+    def save(self, commit=True):
+        return super(ResourceForm, self).save(commit)
 
     def clean_name(self):
         """
@@ -119,6 +175,15 @@ class ResourceForm(forms.ModelForm):
         # If the name is indeed unique, pass it back.
         return name
 
+class LocalResourceForm(ResourceForm):
+    class Meta:
+        model = models.LocalResource
+        fields = ('name', 'file', 'entity_type','uri','public')
+
+class RemoteResourceForm(ResourceForm):
+    class Meta:
+        model = models.RemoteResource
+        fields = ('name', 'url', 'entity_type', 'uri', 'public')
 
 class RelationForm(forms.ModelForm):
     """
@@ -132,7 +197,7 @@ class RelationForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super(RelationForm, self).__init__(*args, **kwargs)
-        
+
         # We use a custom ModelChoiceField for target. This field will skip the
         #  usual conversions prior to passing the entered value along to
         #  the validation process. This lets us evaluate it directly in
@@ -160,7 +225,11 @@ class RelationForm(forms.ModelForm):
                 'class': 'autocomplete_filter',
                 'target': 'target',
             })
-    
+        
+        # Sort predicate Fields alphabetically, by name.
+        qs = self.fields['predicate'].queryset.extra(order_by=['name'])
+        self.fields['predicate'].queryset = qs
+
     def clean_target(self):
         return self.cleaned_data['target']
 
@@ -196,7 +265,11 @@ class RelationForm(forms.ModelForm):
         # First, attempt to get an Entity by name. At this point we don't know
         #  what kind of Entity it is (i.e. which subclass).
         try:
+            results = models.Entity.objects.filter(name=target_data)
+            print [ (r.name, r.real_type) for r in results ]
+
             target_obj = models.Entity.objects.get(name=target_data)
+            
         
         # If that fails, try to cast the data based on any System fields in the
         #  predicate Field's range.
