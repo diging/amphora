@@ -16,7 +16,11 @@ def conceptentity_post_save(sender, **kwargs):
     When a :class:`.ConceptEntity` is saved, we will attempt to assign an 
     appropriate :class:`.Type` based on its related :class:`.Concept`\.
     """
+
     instance = kwargs.get('instance', None)
+
+    logger.debug(
+        'post_save signal for ConceptEntity, instance: {0}'.format(instance))
     
     # If this ConceptEntity already has an entity_type, there is nothing to do.
     if instance.entity_type is None:
@@ -29,10 +33,10 @@ def conceptentity_post_save(sender, **kwargs):
             #  a concepts.Type, we use an instance of cookies.ConceptType which
             #  is a subclass of cookies.Type.
             ctype_instance = ConceptType.objects.get_or_create(
-                type_concept_id=type_instance.id,
+                uri = type_instance.uri,
                 defaults={
-                    'uri': type_instance.uri,
                     'name': type_instance.label,
+                    'type_concept': type_instance,
                 })[0]
             # We associate this cookies.ConceptType with its corresponding
             #  concepts.Type instance to make it easier to find later on.
@@ -43,11 +47,16 @@ def conceptentity_post_save(sender, **kwargs):
 def localresource_post_save(sender, **kwargs):
     """
     When a :class:`.LocalResource` is saved, we will attempt to extract any
-    indexable content from its file.
+    indexable content from its associated file (if there is one).
     """
 
     instance = kwargs.get('instance', None)
-    if instance.file and not instance.indexable_content:
+    logger.debug(
+        'post_save signal for LocalResource, instance: {0}'.format(instance))
+    
+    # Only attempt to extract content if the instance has a file associated
+    #  with it, and indexable_content has not been set.
+    if hasattr(instance.file, 'url') and not instance.indexable_content:
         # TODO: Celery-ify.
         content.handle_content(instance)
 

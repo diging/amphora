@@ -37,6 +37,8 @@ def handle_content(obj, commit=True):
                 obj.indexable_content = pdf_extract(f)
             elif mime_type in xml_mime_types:
                 obj.indexable_content = soup_extract(f)
+            else:
+                obj.indexable_content = ' '
 
         if commit:
             obj.save()

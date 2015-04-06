@@ -10,7 +10,8 @@ from django.utils.html import conditional_escape, format_html
 import autocomplete_light
 import inspect
 
-from . import models
+from .models import *
+from . import models as md
 
 
 class ContenteditableInput(forms.TextInput):
@@ -27,7 +28,7 @@ class ContenteditableInput(forms.TextInput):
         return res
 
 class FieldAdminForm(forms.ModelForm):
-    model = models.Field
+    model = Field
 
 class ChooseSchemaMethodForm(forms.Form):
     METHODS = (
@@ -46,7 +47,7 @@ class RemoteSchemaForm(forms.Form):
     schema_url = forms.URLField(required=True)
     default_domain = forms.ChoiceField(
         choices=[('','--------')] + [
-            (t.id,t.name) for t in models.Type.objects.filter(
+            (t.id,t.name) for t in Type.objects.filter(
                 ~Q(real_type__model='field'))
         ],
         required=False,
@@ -67,7 +68,7 @@ class BulkResourceForm(forms.Form):
         ' generated for each file in the archive.')
     default_type = forms.ChoiceField(
         choices=[('', '---------')] + [
-                (t.id,t.name) for t in models.Type.objects.filter(
+                (t.id,t.name) for t in Type.objects.filter(
                     real_type__model__in=['type', 'concepttype'])
         ],
         required=False,
@@ -127,7 +128,7 @@ class TargetField(forms.models.ModelChoiceField):
                 pass
             
             if type(value) is int:
-                entity = models.Entity.objects.get(pk=value)
+                entity = Entity.objects.get(pk=value)
                 return entity.name
             else:
                 return value
@@ -137,7 +138,7 @@ class TargetField(forms.models.ModelChoiceField):
 class ResourceForm(forms.ModelForm):
     class Meta:
         exclude = ('indexable_content',)
-        model = models.Resource
+        model = Resource
 
     def save(self, commit=True):
         return super(ResourceForm, self).save(commit)
@@ -154,7 +155,7 @@ class ResourceForm(forms.ModelForm):
         name = self.cleaned_data['name']
         
         # Look for Entities with the name that the user entered.
-        matching = models.Entity.objects.filter(name=name)
+        matching = Entity.objects.filter(name=name)
         
         # count() minimizes database impact.
         if matching.count() > 0:
@@ -177,12 +178,12 @@ class ResourceForm(forms.ModelForm):
 
 class LocalResourceForm(ResourceForm):
     class Meta:
-        model = models.LocalResource
+        model = LocalResource
         fields = ('name', 'file', 'entity_type','uri','public')
 
 class RemoteResourceForm(ResourceForm):
     class Meta:
-        model = models.RemoteResource
+        model = RemoteResource
         fields = ('name', 'url', 'entity_type', 'uri', 'public')
 
 class RelationForm(forms.ModelForm):
@@ -193,7 +194,7 @@ class RelationForm(forms.ModelForm):
     TODO: Handle cases where the range of a Field includes non-Value types.
     """
     
-    model = models.Relation
+    model = Relation
     
     def __init__(self, *args, **kwargs):
         super(RelationForm, self).__init__(*args, **kwargs)
@@ -203,7 +204,7 @@ class RelationForm(forms.ModelForm):
         #  the validation process. This lets us evaluate it directly in
         #  RelationForm.clean(), below.
         self.fields['target'] = TargetField(
-                                    queryset=models.Entity.objects.all()    )
+                                    queryset=Entity.objects.all()    )
                                     
         # This autocomplete widget handles all Entity objects in the system. The
         #  desired outcome is that the user can use the same widget to select
@@ -265,10 +266,10 @@ class RelationForm(forms.ModelForm):
         # First, attempt to get an Entity by name. At this point we don't know
         #  what kind of Entity it is (i.e. which subclass).
         try:
-            results = models.Entity.objects.filter(name=target_data)
+            results = Entity.objects.filter(name=target_data)
             print [ (r.name, r.real_type) for r in results ]
 
-            target_obj = models.Entity.objects.get(name=target_data)
+            target_obj = Entity.objects.get(name=target_data)
             
         
         # If that fails, try to cast the data based on any System fields in the
@@ -289,7 +290,7 @@ class RelationForm(forms.ModelForm):
                         # It is unlikely, but if there is no model corresponding
                         #  to the System type (ftype), then we should move on.
                         try:
-                            candidate = models.__dict__[ftype.name]
+                            candidate = md.__dict__[ftype.name]
                         except:
                             continue
                         
@@ -317,9 +318,9 @@ class RelationForm(forms.ModelForm):
             #  a StringValue.
             else:
                 try:
-                    target_obj = models.Entity.objects.get(name=str(target_data)).cast()
+                    target_obj = Entity.objects.get(name=str(target_data)).cast()
                 except ObjectDoesNotExist:
-                    target_obj = models.StringValue()
+                    target_obj = StringValue()
                     target_obj.name = str(target_data)
                     target_obj.save()
                 cast = True

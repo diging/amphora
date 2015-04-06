@@ -15,7 +15,7 @@ from urllib2 import HTTPError
 
 from functools import partial
 from itertools import chain
-
+from unidecode import unidecode
 import autocomplete_light
 
 import rdflib
@@ -24,20 +24,31 @@ from .models import *
 from .forms import *
 from . import content
 
+import logging
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel('DEBUG')
+
 def import_schema(schema_url, schema_title, default_domain=None):
     """
     'http://dublincore.org/2012/06/14/dcterms.rdf'
     """
 
+    logger.debug('load schema {0} from {1}'.format(schema_title, schema_url))
+
     # Load RDF from remote location.
     g = rdflib.Graph()
-    g.parse(schema_url)
+    try:
+        g.parse(schema_url)
+    except:
+        g.parse(schema_url, format='xml')
 
     # Define some elements.
     title = rdflib.term.URIRef('http://purl.org/dc/terms/title')
     property = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#Property')
-    type = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
+    type_element = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
     class_element = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#Class')
+    owl_class_element = rdflib.term.URIRef('http://www.w3.org/2002/07/owl#Class')
 
 #    # Get the title of the schema.
 #    titled = [ p for p in g.subjects(predicate=title) ][0]
@@ -45,16 +56,20 @@ def import_schema(schema_url, schema_title, default_domain=None):
     namespace = schema_url
 
     # Get all of the properties.
-    properties = [ _handle_rdf_property(p,g) for p in g.subjects(type, property) ]
+    properties = [ _handle_rdf_property(p,g) for p in g.subjects(type_element, property) ]
     
     # Get all of the Classes.
-    classes = [ _handle_rdf_property(p,g) for p in g.subjects(type, class_element) ]
-
+    classes = [ _handle_rdf_property(p,g) for p in g.subjects(type_element, class_element) ]
+    owl_classes = [ _handle_rdf_property(p,g) for p in g.subjects(type_element, owl_class_element) ]
+    
+    logger.debug(
+        '{0} properties, {1} classes, {2} OWL classes'.format(
+            len(properties), len(classes), len(owl_classes)))
+    
     # Create a new Schema.
     schema = Schema(name=schema_title, uri=namespace)#, namespace=namespace)
     schema.save()
     
-
     # Get the default domain Type, if specified.
     if default_domain is not None and default_domain != '':
         default_type = Type.objects.get(pk=int(default_domain))
@@ -64,28 +79,35 @@ def import_schema(schema_url, schema_title, default_domain=None):
     # Generate new Fields from properties.
     fields = {}
     for property in properties:
-        try:    # If the Field already exists, skip it.
-            f = Field(
-                    name='{0}.{1}'.format(schema_title, property['label']),
-                    uri=property['uri'],
-                    description=property['description'],
-                    namespace=namespace,
-                    schema=schema
-                    )
+        f, created = Field.objects.get_or_create(
+                        uri=property['uri'],
+                        defaults = {
+                            'name': property['label'],
+                            'description': property['description'],
+                            'namespace': namespace,
+                            'schema': schema,
+                        })
+        if created: logger.debug('created Field {0}'.format(f.uri))
+        else:       logger.debug('loaded Field {0}'.format(f.uri))
+
+        # If the User has selected a default domain (Type) for the Fields in
+        #  this Schema, add that Type to the domain for this Field.
+        if default_type is not None:
+            f.domain.add(default_type)
             f.save()
-            if default_type is not None:
-                f.domain.add(default_type)
-                f.save()
-            fields[property['uri']] = f
-        except IntegrityError:
-            pass
+        
+        # Index the Field so that we can find it when handling parent-child
+        #  relationships.
+        fields[property['uri']] = f
 
     # Now go back and assign parenthood to each Field, where appropriate.
     for property in properties:
-        if len(property['parents']) > 0:    # Not all properties have parents.
-
+    
+        # Not all properties have parents.
+        if len(property['parents']) > 0:
             for parent in property['parents']:
-                # Only consider parents that we already know about.
+                # Only consider parents that we already know about. If we can't
+                #  find the parent Field, then we will simply skip it.
                 try:
                     parent_field = Field.objects.get(uri=parent)
                 except ObjectDoesNotExist:
@@ -98,19 +120,41 @@ def import_schema(schema_url, schema_title, default_domain=None):
                 #  take the first valid parent and quit.
                 break
 
-    # Generate new Types from Classes.
-    for class_description in classes:
-        try:    # If the Type already exists, skip it.
-            t = Type(
-                    name='{0}.{1}'.format(schema_title, class_description['label']),
-                    uri=class_description['uri'],
-                    description=class_description['description'],
-                    namespace=namespace,
-                    schema=schema,
-                    )
-            t.save()
-        except IntegrityError:
-            pass
+    # Generate new Type objects from RDF and OWL Class definitions.
+    types = {}
+    for class_description in classes + owl_classes:
+        t, created = Type.objects.get_or_create(
+                        uri = class_description['uri'],
+                        defaults = {
+                            'name': class_description['label'],
+                            'description': class_description['description'],
+                            'namespace': namespace,
+                            'schema': schema,
+                        })
+        if created: logger.debug('created Type {0}'.format(t.uri))
+        else:       logger.debug('loaded Type {0}'.format(t.uri))
+
+        types[class_description['uri']] = t
+
+    # Now go back and assign parenthood to each Type, where appropriate.
+    for class_description in classes + owl_classes:
+    
+        # Not all properties have parents.
+        if len(class_description['parents']) > 0:
+            for parent in class_description['parents']:
+                # Only consider parents that we already know about. If we can't
+                #  find the parent Field, then we will simply skip it.
+                try:
+                    parent_type = Type.objects.get(uri=parent)
+                except ObjectDoesNotExist:
+                    continue
+                
+                types[class_description['uri']].parent = parent_type
+                types[class_description['uri']].save()
+
+                # Each Type (=> Field) can have only one parent. So we'll
+                #  take the first valid parent and quit.
+                break
 
 def _handle_rdf_property(p, g):
     description = rdflib.term.URIRef('http://purl.org/dc/terms/description')
@@ -118,7 +162,10 @@ def _handle_rdf_property(p, g):
     
     label = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#label')
     range = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#range')
-    subPropertyOf = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#subPropertyOf')
+    subPropertyOf = rdflib.term.URIRef(
+                        'http://www.w3.org/2000/01/rdf-schema#subPropertyOf')
+    subClassOf = rdflib.term.URIRef(
+                        'http://www.w3.org/2000/01/rdf-schema#subClassOf')
 
     # Get the description for this Field. First try for the DC description,
     #  then try for the RDF comment. If neither is available, give up.
@@ -136,14 +183,27 @@ def _handle_rdf_property(p, g):
     except IndexError:
         this_range = []
 
+    try:
+        this_label = None
+        labels = [ s for s in g.objects(p, label) ]
+        for label in labels:
+            if label.language == 'en':
+                this_label = label
+        if this_label is None:
+            this_label = unidecode(labels[0])
+
+    except IndexError:
+        this_label = str(p).split('#')[-1]
+
     # Grab only the attributes we'll need, and string-ify so we're not
     #  reliant on rdflib downstream.
     prop = {
         'uri': str(p),
-        'label': str([ s for s in g.objects(p, label) ][0]),
+        'label': this_label,
         'description': this_description,
         'range': this_range,
-        'parents': [ str(s) for s in g.objects(p, subPropertyOf) ],
+        'parents': [ str(unidecode(s)) for s in g.objects(p, subPropertyOf) ] +\
+                    [ str(unidecode(s)) for s in g.objects(p, subClassOf) ],
         }
 
     return prop
@@ -514,26 +574,30 @@ class SchemaAdmin(admin.ModelAdmin):
                     # Instantiate the Form and validate.
                     form = RemoteSchemaForm(request.POST)
                     if form.is_valid():
+                        logger.debug('form {0} is valid'.format(form))
                     
                         # If the form is valid, add the remote schema.
-#                        try:
-                        self.add_remote_schema(form)
-                        return HttpResponseRedirect(
-                                reverse("admin:cookies_schema_changelist"))
+                        try:
+                            self.add_remote_schema(form)
+                            return HttpResponseRedirect(
+                                    reverse("admin:cookies_schema_changelist"))
 
-#                        # Provide an informative error message if we can't
-#                        #  connect to the specified URL.
-#                        except HTTPError:
-#                            if 'schema_url' not in form.errors:
-#                                form.errors['schema_url'] = []
-#                            form.errors['schema_url'] += ('Cannot access URL',)
-#
-#                        # ...or if we encounter a problem parsing the RDF doc.
-#                        except IndexError as E:
-#                            print E
-#                            if 'schema_url' not in form.errors:
-#                                form.errors['schema_url'] = []
-#                            form.errors['schema_url'] += ('Not valid RDF',)
+                        # Provide an informative error message if we can't
+                        #  connect to the specified URL.
+                        except HTTPError:
+                            if 'schema_url' not in form.errors:
+                                form.errors['schema_url'] = []
+                            form.errors['schema_url'] += ('Cannot access URL',)
+
+                        # ...or if we encounter a problem parsing the RDF doc.
+                        except IndexError as E:
+                            print E
+                            if 'schema_url' not in form.errors:
+                                form.errors['schema_url'] = []
+                            form.errors['schema_url'] += ('Not valid RDF',)
+                    else:
+                        logger.debug('form {0} is not valid'.format(type(form)))
+                        logger.debug('errors: {0}'.format(form.errors))
 
 
                     # Pass the invalid form back to the view.
@@ -577,6 +641,8 @@ class SchemaAdmin(admin.ModelAdmin):
         import_schema(schema_url, schema_title, default_domain)
 
 class TypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'parent', 'schema')
+    list_filter = ('schema',)
 
     def get_queryset(self, request):
         """

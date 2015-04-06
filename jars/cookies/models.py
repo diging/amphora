@@ -10,6 +10,12 @@ import sys
 import six
 from uuid import uuid4
 
+import logging
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel('ERROR')
+
+
 from jars import settings
 import concepts
 
@@ -80,10 +86,18 @@ class Entity(HeritableObject):
     def save(self, *args, **kwargs):
         # Enforce unique name.
         if self.name is not None:
+            logger.debug('save Entity with name {0}'.format(self.name))
             with_name = Entity.objects.filter(name=self.name)
-            if with_name.count() == 0: pass
-            elif with_name.count() == 1 and with_name[0].id == self.id: pass
-            else: raise IntegrityError(
+            
+            # No Entity exists with that name.
+            if with_name.count() == 0:
+                pass
+            # One Entity exists with that name, and it is the current Entity.
+            elif with_name.count() == 1 and with_name[0].id == self.id:
+                pass
+            else:
+                logger.debug('id: {0}, with_name: {1}'.format(self.id, [ (e.name, e.id) for e in with_name ]))
+                raise IntegrityError(
                             'An Entity with that name already exists.')
 
         # Enforce unique URI.
@@ -101,7 +115,9 @@ class Entity(HeritableObject):
         #  TODO: this should call a method to generate a URI, to allow for more
         #        flexibility (e.g. calling a Handle server).
         if not self.uri:
-            self.uri = '/'.join([ settings.URI_NAMESPACE, str(self.real_type.model), str(self.id) ])
+            self.uri = '/'.join([   settings.URI_NAMESPACE,
+                                    str(self.real_type.model),
+                                    str(self.id) ])
         super(Entity, self).save()
 
     def __unicode__(self):
@@ -194,14 +210,29 @@ class Collection(Resource):
 
 ### Types and Fields ###
 
-class Schema(Entity):
-    pass
+class Schema(HeritableObject):
+    name = models.CharField(max_length=255)
+    
+    namespace = models.CharField(max_length=255, blank=True, null=True)
+    uri = models.CharField(max_length=255, blank=True, null=True,
+        verbose_name='URI')
 
-class Type(Entity):
+    active = models.BooleanField(default=True)
+
+    def __unicode__(self):
+        return unicode(self.name)
+
+class Type(HeritableObject):
     """
     If :attr:`.domain` is null, can be applied to any :class:`.Entity` 
     regardless of its :attr:`.Entity.entity_type`\.
     """
+    
+    name = models.CharField(max_length=255)
+    
+    namespace = models.CharField(max_length=255, blank=True, null=True)
+    uri = models.CharField(max_length=255, blank=True, null=True,
+        verbose_name='URI')
 
     domain = models.ManyToManyField(
         'Type', related_name='in_domain_of', blank=True, null=True,
@@ -216,6 +247,9 @@ class Type(Entity):
         'Type', related_name='children', blank=True, null=True   )
 
     description = models.TextField(blank=True, null=True)
+
+    def __unicode__(self):
+        return unicode(self.name)
 
 
 class Field(Type):
@@ -346,20 +380,13 @@ class Value(Entity):
             #  'real_type' of this Value object. E.g. if this is an
             #  IntegerValue, then it should have the Type "IntegerValue".
             try:
-                rdf_schema = Entity.objects.get(
-                                uri = settings.RDFNS,
-                                namespace = settings.RDFNS,
-                                name ='RDF').cast()
+                rdf_schema = Entity.objects.get(name ='RDF').cast()
             except ObjectDoesNotExist:
-                rdf_schema = Schema(
-                                uri = settings.RDFNS,
-                                namespace = settings.RDFNS,
-                                name ='RDF',
-                                )
+                rdf_schema = Schema(name ='RDF')
                 rdf_schema.save()
             
             try:
-                literal = Entity.objects.get(name='Literal').cast()
+                literal = Type.objects.get(name='Literal')
             except ObjectDoesNotExist:
                 literal = Type(
                             uri = settings.LITERAL,

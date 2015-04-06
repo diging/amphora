@@ -34,6 +34,7 @@ class EntityAutocomplete(autocomplete_light.AutocompleteModelBase):
                             #  consider Concepts once the user has entered
                             #  four characters.
                 extra_choices = self.suggest_concept(q)
+    
         if field_id:
             choices = choices.filter(entity_type__in_range_of__in=[field_id])
 
@@ -43,7 +44,8 @@ class EntityAutocomplete(autocomplete_light.AutocompleteModelBase):
                             self.order_choices(choices)[0:self.limit_choices],
                             extra_choices
                             ))
-
+                            
+        # TODO: remove duplicates!
         return sorted_choices
 
     def suggest_concept(self, query):

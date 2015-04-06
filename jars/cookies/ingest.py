@@ -7,6 +7,12 @@ import rdflib
 from zipfile import ZipFile
 
 
+import logging
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel('DEBUG')
+
+
 class BaseIngester(object):
     pass
 
@@ -33,86 +39,121 @@ class ZoteroRDFIngester(BaseIngester):
                             if name.endswith('.rdf') ][0]
         self.rdfpath = self.zipfile.extract(self.rdfname, '/tmp/')
     
-    def parse(self):
+    def fix_rdf(self):
         """
-        Handle RDF content.
+        Fix validation issues. Zotero incorrectly uses rdf:resource as a
+        child element for Attribute; rdf:resource should instead be used
+        as an attribute of link:link.
         """
         
-        # Fix validation issues. Zotero incorrectly uses rdf:resource as a
-        #  child element for Attribute; rdf:resource should instead be used
-        #  as an attribute of link:link.
         with open(self.rdfpath, 'r') as f:
             raw_rdf = f.read()
         raw_rdf = raw_rdf.replace(  'rdf:resource rdf:resource',
                                     'link:link rdf:resource'    )
         with open(self.rdfpath, 'w') as f:
             f.write(raw_rdf)
+    
+    def parse(self):
+        """
+        Handle RDF content.
+        """
+        
+        self.fix_rdf()
         
         # Load the RDF triples.
         self.graph = rdflib.Graph()
         self.graph.parse(self.rdfpath)
     
         BIB = rdflib.Namespace("http://purl.org/net/biblio#")
-        bib_types = ['Illustration', 'Recording', 'Legislation', 'Document', 'BookSection', 'Book', 'Data', 'Letter', 'Report', 'Article', 'Manuscript', 'Image', 'ConferenceProceedings', 'Thesis']
-        rdf_types = ['Document',]
+        
+        # bib_types and rdf_types contain class names that Zotero uses for
+        #  resources.
+        bib_types = [   'Illustration', 'Recording', 'Legislation', 'Document',
+                        'BookSection', 'Book', 'Data', 'Letter', 'Report',
+                        'Article', 'Manuscript', 'Image',
+                        'ConferenceProceedings', 'Thesis'   ]
+        rdf_types = [   'Document', ]
+        
+        # Define various RDF elements for ease of expression.
         date_elem = rdflib.URIRef("http://purl.org/dc/elements/1.1/date")
         authors_elem = rdflib.URIRef("http://purl.org/net/biblio#authors")
         identifier_elem = rdflib.URIRef("http://purl.org/dc/elements/1.1/identifier")
         link_elem = rdflib.URIRef("http://purl.org/rss/1.0/modules/link/link")
         title_elem = rdflib.URIRef("http://purl.org/dc/elements/1.1/title")
 
+        for btype in bib_types:
+            articles = [ r[0] for r in self.graph.query('SELECT * WHERE { ?p a bib:'+btype+' }')]
+            logger.debug('Found {0} {1} elements'.format(len(articles), btype))
+            
+            # Don't bother loading the Type unless there are Resources to be
+            #  created -- reduce DB load.
+            if len(articles) > 0:
+            
+                # Generate a Type for this Resource.
+                rtype = Type.objects.get_or_create(name='Biblio.'+btype.lower())[0]
+                logger.debug('loaded Type {0} in Schema {1}'.format(rtype, rtype.schema))
+            
+            for article in articles:
+                fp, name, authors, pubdate, identifier = None, None, None, None, None
+                for s,p,o in self.graph.triples( ( article, None, None)):
 
-        articles = [ r[0] for r in self.graph.query('SELECT * WHERE { ?p a bib:Article }')]
-        for article in articles:
-            fp, name, authors, pubdate, identifier = None, None, None, None, None
-            for s,p,o in self.graph.triples( ( article, None, None)):
-                # If possible, load the Field for this predicate.
-                try: predicate = Field.objects.get(uri=str(p))
-                except ObjectDoesNotExist: predicate = None
-                
-                if p == title_elem:
-                    name = self._handle_title(o)
-
-                if p == link_elem:
-                    f = self._handle_link(o)
-                    if f: fp = f
+                    # If possible, load the Field for this predicate.
+                    try:
+                        predicate = Field.objects.get(uri=str(p))
+                    except ObjectDoesNotExist:
+                        predicate = None
                     
-                # Load or generate an Entity for each author.
-                if p == authors_elem:
-                    authors = self._handle_authors(o)
+                    if p == title_elem:
+                        name = self._handle_title(o)
 
-                if p == date_elem:
-                    pubdate = self._handle_date(o)
+                    if p == link_elem:
+                        f = self._handle_link(o)
+                        if f: fp = f
+                        
+                    # Load or generate an Entity for each author.
+                    if p == authors_elem:
+                        authors = self._handle_authors(o)
+
+                    if p == date_elem:
+                        pubdate = self._handle_date(o)
+                        
+                    if p == identifier_elem:
+                        identifier = self._handle_identifier(o)
+
+                # Only proceed if we successfully found a name.
+                if name:
                     
-                if p == identifier_elem:
-                    identifier = self._handle_identifier(o)
+                    # If a file is present, create a LocalResource.
+                    if fp:
+                        resource = LocalResource(name=name, entity_type=rtype)
+                        resource.save()
+                        resource.file.save(
+                            fp.split('/')[-1], File(open(fp, 'r')), True)
+                        logger.debug(
+                            'created LocalResource {0}, with file {1}'.format(
+                                resource, resource.file)    )
+                    
+                    # Otherwise, use the identifier to create a RemoteResource.
+                    elif identifier:
+                        resource = RemoteResource(
+                            name=name, url=identifier, entity_type=rtype    )
+                        resource.save()
+                        logger.debug(
+                            'created RemoteResource {0}, with URL {1}'.format(
+                                resource, resource.url)    )
 
-            # Only proceed if we successfully found a name.
-            if name:
-                
-                # If a file is present, create a LocalResource.
-                if fp:
-                    resource = LocalResource(name=name)
-                    resource.save()
-                    resource.file.save(fp.split('/')[-1], File(open(fp, 'r')), True)
-                    print resource, resource.file
-                
-                # Otherwise, use the identifier to create a RemoteResource.
-                elif identifier:
-                    resource = RemoteResource(name=name, url=identifier)
-                    resource.save()
-                    print resource, resource.url
-
-                # Generate DC.Creator metadata.
-                for author in authors:
-                    pred = Field.objects.get(uri='http://purl.org/dc/terms/creator')
-                
-                    rel = Relation(
-                        source=resource,
-                        predicate=pred,
-                        target=author,
-                    )
-                    rel.save()
+                    # Generate DC.Creator metadata.
+                    for author in authors:
+                        if author is not None:
+                            pred = Field.objects.get(
+                                    uri='http://purl.org/dc/terms/creator')
+                        
+                            rel = Relation(
+                                source=resource,
+                                predicate=pred,
+                                target=author,
+                            )
+                            rel.save()
 
     def _handle_title(self, ref):
         return str(ref)
