@@ -9,9 +9,9 @@ from .api_renderers import *
 
 
 class ResourceSerializer(serializers.HyperlinkedModelSerializer):
-    stored = serializers.Field(source='stored')
-    metadata = serializers.SerializerMethodField('generate_metadata')
-    content = LinkField('generate_content_field')
+    stored = serializers.ReadOnlyField(source='stored')
+    metadata = serializers.SerializerMethodField('generate_metadata', read_only=True)
+    content = LinkField('generate_content_field', read_only=True)
 
     class Meta:
         model = Resource
@@ -49,9 +49,11 @@ class ResourceSerializer(serializers.HyperlinkedModelSerializer):
 class RelationSerializer(serializers.HyperlinkedModelSerializer):
     source = serializers.HyperlinkedRelatedField(
         view_name='resource-detail',
+        read_only=True
     )
     target = serializers.HyperlinkedRelatedField(
         view_name='resource-detail',
+        read_only=True
     )
     
     class Meta:

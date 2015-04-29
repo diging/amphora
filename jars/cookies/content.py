@@ -9,7 +9,7 @@ import magic
 from bs4 import BeautifulSoup
 import zipfile
 from uuid import uuid4
-
+import os
 
 from .models import *
 
@@ -54,7 +54,6 @@ def pdf_extract(file):
 def soup_extract(file):
     return BeautifulSoup(file.read()).get_text()
 
-
 def handle_bulk(file, form):
     # The user has uploaded a zip file.
     # TODO: handle exceptions (e.g. not a zip file).
@@ -76,6 +75,11 @@ def handle_bulk(file, form):
             # We need a filepointer to attach the file to the new LocalResource.
             fpath = z.extract(name, '/tmp/')
             fname = fpath.split('/')[-1]
+
+            # Skip directories.
+            if os.path.isdir(fpath):
+                continue
+
             with open(fpath, 'r') as f:
                 
                 # This partial random UUID will help us to create a new unique
@@ -95,7 +99,7 @@ def handle_bulk(file, form):
                     if bail_on_duplicate:
                         continue
                     
-                    resource = LocalResource(name=name + _uuid)
+                    resource = LocalResource(name=fname + _uuid)
                     resource.save()
                     
                 # Now we associate the file, and save the LocalResource again.

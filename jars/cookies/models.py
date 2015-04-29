@@ -357,6 +357,22 @@ class Value(Entity):
     
     TODO: We may want to make this abstract.
     """
+
+    stop_recursion = False
+
+    def __setattr__(self, key, value):
+        if key == 'name' and not self.stop_recursion:
+            self._value = value
+            self.stop_recursion = True
+            self.name = str(value)[:255]
+            self.stop_recursion = False
+        else:
+            super(Value, self).__setattr__(key, value)
+
+    def __getattr__(self, key):
+        if key == 'name':
+            return self._value
+        super(Value, self).__getattr__(key)
     
     def save(self, *args, **kwargs):
         # There are a few housekeeping tasks when a Value is created.
@@ -427,22 +443,22 @@ class Value(Entity):
 
 class IntegerValue(Value):
     objects = ValueManager()
-    name = models.IntegerField(default=0, unique=True)
+    _value = models.IntegerField(default=0, unique=True)
     pytype = staticmethod(int)
 
 class StringValue(Value):
     objects = ValueManager()
-    name = models.TextField()
+    _value = models.TextField()
     pytype = staticmethod(str)
 
 class FloatValue(Value):
     objects = ValueManager()
-    name = models.FloatField(unique=True)
+    _value = models.FloatField(unique=True)
     pytype = staticmethod(float)
 
 class DateTimeValue(Value):
     objects = ValueManager()
-    name = models.DateTimeField(unique=True, null=True, blank=True)
+    _value = models.DateTimeField(unique=True, null=True, blank=True)
     pytype = staticmethod(iso8601.parse_date)
 
 ### Relations ###

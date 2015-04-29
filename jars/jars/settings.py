@@ -127,7 +127,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.6/howto/static-files/
 
 STATIC_URL = '/static/'
-MEDIA_ROOT = '/Users/erickpeirson/Programming/jar/jars/'
+MEDIA_ROOT = '/Users/bpeirson/Repositories/jars/jars/'
 MEDIA_URL = '/'
 
 URI_NAMESPACE = 'http://jars'

@@ -6,6 +6,7 @@ from django.utils.translation import ugettext as _
 from django.db.models import Q
 from django.utils.encoding import force_text
 from django.utils.html import conditional_escape, format_html
+from django.db.utils import OperationalError
 
 import autocomplete_light
 import inspect
@@ -45,11 +46,17 @@ class RemoteSchemaForm(forms.Form):
 
     schema_name = forms.CharField(required=True)
     schema_url = forms.URLField(required=True)
-    default_domain = forms.ChoiceField(
-        choices=[('','--------')] + [
+    choices = [('','--------')]
+    try:
+         choices += [
             (t.id,t.name) for t in Type.objects.filter(
                 ~Q(real_type__model='field'))
-        ],
+        ]
+    except OperationalError:
+        pass    # Exception is raised when database is initialized.
+
+    default_domain = forms.ChoiceField(
+        choices=choices,
         required=False,
         help_text='The domain specifies the resource types to which this Type'+\
         ' or Field can apply. If no domain is specified, then this Type or'   +\
@@ -66,11 +73,16 @@ class BulkResourceForm(forms.Form):
     file = forms.FileField(
         help_text='Drop or select a ZIP archive. A new LocalResource will be'+\
         ' generated for each file in the archive.')
+
+    choices = [('', '---------')]
+    try:
+        choices += [(t.id,t.name) for t in Type.objects.filter(
+                        real_type__model__in=['type', 'concepttype'])]
+    except OperationalError:
+        pass
+
     default_type = forms.ChoiceField(
-        choices=[('', '---------')] + [
-                (t.id,t.name) for t in Type.objects.filter(
-                    real_type__model__in=['type', 'concepttype'])
-        ],
+        choices=choices,
         required=False,
         help_text='All resources in this upload will be assigned the' + \
         ' specified type, unless a metadata file is included (not yet' + \
