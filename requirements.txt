@@ -9,7 +9,6 @@ django-filter
 iso8601
 rdflib
 unidecode
-mysql-python
 six
 isodate
 pyparsing
