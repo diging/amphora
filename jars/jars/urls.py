@@ -1,5 +1,6 @@
 from django.conf.urls import patterns, include, url
 from rest_framework import routers
+from rest_framework.urlpatterns import format_suffix_patterns
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -12,10 +13,10 @@ admin.autodiscover()
 from cookies import views, views_rest
 
 router = routers.DefaultRouter()
-#router.register(r'entity', views_rest.EntityViewSet)
 router.register(r'resource', views_rest.ResourceViewSet)
-router.register(r'field', views_rest.FieldViewSet)
-router.register(r'relation', views_rest.RelationViewSet)
+router.register(r'localresource', views_rest.LocalResourceViewSet)
+router.register(r'remoteresource', views_rest.RemoteResourceViewSet)
+
 
 urlpatterns = patterns('',
     # Examples:
@@ -31,10 +32,9 @@ urlpatterns = patterns('',
     url(r'^collection/$', views.collection_list, name="collections"),
 
     url(r'^rest/', include(router.urls)),
-    url(r'^rest/auth/', include('rest_framework.urls', namespace='rest_framework')),
+    url(r'^rest/auth/$', include('rest_framework.urls', namespace='rest_framework')),
     
     url(r'^search/', include('haystack.urls'), name='search'),
     
     url(r'^$', views.index, name="index"),
-)    + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
+) + format_suffix_patterns((url(r'^resource_content/([0-9]+)$', views_rest.ResourceContentView.as_view(), name='resource_content'),))   + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)  

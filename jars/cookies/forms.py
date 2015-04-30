@@ -196,7 +196,7 @@ class LocalResourceForm(ResourceForm):
 class RemoteResourceForm(ResourceForm):
     class Meta:
         model = RemoteResource
-        fields = ('name', 'url', 'entity_type', 'uri', 'public')
+        fields = ('name', 'location', 'entity_type', 'uri', 'public')
 
 class RelationForm(forms.ModelForm):
     """

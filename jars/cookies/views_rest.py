@@ -1,97 +1,101 @@
 from django.conf.urls import url, include
 from django.contrib.auth.models import User
-from rest_framework import routers, serializers, viewsets, reverse, renderers
-from rest_framework_cj.fields import LinkField
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from rest_framework import routers, serializers, viewsets, reverse, renderers, mixins
+from rest_framework.views import APIView
+from rest_framework.parsers import JSONParser, FileUploadParser, MultiPartParser
+from rest_framework.response import Response
+from rest_framework.decorators import detail_route, list_route, api_view, parser_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication
 import magic
-
 from .models import *
-from .api_renderers import *
 
+class ContentField(serializers.Field):
+    def to_representation(self, obj):
+        return obj.url
+
+    def to_internal_value(self, data):
+        return data
 
 class ResourceSerializer(serializers.HyperlinkedModelSerializer):
-    stored = serializers.ReadOnlyField(source='stored')
-    metadata = serializers.SerializerMethodField('generate_metadata', read_only=True)
-    content = LinkField('generate_content_field', read_only=True)
-
     class Meta:
         model = Resource
-        readonly_fields = ('metadata',)
-        fields = ('url', 'id', 'name', 'stored', 'metadata', 'content')
-    
+        fields = ('url', 'name','stored', 'content_location')
 
-    def generate_metadata(self, obj):
-        fields = {}
-        for relation in obj.relations_from.all():
-            # TODO: Should use the URI for field instead of name.
-            field = relation.predicate.name
-            value = relation.target.name
-            
-            if field in fields:
-                if not type(fields[field]) is list:
-                    fields[field] = [fields[field]]
-                fields[field].append(value)
-            else:
-                fields[field] = value
-        return fields
-
-    def generate_content_field(self, obj):
+class LocalResourceSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = LocalResource
+        fields = ('url', 'name','stored', 'content_location')
         
-        if obj.stored == 'Local':
-            try:
-                data = {
-                    'href': self.fields['url']._value + "?format=resource_content",
-                    'type': magic.from_buffer(obj.localresource.file.read(), mime=True),
-                    }
-                return data
-            except ValueError:
-                return None
-
-class RelationSerializer(serializers.HyperlinkedModelSerializer):
-    source = serializers.HyperlinkedRelatedField(
-        view_name='resource-detail',
-        read_only=True
-    )
-    target = serializers.HyperlinkedRelatedField(
-        view_name='resource-detail',
-        read_only=True
-    )
+    def create(self, validated_data):
     
+		inst = super(LocalResourceSerializer, self).create(validated_data)
+		return inst
+        
+class RemoteResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
-        model = Relation
-        fields = ('url', 'id', 'source', 'predicate', 'target')
-
-class FieldSerializer(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model = Field
-        fields = ('url', 'id', 'name')
-
-class EntitySerializer(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model = Entity
-        fields = ('url', 'id', 'name')
-
-class ResourceViewSet(viewsets.ModelViewSet):
-    queryset = Resource.objects.all()
-    serializer_class = ResourceSerializer
-    content_negotiation_class = ResourceContentNegotiation
-    renderer_classes = (
-        renderers.BrowsableAPIRenderer,
-        CustomCollectionJsonRenderer,
-        ResourceContentRenderer,
-        )
-
-    def get(self, request, format=None):
-        return super(ResourceViewSet, self).get(request, format)
+        model = RemoteResource
+        fields = ('url', 'name','stored', 'location', 'content_location')        
 
 
-class RelationViewSet(viewsets.ModelViewSet):
-    queryset = Relation.objects.all()
-    serializer_class = RelationSerializer
+class ResourceViewSet(  mixins.RetrieveModelMixin,
+                        mixins.ListModelMixin,
+                        viewsets.GenericViewSet):
+	parser_classes = (JSONParser,)                        
+	queryset = Resource.objects.all()
+	serializer_class = ResourceSerializer
 
-class FieldViewSet(viewsets.ModelViewSet):
-    queryset = Field.objects.all()
-    serializer_class = FieldSerializer
+class LocalResourceViewSet(viewsets.ModelViewSet):
+	parser_classes = (JSONParser,)
+	queryset = LocalResource.objects.all()
+	serializer_class = LocalResourceSerializer
+	parser_classes = (JSONParser,)
+    
+class RemoteResourceViewSet(viewsets.ModelViewSet):
+	parser_classes = (JSONParser,)
+	queryset = RemoteResource.objects.all()
+	serializer_class = RemoteResourceSerializer        
+    
+class ResourceContentView(APIView):
+	parser_classes = (FileUploadParser,MultiPartParser)
+	authentication_classes = (TokenAuthentication,)
+	permission_classes = (IsAuthenticated,)	
+	
+	def get(self, request, pk):
+		"""
+		Serve up the file for a :class:`.LocalResource`
+		"""
+		
+		resource = get_object_or_404(LocalResource, pk=pk)
+		if request.method == 'GET':		
+			file = resource.file.storage.open(resource.file.name)
+			content = file.read()
+			content_type = magic.from_buffer(content)
 
-class EntityViewSet(viewsets.ModelViewSet):
-    queryset = Entity.objects.all()
-    serializer_class = EntitySerializer
+			response = HttpResponse(content, content_type=content_type)
+
+			response['Content-Disposition'] = 'attachment; filename="'+resource.file.name.split('/')[0]+'"'
+		
+			return response
+		
+	def put(self, request, pk):
+		"""
+		Update the file for a :class:`.LocalResource`
+		"""
+		
+		resource = get_object_or_404(LocalResource, pk=pk)
+		
+		# Do not allow overwriting.
+		if hasattr(resource.file, 'url'):
+			return Response({
+				"error": {
+					"status": 403,
+					"title": "Overwriting LocalResource content is not permitted.",
+				}}, status=403)
+
+		resource.file = request.data['file']
+		resource.save()
+
+		return Response(status=204)

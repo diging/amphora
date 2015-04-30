@@ -10,6 +10,7 @@ https://docs.djangoproject.com/en/1.6/ref/settings/
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
+import socket
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
@@ -52,6 +53,7 @@ INSTALLED_APPS = (
     'cookies',
     'concepts',
     'rest_framework',
+    'rest_framework.authtoken',
  
 )
 
@@ -74,14 +76,18 @@ HAYSTACK_CONNECTIONS = {
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
     # or allow read-only access for unauthenticated users.
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
-    ],
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.BrowsableAPIRenderer',
-        'cookies.api_renderers.CustomCollectionJsonRenderer',
-#        'rest_framework_cj.renderers.CollectionJsonRenderer',        
-    ]
+#     'DEFAULT_PERMISSION_CLASSES': [
+#         'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
+#     ],
+	'DEFAULT_PARSER_CLASSES': (
+        'rest_framework.parsers.JSONParser',
+    ),
+	'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',	
+        'rest_framework.authentication.TokenAuthentication',        
+    )
+
 }
 
 ROOT_URLCONF = 'jars.urls'
@@ -134,3 +140,5 @@ URI_NAMESPACE = 'http://jars'
 
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
+
+HOSTNAME = socket.gethostname()

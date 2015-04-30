@@ -6,6 +6,7 @@ from django.template import RequestContext
 from django.db.models.query import QuerySet
 import iso8601
 import inspect
+import magic
 
 import autocomplete_light
 
@@ -31,3 +32,4 @@ def collection_list(request):
 
 def index(request):
     return render(request, 'index.html', {})
+

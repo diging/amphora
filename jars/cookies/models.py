@@ -4,6 +4,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.urlresolvers import reverse
+import rest_framework
 
 import iso8601
 import sys
@@ -143,13 +144,21 @@ class Resource(Entity):
         return reverse("cookies.views.resource", args=(self.id,))
 
 
+    @property
+    def content_location(self):
+        return self.cast().url
+
 class RemoteMixin(models.Model):
     """
     A Remote object has a URL.
     """
 
-    url = models.URLField(max_length=255, verbose_name='URL')
-    
+    location = models.URLField(max_length=255, verbose_name='URL')
+
+    @property
+    def url(self):
+        return self.location
+
     class Meta:
         abstract = True
 
@@ -165,15 +174,15 @@ class LocalMixin(models.Model):
     def __init__(self, *args, **kwargs):
         super(LocalMixin, self).__init__(*args, **kwargs)
         setattr(self, 'url', self._url())
-    
+
     def _url(self):
         """
-        Use the file url.
+        Location where one can GET or PUT the LocalResource.file.
         """
         
         try:
-            return self.file.url
-        except ValueError:
+            return rest_framework.reverse.reverse('resource_content', args=[self.id])
+        except:
             return None
 
     class Meta:
