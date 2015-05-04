@@ -1,6 +1,4 @@
-[![Build Status](https://travis-ci.org/diging/jars.svg?branch=master)](https://travis-ci.org/diging/jars)
-
-<img src="https://github.com/erickpeirson/jars/blob/master/docs/jar.jpg" height="50" />     jars
+<img src="https://github.com/erickpeirson/jars/blob/master/docs/jar.jpg" height="50" />     jars    [![Build Status](https://travis-ci.org/diging/jars.svg?branch=master)](https://travis-ci.org/diging/jars)
 ====
 
 Just Another Repository for Scholars
