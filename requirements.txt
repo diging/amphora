@@ -17,3 +17,4 @@ html5lib
 slate
 pdfminer==20110515
 python-magic==0.4.6
+BeautifulSoup4==4.3.1
