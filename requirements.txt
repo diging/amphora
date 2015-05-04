@@ -15,4 +15,4 @@ pyparsing
 SPARQLWrapper
 html5lib
 slate
-pdfminer=20110515
+pdfminer==20110515
