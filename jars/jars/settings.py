@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/1.6/ref/settings/
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
 import socket
+import sys
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
@@ -98,21 +99,24 @@ WSGI_APPLICATION = 'jars.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/1.6/ref/settings/#databases
 
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.mysql',
-#        'OPTIONS': {
-#            'read_default_file': './jars/mysql.cnf',
-#        },
-#    }
-#}
-
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
+	'default': {
+		'ENGINE': 'django.db.backends.postgresql_psycopg2', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
+		'NAME': 'jars_tests',                      # Or path to database file if using sqlite3.
+		# The following settings are not used with sqlite3:
+		'USER': 'jars_tests',
+		'PASSWORD': 'test_password',
+		'HOST': 'localhost',                      # Empty for localhost through domain sockets or           '127.0.0.1' for localhost through TCP.
+		'PORT': '',                      # Set to empty string for default.
+	}
 }
+# else:
+# 	DATABASES = {
+# 		'default': {
+# 			'ENGINE': 'django.db.backends.sqlite3',
+# 			'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+# 		}
+# 	}
 
 
 # Internationalization
@@ -133,7 +137,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.6/howto/static-files/
 
 STATIC_URL = '/static/'
-MEDIA_ROOT = '/Users/bpeirson/Repositories/jars/jars/'
+MEDIA_ROOT = '/Users/erickpeirson/Projects/jars/jars/'
 MEDIA_URL = '/'
 
 URI_NAMESPACE = 'http://jars'

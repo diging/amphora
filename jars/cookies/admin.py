@@ -27,7 +27,7 @@ from . import content
 import logging
 logging.basicConfig()
 logger = logging.getLogger(__name__)
-logger.setLevel('DEBUG')
+logger.setLevel('ERROR')
 
 def import_schema(schema_url, schema_title, default_domain=None):
     """
@@ -311,7 +311,7 @@ class ResourceAdminForward(admin.ModelAdmin):
                                                             request, **kwargs)
 
         formset.form.base_fields['name'].widget = ContenteditableInput()
-        print formset.form
+
         return formset
     
     def get_form(self, request, obj=None, **kwargs):
@@ -591,7 +591,7 @@ class SchemaAdmin(admin.ModelAdmin):
 
                         # ...or if we encounter a problem parsing the RDF doc.
                         except IndexError as E:
-                            print E
+                            
                             if 'schema_url' not in form.errors:
                                 form.errors['schema_url'] = []
                             form.errors['schema_url'] += ('Not valid RDF',)
@@ -650,7 +650,7 @@ class TypeAdmin(admin.ModelAdmin):
         :class:`.ConceptType`\.
         """
         
-        qs = super(TypeAdmin, self).queryset(request)
+        qs = super(TypeAdmin, self).get_queryset(request)
         return qs.filter(real_type__model__in=('type', 'concepttype'))
 
 admin.site.register(Type, TypeAdmin)

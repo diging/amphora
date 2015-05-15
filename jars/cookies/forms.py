@@ -47,13 +47,6 @@ class RemoteSchemaForm(forms.Form):
     schema_name = forms.CharField(required=True)
     schema_url = forms.URLField(required=True)
     choices = [('','--------')]
-    try:
-         choices += [
-            (t.id,t.name) for t in Type.objects.filter(
-                ~Q(real_type__model='field'))
-        ]
-    except OperationalError:
-        pass    # Exception is raised when database is initialized.
 
     default_domain = forms.ChoiceField(
         choices=choices,
@@ -68,6 +61,17 @@ class RemoteSchemaForm(forms.Form):
         css = {'all': ('/static/admin/css/widgets.css',),}
         js = ('/admin/jsi18n/',)
 
+	def __init__(self, *args, **kwargs):
+		try:
+			self.choices += [
+				(t.id,t.name) for t in Type.objects.filter(
+					~Q(real_type__model='field'))
+			]
+		except OperationalError:
+			pass    # Exception is raised when database is initialized.
+		super(RemoteSchemaForm, self).__init__(*args, **kwargs)
+
+
 
 class BulkResourceForm(forms.Form):
     file = forms.FileField(
@@ -75,11 +79,6 @@ class BulkResourceForm(forms.Form):
         ' generated for each file in the archive.')
 
     choices = [('', '---------')]
-    try:
-        choices += [(t.id,t.name) for t in Type.objects.filter(
-                        real_type__model__in=['type', 'concepttype'])]
-    except OperationalError:
-        pass
 
     default_type = forms.ChoiceField(
         choices=choices,
@@ -92,6 +91,14 @@ class BulkResourceForm(forms.Form):
         help_text='If selected, if a file in this upload shares a name with' +\
         ' an existing resource it will simply be ignored. Otherwise, its name'+\
         ' will be modified slightly so that it is unique.')
+        
+    def __init__(self, *args, **kwargs):
+		try:
+			self.choices += [(t.id,t.name) for t in Type.objects.filter(
+							 real_type__model__in=['type', 'concepttype'])]
+		except OperationalError:
+			pass    
+		super(BulkResourceForm, self).__init__(*args, **kwargs)			
 
 class ChooseResourceTypeForm(forms.Form):
     RTYPES = (
@@ -279,7 +286,6 @@ class RelationForm(forms.ModelForm):
         #  what kind of Entity it is (i.e. which subclass).
         try:
             results = Entity.objects.filter(name=target_data)
-            print [ (r.name, r.real_type) for r in results ]
 
             target_obj = Entity.objects.get(name=target_data)
             
