@@ -4,6 +4,7 @@ python:
 install: 
   - pip install -r requirements.txt
 before_script:
-  - psql -c 'create database jars_tests;' -U jars_tests
+  - createuser -d -U postgres jars_tests;
+  - psql -c 'create database jars_tests;' -U postgres
 script: 
   - python jars/manage.py test
