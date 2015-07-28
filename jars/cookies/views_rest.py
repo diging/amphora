@@ -10,7 +10,7 @@ from rest_framework.decorators import detail_route, list_route, api_view, parser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 import magic
-from .models import *
+from models import *
 
 class ContentField(serializers.Field):
     def to_representation(self, obj):
@@ -22,80 +22,115 @@ class ContentField(serializers.Field):
 class ResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Resource
-        fields = ('url', 'name','stored', 'content_location')
+        fields = ('url', 'uri', 'name','stored', 'content_location')
 
 class LocalResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = LocalResource
         fields = ('url', 'name','stored', 'content_location')
-        
+
     def create(self, validated_data):
-    
-		inst = super(LocalResourceSerializer, self).create(validated_data)
-		return inst
-        
+
+        inst = super(LocalResourceSerializer, self).create(validated_data)
+        return inst
+
+
 class RemoteResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = RemoteResource
-        fields = ('url', 'name','stored', 'location', 'content_location')        
+        fields = ('url', 'name','stored', 'location', 'content_location')
+
+
+class CollectionSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Collection
+        fields = ('url', 'id', 'name')
+
+
+class CollectionDetailSerializer(serializers.HyperlinkedModelSerializer):
+    resources = ResourceSerializer(many=True, read_only=True)
+    class Meta:
+        model = Collection
+        fields = ('url', 'id', 'name', 'resources')
+
+
+class CollectionViewSet(viewsets.ModelViewSet):
+    parser_classes = (JSONParser,)
+    queryset = Collection.objects.all()
+    serializer_class = CollectionSerializer
+    parser_classes = (JSONParser,)
+
+    def retrieve(self, request, pk=None):
+        queryset = self.get_queryset()
+        collection = get_object_or_404(queryset, pk=pk)
+        serializer = CollectionDetailSerializer(collection, context={'request': request})
+        return Response(serializer.data)
 
 
 class ResourceViewSet(  mixins.RetrieveModelMixin,
                         mixins.ListModelMixin,
                         viewsets.GenericViewSet):
-	parser_classes = (JSONParser,)                        
-	queryset = Resource.objects.all()
-	serializer_class = ResourceSerializer
+    parser_classes = (JSONParser,)
+    queryset = Resource.objects.all()
+    serializer_class = ResourceSerializer
+
+    def get_queryset(self):
+        queryset = super(ResourceViewSet, self).get_queryset()
+        uri = self.request.query_params.get('uri', None)
+        if uri:
+            queryset = queryset.filter(uri=uri)
+        return queryset
+
 
 class LocalResourceViewSet(viewsets.ModelViewSet):
-	parser_classes = (JSONParser,)
-	queryset = LocalResource.objects.all()
-	serializer_class = LocalResourceSerializer
-	parser_classes = (JSONParser,)
-    
+    parser_classes = (JSONParser,)
+    queryset = LocalResource.objects.all()
+    serializer_class = LocalResourceSerializer
+    parser_classes = (JSONParser,)
+
 class RemoteResourceViewSet(viewsets.ModelViewSet):
-	parser_classes = (JSONParser,)
-	queryset = RemoteResource.objects.all()
-	serializer_class = RemoteResourceSerializer        
-    
+    parser_classes = (JSONParser,)
+    queryset = RemoteResource.objects.all()
+    serializer_class = RemoteResourceSerializer
+
 class ResourceContentView(APIView):
-	parser_classes = (FileUploadParser,MultiPartParser)
-	authentication_classes = (TokenAuthentication,)
-	permission_classes = (IsAuthenticated,)	
-	
-	def get(self, request, pk):
-		"""
-		Serve up the file for a :class:`.LocalResource`
-		"""
-		
-		resource = get_object_or_404(LocalResource, pk=pk)
-		if request.method == 'GET':		
-			file = resource.file.storage.open(resource.file.name)
-			content = file.read()
-			content_type = magic.from_buffer(content)
+    parser_classes = (FileUploadParser,MultiPartParser)
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
 
-			response = HttpResponse(content, content_type=content_type)
+    def get(self, request, pk):
+        """
+        Serve up the file for a :class:`.LocalResource`
+        """
 
-			response['Content-Disposition'] = 'attachment; filename="'+resource.file.name.split('/')[0]+'"'
-		
-			return response
-		
-	def put(self, request, pk):
-		"""
-		Update the file for a :class:`.LocalResource`
-		"""
-		
-		resource = get_object_or_404(LocalResource, pk=pk)
-		
-		# Do not allow overwriting.
-		if hasattr(resource.file, 'url'):
-			return Response({
-				"error": {
-					"status": 403,
-					"title": "Overwriting LocalResource content is not permitted.",
-				}}, status=403)
+        resource = get_object_or_404(LocalResource, pk=pk)
+        if request.method == 'GET':
+            file = resource.file.storage.open(resource.file.name)
+            content = file.read()
+            content_type = magic.from_buffer(content)
 
-		resource.file = request.data['file']
-		resource.save()
+            response = HttpResponse(content, content_type=content_type)
 
-		return Response(status=204)
+            response['Content-Disposition'] = 'attachment; filename="'+resource.file.name.split('/')[0]+'"'
+
+            return response
+
+    def put(self, request, pk):
+        """
+        Update the file for a :class:`.LocalResource`
+        """
+
+        resource = get_object_or_404(LocalResource, pk=pk)
+
+        # Do not allow overwriting.
+        if hasattr(resource.file, 'url'):
+            return Response({
+                "error": {
+                    "status": 403,
+                    "title": "Overwriting LocalResource content is not permitted.",
+                }}, status=403)
+
+        resource.file = request.data['file']
+        resource.save()
+
+        return Response(status=204)

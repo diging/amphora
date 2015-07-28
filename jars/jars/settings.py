@@ -33,7 +33,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     "django.core.context_processors.static",
     "django.core.context_processors.tz",
     "django.contrib.messages.context_processors.messages",
-#    "audit_log.middleware.UserLoggingMiddleware",    
+#    "audit_log.middleware.UserLoggingMiddleware",
 )
 
 ALLOWED_HOSTS = []
@@ -48,14 +48,14 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'haystack',    
+    'haystack',
     'django_extensions',
     'autocomplete_light',
     'cookies',
     'concepts',
     'rest_framework',
     'rest_framework.authtoken',
- 
+
 )
 
 MIDDLEWARE_CLASSES = (
@@ -77,16 +77,16 @@ HAYSTACK_CONNECTIONS = {
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
     # or allow read-only access for unauthenticated users.
-#     'DEFAULT_PERMISSION_CLASSES': [
-#         'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
-#     ],
-	'DEFAULT_PARSER_CLASSES': (
+    # 'DEFAULT_PERMISSION_CLASSES': [
+    #     'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
+    # ],
+    'DEFAULT_PARSER_CLASSES': (
         'rest_framework.parsers.JSONParser',
     ),
-	'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.SessionAuthentication',	
-        'rest_framework.authentication.TokenAuthentication',        
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        # 'rest_framework.authentication.BasicAuthentication',
+        # 'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
     )
 
 }
@@ -99,24 +99,24 @@ WSGI_APPLICATION = 'jars.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/1.6/ref/settings/#databases
 
-DATABASES = {
-	'default': {
-		'ENGINE': 'django.db.backends.postgresql_psycopg2', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
-		'NAME': 'jars_tests',                      # Or path to database file if using sqlite3.
-		# The following settings are not used with sqlite3:
-		'USER': 'jars_tests',
-		'PASSWORD': 'test_password',
-		'HOST': 'localhost',                      # Empty for localhost through domain sockets or           '127.0.0.1' for localhost through TCP.
-		'PORT': '',                      # Set to empty string for default.
-	}
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql_psycopg2', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
+#         'NAME': 'jars_tests',                      # Or path to database file if using sqlite3.
+#         # The following settings are not used with sqlite3:
+#         'USER': 'jars_tests',
+#         'PASSWORD': 'test_password',
+#         'HOST': 'localhost',                      # Empty for localhost through domain sockets or           '127.0.0.1' for localhost through TCP.
+#         'PORT': '',                      # Set to empty string for default.
+#     }
+# }
 # else:
-# 	DATABASES = {
-# 		'default': {
-# 			'ENGINE': 'django.db.backends.sqlite3',
-# 			'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-# 		}
-# 	}
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+    }
+}
 
 
 # Internationalization

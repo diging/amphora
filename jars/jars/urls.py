@@ -16,13 +16,14 @@ router = routers.DefaultRouter()
 router.register(r'resource', views_rest.ResourceViewSet)
 router.register(r'localresource', views_rest.LocalResourceViewSet)
 router.register(r'remoteresource', views_rest.RemoteResourceViewSet)
+router.register(r'collection', views_rest.CollectionViewSet)
 
 
 urlpatterns = patterns('',
     # Examples:
     # url(r'^$', 'jar.views.home', name='home'),
     # url(r'^blog/', include('blog.urls')),
-    
+
     url(r'^admin/', include(admin.site.urls)),
     url(r'^autocomplete/', include('autocomplete_light.urls')),
 
@@ -33,8 +34,8 @@ urlpatterns = patterns('',
 
     url(r'^rest/', include(router.urls)),
     url(r'^rest/auth/$', include('rest_framework.urls', namespace='rest_framework')),
-    
+
     url(r'^search/', include('haystack.urls'), name='search'),
-    
+
     url(r'^$', views.index, name="index"),
-) + format_suffix_patterns((url(r'^resource_content/([0-9]+)$', views_rest.ResourceContentView.as_view(), name='resource_content'),))   + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)  
+) + format_suffix_patterns((url(r'^resource_content/([0-9]+)$', views_rest.ResourceContentView.as_view(), name='resource_content'),))   + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
