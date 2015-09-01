@@ -36,7 +36,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
 #    "audit_log.middleware.UserLoggingMiddleware",
 )
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['diging.asu.edu']
 
 
 # Application definition
