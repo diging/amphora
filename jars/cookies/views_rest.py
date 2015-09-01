@@ -44,7 +44,7 @@ class RemoteResourceSerializer(serializers.HyperlinkedModelSerializer):
 class CollectionSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Collection
-        fields = ('url', 'id', 'name')
+        fields = ('url', 'id', 'name', 'uri')
 
 
 class CollectionDetailSerializer(serializers.HyperlinkedModelSerializer):

@@ -20,3 +20,5 @@ python-magic==0.4.6
 BeautifulSoup4==4.3.1
 conceptpower-api==1.0
 psycopg2
+gunicorn
+pysqlite
