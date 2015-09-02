@@ -103,7 +103,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'OPTIONS': {
-            'read_default_file': '/var/wwwnginx/jars/mysql.cnf',
+            'read_default_file': '/diging/wwwnginx/jars/mysql.cnf',
         },
     }
 }
