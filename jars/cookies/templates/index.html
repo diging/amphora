@@ -31,6 +31,7 @@
             {% trans 'Welcome,' %}
             <strong>{% firstof user.get_short_name user.get_username %}</strong>.
                 {% url 'django-admindocs-docroot' as docsroot %}
+                <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>.
                 <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>.
         </div>
         {% else %}        
