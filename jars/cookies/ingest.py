@@ -1,10 +1,12 @@
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 from django.core.files import File
+from os.path import basename
 
 from .models import *
 import rdflib
 from zipfile import ZipFile
+from os.path import basename
 
 
 import logging
@@ -30,7 +32,7 @@ class ZoteroRDFIngester(BaseIngester):
         
         self.zipfile = ZipFile(file)
         self.fnames = [ name for name in self.zipfile.namelist()
-                            if not name.startswith('._') ]
+                            if not basename(name).startswith('._') ]
         for fname in self.fnames:
             self.zipfile.extract(fname, '/tmp/')
 
