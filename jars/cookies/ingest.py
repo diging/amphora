@@ -33,7 +33,9 @@ class ZoteroRDFIngester(BaseIngester):
         self.zipfile = ZipFile(file)
         self.fnames = [ name for name in self.zipfile.namelist()
                             if not basename(name).startswith('._') ]
+        log.info("==Check logging==")
         for fname in self.fnames:
+            log.info(fname)
             self.zipfile.extract(fname, '/tmp/')
 
         # Locate the RDF file.
