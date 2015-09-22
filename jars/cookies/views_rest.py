@@ -22,12 +22,12 @@ class ContentField(serializers.Field):
 class ResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Resource
-        fields = ('url', 'id', 'uri', 'name','stored', 'content_location')
+        fields = ('url', 'id', 'uri', 'name','stored', 'content_location', 'public')
 
 class LocalResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = LocalResource
-        fields = ('url', 'id', 'name','stored', 'content_location')
+        fields = ('url', 'id', 'name','stored', 'content_location', 'public')
 
     def create(self, validated_data):
 
@@ -38,20 +38,20 @@ class LocalResourceSerializer(serializers.HyperlinkedModelSerializer):
 class RemoteResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = RemoteResource
-        fields = ('url', 'id', 'name','stored', 'location', 'content_location')
+        fields = ('url', 'id', 'name','stored', 'location', 'content_location', 'public')
 
 
 class CollectionSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Collection
-        fields = ('url', 'id', 'name', 'uri')
+        fields = ('url', 'id', 'name', 'uri', 'public')
 
 
 class CollectionDetailSerializer(serializers.HyperlinkedModelSerializer):
     resources = ResourceSerializer(many=True, read_only=True)
     class Meta:
         model = Collection
-        fields = ('url', 'id', 'name', 'resources')
+        fields = ('url', 'id', 'name', 'resources', 'public')
 
 
 class CollectionViewSet(viewsets.ModelViewSet):
