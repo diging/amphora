@@ -12,6 +12,7 @@ from rest_framework.authentication import TokenAuthentication
 import magic
 from models import *
 
+
 class ContentField(serializers.Field):
     def to_representation(self, obj):
         return obj.url
@@ -19,10 +20,12 @@ class ContentField(serializers.Field):
     def to_internal_value(self, data):
         return data
 
+
 class ResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Resource
-        fields = ('url', 'id', 'uri', 'name','stored', 'content_location', 'public')
+        fields = ('url', 'id', 'uri', 'name','stored', 'content_location',
+                  'public')
 
 class LocalResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
@@ -38,7 +41,8 @@ class LocalResourceSerializer(serializers.HyperlinkedModelSerializer):
 class RemoteResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = RemoteResource
-        fields = ('url', 'id', 'name','stored', 'location', 'content_location', 'public')
+        fields = ('url', 'id', 'name','stored', 'location', 'content_location',
+                  'public')
 
 
 class CollectionSerializer(serializers.HyperlinkedModelSerializer):
@@ -63,7 +67,8 @@ class CollectionViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, pk=None):
         queryset = self.get_queryset()
         collection = get_object_or_404(queryset, pk=pk)
-        serializer = CollectionDetailSerializer(collection, context={'request': request})
+        context = {'request': request}
+        serializer = CollectionDetailSerializer(collection, context=context)
         return Response(serializer.data)
 
 
@@ -111,7 +116,9 @@ class ResourceContentView(APIView):
 
             response = HttpResponse(content, content_type=content_type)
 
-            response['Content-Disposition'] = 'attachment; filename="'+resource.file.name.split('/')[0]+'"'
+            cdpattern = 'attachment; filename="{fname}"'
+            fname = resource.file.name.split('/')[0]    # TODO: make simpler.
+            response['Content-Disposition'] = cdpattern.format(fname=fname)
 
             return response
 
