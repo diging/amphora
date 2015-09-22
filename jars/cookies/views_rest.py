@@ -127,7 +127,7 @@ class ResourceContentView(APIView):
             return Response({
                 "error": {
                     "status": 403,
-                    "title": "Overwriting LocalResource content is not permitted.",
+                    "title": "Overwriting a LocalResource is not permitted.",
                 }}, status=403)
 
         resource.file = request.data['file']
