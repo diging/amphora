@@ -22,12 +22,12 @@ class ContentField(serializers.Field):
 class ResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Resource
-        fields = ('url', 'uri', 'name','stored', 'content_location')
+        fields = ('url', 'id', 'uri', 'name','stored', 'content_location')
 
 class LocalResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = LocalResource
-        fields = ('url', 'name','stored', 'content_location')
+        fields = ('url', 'id', 'name','stored', 'content_location')
 
     def create(self, validated_data):
 
@@ -38,7 +38,7 @@ class LocalResourceSerializer(serializers.HyperlinkedModelSerializer):
 class RemoteResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = RemoteResource
-        fields = ('url', 'name','stored', 'location', 'content_location')
+        fields = ('url', 'id', 'name','stored', 'location', 'content_location')
 
 
 class CollectionSerializer(serializers.HyperlinkedModelSerializer):
