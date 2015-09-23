@@ -32,5 +32,7 @@ urlpatterns = patterns('',
     url(r'^rest/auth/$', include('rest_framework.urls', namespace='rest_framework')),
 
     url(r'^search/', include('haystack.urls'), name='search'),
-    url(r'^o/', include('oauth2_provider.urls', namespace='oauth2_provider')),    url(r'^$', views.index, name="index"),
+    url(r'^o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
+    url(r'^s3/', views.sign_s3, name='sign_s3'),
+    url(r'^$', views.index, name="index"),
 ) + format_suffix_patterns((url(r'^resource_content/([0-9]+)$', views_rest.ResourceContentView.as_view(), name='resource_content'),))   + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

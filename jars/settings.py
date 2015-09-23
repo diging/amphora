@@ -158,3 +158,4 @@ LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
 HOSTNAME = socket.gethostname()
 
 STATICFILES_STORAGE = 'whitenoise.django.GzipManifestStaticFilesStorage'
+BOB = 'bob'
