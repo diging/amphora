@@ -61,7 +61,7 @@ def sign_s3(request):
 
     expires = int(time.time()+60*60*24)
     amz_headers = "x-amz-acl:public-read"
-    
+
     string_to_sign = "PUT\n\n%s\n%d\n%s\n/%s/%s" % (mime_type, expires, amz_headers, settings.S3_BUCKET, object_name)
 
     signature = base64.encodestring(hmac.new(settings.AWS_SECRET_KEY.encode(), string_to_sign.encode('utf8'), sha1).digest())
@@ -69,8 +69,8 @@ def sign_s3(request):
 
     url = 'https://%s.s3.amazonaws.com/%s' % (settings.S3_BUCKET, object_name)
 
-    content = json.dumps({
+    content = {
         'signed_request': '%s?AWSAccessKeyId=%s&Expires=%s&Signature=%s' % (url, settings.AWS_ACCESS_KEY, expires, signature),
         'url': url,
-    })
-    return content
+    }
+    return JsonResponse(content)
