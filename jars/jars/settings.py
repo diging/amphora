@@ -53,8 +53,11 @@ INSTALLED_APPS = (
     'autocomplete_light',
     'cookies',
     'concepts',
+    'oauth2_provider',
     'rest_framework',
     'rest_framework.authtoken',
+
+    'guardian',
 
 )
 
@@ -74,6 +77,12 @@ HAYSTACK_CONNECTIONS = {
     },
 }
 
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend', # default
+    'guardian.backends.ObjectPermissionBackend',
+)
+ANONYMOUS_USER_ID = -1
+
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
     # or allow read-only access for unauthenticated users.
@@ -85,10 +94,10 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         # 'rest_framework.authentication.BasicAuthentication',
-        # 'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
+        'oauth2_provider.ext.rest_framework.OAuth2Authentication',
     )
-
 }
 
 ROOT_URLCONF = 'jars.urls'

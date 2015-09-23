@@ -7,10 +7,29 @@ from rest_framework.views import APIView
 from rest_framework.parsers import JSONParser, FileUploadParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.decorators import detail_route, list_route, api_view, parser_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.authentication import TokenAuthentication
+
+
+from guardian.shortcuts import get_objects_for_user
+from django.db.models import Q
+
 import magic
 from models import *
+
+
+class ResourcePermission(BasePermission):
+    def has_permission(self, request, view):
+        print request
+        print view.__dict__
+        return super(ResourcePermission, self).has_permission(request, view)
+
+    def has_object_permission(self, request, view, obj):
+        print '!', view, obj
+        authorized = request.user.has_perm('cookies.view_resource', obj)
+        if obj.hidden or not (obj.public or authorized):
+            return False
+        return True
 
 
 class ContentField(serializers.Field):
@@ -27,15 +46,16 @@ class ResourceSerializer(serializers.HyperlinkedModelSerializer):
         fields = ('url', 'id', 'uri', 'name','stored', 'content_location',
                   'public')
 
+
 class LocalResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = LocalResource
         fields = ('url', 'id', 'name','stored', 'content_location', 'public')
 
-    def create(self, validated_data):
-
-        inst = super(LocalResourceSerializer, self).create(validated_data)
-        return inst
+    # def create(self, validated_data):
+    #
+    #     inst = super(LocalResourceSerializer, self).create(validated_data)
+    #     return inst
 
 
 class RemoteResourceSerializer(serializers.HyperlinkedModelSerializer):
@@ -78,6 +98,7 @@ class ResourceViewSet(  mixins.RetrieveModelMixin,
     parser_classes = (JSONParser,)
     queryset = Resource.objects.all()
     serializer_class = ResourceSerializer
+    permission_classes = (ResourcePermission,)
 
     def get_queryset(self):
         queryset = super(ResourceViewSet, self).get_queryset()
@@ -92,16 +113,40 @@ class LocalResourceViewSet(viewsets.ModelViewSet):
     queryset = LocalResource.objects.all()
     serializer_class = LocalResourceSerializer
     parser_classes = (JSONParser,)
+    permission_classes = (ResourcePermission,)
+
+    def get_queryset(self):
+        queryset = super(LocalResourceViewSet, self).get_queryset()
+        viewperm = get_objects_for_user(self.request.user,
+                                        'cookies.view_resource')
+        queryset = queryset.filter(
+            Q(hidden=False)       # No hidden resources, ever
+            & (Q(public=True)     # Either the resource is public, or...
+                | Q(pk__in=[r.id for r in viewperm])))  # The user has permission.
+        return queryset
+
 
 class RemoteResourceViewSet(viewsets.ModelViewSet):
     parser_classes = (JSONParser,)
     queryset = RemoteResource.objects.all()
     serializer_class = RemoteResourceSerializer
+    permission_classes = (ResourcePermission,)
+
+    def get_queryset(self):
+        queryset = super(RemoteResourceViewSet, self).get_queryset()
+        viewperm = get_objects_for_user(self.request.user,
+                                        'cookies.view_resource')
+        queryset = queryset.filter(
+            Q(hidden=False)       # No hidden resources, ever
+            & (Q(public=True)     # Either the resource is public, or...
+                | Q(pk__in=[r.id for r in viewperm])))  # The user has permission.
+        return queryset
+
 
 class ResourceContentView(APIView):
     parser_classes = (FileUploadParser,MultiPartParser)
     authentication_classes = (TokenAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (ResourcePermission,)
 
     def get(self, request, pk):
         """

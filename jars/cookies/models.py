@@ -24,15 +24,15 @@ def resource_file_name(instance, filename):
     """
     Generates a file name for Files added to a :class:`.LocalResource`\.
     """
-    
+
     return '/'.join(['content', filename])
 
 class HeritableObject(models.Model):
     """
-    An object that is aware of its "real" type, i.e. the subclass that it 
+    An object that is aware of its "real" type, i.e. the subclass that it
     instantiates.
     """
-    
+
     real_type = models.ForeignKey(ContentType, editable=False)
 
     def save(self, *args, **kwargs):
@@ -66,7 +66,7 @@ class Entity(HeritableObject):
         ' place after this resource has been saved.')
     name = models.CharField(max_length=255,
         help_text='Names are unique accross ALL entities in the system.')
-    
+
     hidden = models.BooleanField(default=False,
         help_text='If a resource is hidden it will not appear in search' +\
         ' results and will not be accessible directly, even for logged-in' +\
@@ -74,13 +74,13 @@ class Entity(HeritableObject):
     public = models.BooleanField(default=True,
         help_text='If a resource is not public it will only be accessible'+\
         ' to logged-in users and will not appear in public search results.')
-    
+
     namespace = models.CharField(max_length=255, blank=True, null=True)
     uri = models.CharField(max_length=255, blank=True, null=True,
         verbose_name='URI',
         help_text='You may provide your own URI, or allow the system to'+\
         ' assign one automatically (recommended).')
-    
+
     class Meta:
         verbose_name_plural = 'entities'
 
@@ -89,7 +89,7 @@ class Entity(HeritableObject):
         if self.name is not None:
             logger.debug('save Entity with name {0}'.format(self.name))
             with_name = Entity.objects.filter(name=self.name)
-            
+
             # No Entity exists with that name.
             if with_name.count() == 0:
                 pass
@@ -127,7 +127,7 @@ class Entity(HeritableObject):
 class Resource(Entity):
     """
     An :class:`.Entity` that contains potentially useful information.
-    
+
     Should be instantiated as one of its subclasses, :class:`.LocalResource` or
     :class:`.RemoteResource`\.
     """
@@ -148,6 +148,11 @@ class Resource(Entity):
     def content_location(self):
         return self.cast().url
 
+    class Meta:
+        permissions = (
+            ('view_resource', 'View resource'),
+        )
+
 class RemoteMixin(models.Model):
     """
     A Remote object has a URL.
@@ -166,11 +171,11 @@ class LocalMixin(models.Model):
     """
     A Local object can (optionally) have a File attached to it.
     """
-    
+
     file = models.FileField(upload_to=resource_file_name, blank=True, null=True,
         help_text='Drop a file onto this field, or click "Choose File" to'+\
         ' select a file on your computer.')
-        
+
     def __init__(self, *args, **kwargs):
         super(LocalMixin, self).__init__(*args, **kwargs)
         setattr(self, 'url', self._url())
@@ -179,7 +184,7 @@ class LocalMixin(models.Model):
         """
         Location where one can GET or PUT the LocalResource.file.
         """
-        
+
         try:
             return rest_framework.reverse.reverse('resource_content', args=[self.id])
         except:
@@ -193,13 +198,13 @@ class RemoteResource(Resource, RemoteMixin):
     An :class:`.Entity` that contains some potentially useful information,
     stored remotely (e.g. a Wikipedia article).
     """
-    
+
     pass
 
 class LocalResource(Resource, LocalMixin):
     """
     An :class:`.Entity` that contains some potentially useful information,
-    stored locally, maybe in a File (e.g. a stored Text document, or a 
+    stored locally, maybe in a File (e.g. a stored Text document, or a
     concept of a person.
     """
 
@@ -221,7 +226,7 @@ class Collection(Resource):
 
 class Schema(HeritableObject):
     name = models.CharField(max_length=255)
-    
+
     namespace = models.CharField(max_length=255, blank=True, null=True)
     uri = models.CharField(max_length=255, blank=True, null=True,
         verbose_name='URI')
@@ -233,12 +238,12 @@ class Schema(HeritableObject):
 
 class Type(HeritableObject):
     """
-    If :attr:`.domain` is null, can be applied to any :class:`.Entity` 
+    If :attr:`.domain` is null, can be applied to any :class:`.Entity`
     regardless of its :attr:`.Entity.entity_type`\.
     """
-    
+
     name = models.CharField(max_length=255)
-    
+
     namespace = models.CharField(max_length=255, blank=True, null=True)
     uri = models.CharField(max_length=255, blank=True, null=True,
         verbose_name='URI')
@@ -251,7 +256,7 @@ class Type(HeritableObject):
 
     schema = models.ForeignKey(
         'Schema', related_name='types', blank=True, null=True   )
-                                    
+
     parent = models.ForeignKey(
         'Type', related_name='children', blank=True, null=True   )
 
@@ -264,7 +269,7 @@ class Type(HeritableObject):
 class Field(Type):
     """
     A :class:`.Field` is a :class:`.Type` for :class:`.Relation`\s.
-    
+
     If range is null, can be applied to any Entity regardless of Type.
     """
 
@@ -281,11 +286,11 @@ class ValueQueryset(models.QuerySet):
         """
         Get a :class:`.Value` based on the parameters in **kwargs. If a matching
         :class:`.Value` can't be found, create a new one.
-        
+
         This is customized so that queries against the ``name`` field get recast
         as the appropriate type, depending on which :class:`.Value` subclass
         is using this :class:`.ValueQueryset`\.
-        
+
         """
         lookup, params = self._extract_model_params(defaults, **kwargs)
 
@@ -294,15 +299,15 @@ class ValueQueryset(models.QuerySet):
         #  user data entered through a :class:`.TargetField` (which just passes
         #  the raw input along).
         if 'name' in lookup:
-        
+
             # The _convert method will recast the value for the ``name`` lookup.
             name = self.model()._convert(lookup['name'])
-            
+
             # Update lookup, kwargs, and params just for good measure.
             lookup['name'] = name
             kwargs['name'] = name
             params['name'] = name
-        
+
         # The rest of this is straight from the original Django sourcecode.
         self._for_write = True
         try:
@@ -313,9 +318,9 @@ class ValueQueryset(models.QuerySet):
     def _create_object_from_params(self, lookup, params):
         """
         Tries to create an object using passed params.
-        
+
         Used by get_or_create and update_or_create.
-        
+
         This is identical to the method in the Github sourcecode, it's just nice
         to have access to it for debugging.
         """
@@ -335,18 +340,18 @@ class ValueQueryset(models.QuerySet):
         """
         Creates a new object with the given kwargs, saving it to the database
         and returning the created object.
-        
+
         This is identical to the original method, except that we are explicitly
         setting the :attr:`.name` attribute. For some reason passing ``name``
         in kwargs doesn't always work on some models.
         """
 
         obj = self.model(**kwargs)
-        
+
         # Here we set ``name`` explicitly based on kwargs.
         if 'name' in kwargs:
             obj.name = kwargs['name']
-        
+
         # Everything else is the same as the original method.
         self._for_write = True
         obj.save(force_insert=True, using=self.db)
@@ -356,14 +361,14 @@ class ValueManager(models.Manager):
     """
     Allows us to use a custom :class:`.QuerySet`\, the :class:`.ValueQueryset`\.
     """
-    
+
     def get_queryset(self):
         return ValueQueryset(self.model, using=self._db, hints=self._hints)
 
 class Value(Entity):
     """
-    Value should never be instantiated directly. 
-    
+    Value should never be instantiated directly.
+
     TODO: We may want to make this abstract.
     """
 
@@ -382,16 +387,16 @@ class Value(Entity):
         if key == 'name':
             return self._value
         super(Value, self).__getattr__(key)
-    
+
     def save(self, *args, **kwargs):
         # There are a few housekeeping tasks when a Value is created.
         if not self.id and self.entity_type is None:
-            
+
             # First, we need to establish its 'real_type', so that we can
             #  down-cast it, below. This is handled by the HeritableObject
             #  save method.
             super(Value, self).save(force_insert=False)
-            
+
             # Next, we ensure that the value for name is of the correct type.
             self.name = self._convert(self.name)
 
@@ -400,7 +405,7 @@ class Value(Entity):
             #  the Schema Manager's get_or_create method.
             schema = Schema.objects.get_or_create(name='System')[0]
             schema.save()
-            
+
             # We're looking for the Type that is identical to the name of the
             #  'real_type' of this Value object. E.g. if this is an
             #  IntegerValue, then it should have the Type "IntegerValue".
@@ -409,7 +414,7 @@ class Value(Entity):
             except ObjectDoesNotExist:
                 rdf_schema = Schema(name ='RDF')
                 rdf_schema.save()
-            
+
             try:
                 literal = Type.objects.get(name='Literal')
             except ObjectDoesNotExist:
@@ -420,7 +425,7 @@ class Value(Entity):
                             name = 'Literal',
                             )
                 literal.save()
-            
+
             cast_name = type(self.cast()).__name__
             try:
                 e_type = Type.objects.get(name=cast_name)
@@ -441,7 +446,7 @@ class Value(Entity):
         Re-casts a string or unicode input as the datatype expected by a
         :class:`.Value` subclass.
         """
-        
+
         # Each Value subclass should have a staticmethod called pytype that
         #  will return the correct Python object for a given str or unicode
         #  value.
@@ -475,23 +480,23 @@ class DateTimeValue(Value):
 class Relation(Entity):
     """
     Defines a relationship beteween two :class:`Entity` instances.
-    
+
     The :class:`.Entity` indicated by :attr:`.target` should fall within
     the range of the :class:`.Field` indicated by :attr:`.predicate`\. In other
     words, the :class:`.Type` of the target Entity should be listed in the
     predicate's :attr:`.Field.range` (unless the ``range`` is empty, in which
     case anything goes).
     """
-    
+
     source = models.ForeignKey(     'Entity', related_name='relations_from' )
     predicate = models.ForeignKey(
         'Field', related_name='instances', verbose_name='field')
     target = models.ForeignKey(
         'Entity', related_name='relations_to', verbose_name='value')
-    
+
     class Meta:
         verbose_name = 'metadata relation'
-    
+
     def save(self, *args, **kwargs):
         self.name = uuid4()
         super(Relation, self).save(*args, **kwargs)
@@ -515,24 +520,24 @@ class Action(HeritableObject):
         (CHANGE, 'CHANGE'),
         (VIEW, 'VIEW'),
     )
-    
+
     type = models.CharField(max_length=2, choices=ACTIONS, unique=True)
 
     def __unicode__(self):
         return unicode(self.get_type_display())
-    
+
     def is_authorized(self, actor, entity):
         """
         Checks for a related :class:`.Authorization` matching the specified
         :class:`.Actor` and :class:`.Entity`\.
         """
-        
+
         # Filter first for Authorizations that belong to the User actor...
         auth = self.authorizations.filter(actor__id=actor.id)
-        
+
         # ...and then for those that belong on the Entity.
         auth = auth.filter(on__id=entity.id)
-        
+
         # If there is a responsive Authorization, then the User actor is
         #  authorized to perform this :class:`.Action`\.
         if auth.count() == 0:
@@ -542,12 +547,12 @@ class Action(HeritableObject):
     def log(self, entity, actor, **kwargs):
         """
         Log this :class:`.Action` as an :class:`.Event`\.
-        
+
         Parameters
         ----------
         entity : :class:`.Entity`
         actor : :class:`django.contrib.auth.models.User`
-        
+
         Returns
         -------
         event : :class:`.Event`
