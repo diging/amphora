@@ -19,13 +19,7 @@ from models import *
 
 
 class ResourcePermission(BasePermission):
-    def has_permission(self, request, view):
-        print request
-        print view.__dict__
-        return super(ResourcePermission, self).has_permission(request, view)
-
     def has_object_permission(self, request, view, obj):
-        print '!', view, obj
         authorized = request.user.has_perm('cookies.view_resource', obj)
         if obj.hidden or not (obj.public or authorized):
             return False
@@ -51,11 +45,6 @@ class LocalResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = LocalResource
         fields = ('url', 'id', 'name','stored', 'content_location', 'public')
-
-    # def create(self, validated_data):
-    #
-    #     inst = super(LocalResourceSerializer, self).create(validated_data)
-    #     return inst
 
 
 class RemoteResourceSerializer(serializers.HyperlinkedModelSerializer):
@@ -117,6 +106,9 @@ class LocalResourceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super(LocalResourceViewSet, self).get_queryset()
+
+        # Check permissions. For some reason ResourcePermission is not getting
+        #  a vote here, so we'll have to do this for now.
         viewperm = get_objects_for_user(self.request.user,
                                         'cookies.view_resource')
         queryset = queryset.filter(
@@ -134,6 +126,9 @@ class RemoteResourceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super(RemoteResourceViewSet, self).get_queryset()
+
+        # Check permissions. For some reason ResourcePermission is not getting
+        #  a vote here, so we'll have to do this for now.
         viewperm = get_objects_for_user(self.request.user,
                                         'cookies.view_resource')
         queryset = queryset.filter(
