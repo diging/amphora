@@ -7,5 +7,6 @@ before_script:
 install:
   - pip install -r requirements.txt
 script:
-  - cd jars 
+  - cd jars
+  - python manage.py collectstatic --noinput
   - python manage.py test

@@ -22,7 +22,7 @@
     </div>
     <div class="search">
         <form method="get" action="/search/">
-            <input id="id_q" name="q" type="search" value="" class="search-input" />
+            <input id="id_q" name="q" type="search" value="" class="search-input" autofocus="autofocus"/>
                         <input type="submit" value="Search">
         </form>
     </div>
@@ -34,7 +34,7 @@
                 <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>.
                 <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>.
         </div>
-        {% else %}        
+        {% else %}
             <a href="{% url "admin:login" %}">{% trans 'Log in' %}</a>.
         {% endif %}
     </div>
