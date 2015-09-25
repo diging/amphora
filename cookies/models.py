@@ -137,7 +137,7 @@ class Resource(Entity):
     """
 
     indexable_content = models.TextField(blank=True, null=True)
-    content_type = models.CharField(max_length=255, blank=True)
+    content_type = models.CharField(max_length=255, blank=True, null=True)
 
     @property
     def text_available(self):
