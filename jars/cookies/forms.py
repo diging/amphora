@@ -71,12 +71,15 @@ class RemoteSchemaForm(forms.Form):
 			pass    # Exception is raised when database is initialized.
 		super(RemoteSchemaForm, self).__init__(*args, **kwargs)
 
-
+def validatefiletype(file):
+    if file.content_type != 'application/zip':
+        raise ValidationError('Please choose a ZIP file')
 
 class BulkResourceForm(forms.Form):
     file = forms.FileField(
         help_text='Drop or select a ZIP archive. A new LocalResource will be'+\
-        ' generated for each file in the archive.')
+        ' generated for each file in the archive.',
+        validators=[validatefiletype])
 
     choices = [('', '---------')]
 
