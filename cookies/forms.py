@@ -166,9 +166,11 @@ class ResourceForm(forms.ModelForm):
         Get the content type directly from the uploaded file.
         """
 
-        content_type = self.cleaned_data['file'].content_type
-        self.cleaned_data['content_type'] = content_type
-        return content_type
+        if 'file' in self.cleaned_data:
+            if hasattr(self.cleaned_data['file'], 'content_type'):
+                content_type = self.cleaned_data['file'].content_type
+                self.cleaned_data['content_type'] = content_type
+                return content_type
 
     def clean_name(self):
         """
