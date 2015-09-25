@@ -67,17 +67,17 @@ def sign_s3(request):
     #  {bucket}/a/s/d/f/1/asdf1234.jpg.
     e = min(len(object_name), 5)
     path = '/'.join([c for c in object_name[:e]])
-    string_to_sign = "PUT\n\n%s\n%d\n%s\n/%s/%s/%s" % (mime_type, expires, amz_headers, settings.S3_BUCKET, path, object_name)
+    string_to_sign = "PUT\n\n%s\n%d\n%s\n/%s/%s/%s" % (mime_type, expires, amz_headers, settings.AWS_STORAGE_BUCKET_NAME, path, object_name)
 
-    signature = base64.encodestring(hmac.new(settings.AWS_SECRET_KEY.encode(),
+    signature = base64.encodestring(hmac.new(settings.AWS_SECRET_ACCESS_KEY.encode(),
                                              string_to_sign.encode('utf8'),
                                              sha1).digest())
     signature = urllib.quote_plus(signature.strip())
 
-    url = 'https://%s.s3.amazonaws.com/%s/%s' % (settings.S3_BUCKET, path, object_name)
+    url = 'https://%s.s3.amazonaws.com/%s/%s' % (settings.AWS_STORAGE_BUCKET_NAME, path, object_name)
 
     content = {
-        'signed_request': '%s?AWSAccessKeyId=%s&Expires=%s&Signature=%s' % (url, settings.AWS_ACCESS_KEY, expires, signature),
+        'signed_request': '%s?AWSAccessKeyId=%s&Expires=%s&Signature=%s' % (url, settings.AWS_ACCESS_KEY_ID, expires, signature),
         'url': url,
     }
     return JsonResponse(content)

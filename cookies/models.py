@@ -20,12 +20,14 @@ logger.setLevel('ERROR')
 from jars import settings
 import concepts
 
+
 def resource_file_name(instance, filename):
     """
     Generates a file name for Files added to a :class:`.LocalResource`\.
     """
 
     return '/'.join(['content', filename])
+
 
 class HeritableObject(models.Model):
     """
@@ -52,6 +54,7 @@ class HeritableObject(models.Model):
 
     class Meta:
         abstract = True
+
 
 class Entity(HeritableObject):
     """
@@ -124,6 +127,7 @@ class Entity(HeritableObject):
     def __unicode__(self):
         return unicode(self.name)
 
+
 class Resource(Entity):
     """
     An :class:`.Entity` that contains potentially useful information.
@@ -133,13 +137,17 @@ class Resource(Entity):
     """
 
     indexable_content = models.TextField(blank=True, null=True)
+    content_type = models.CharField(max_length=255, blank=True)
+
+    @property
+    def text_available(self):
+        return len(self.indexable_content) > 2
 
     @property
     def stored(self):
         if hasattr(self, 'remoteresource'): return 'Remote'
         if hasattr(self, 'localresource'): return 'Local'
 
-    @property
     def get_absolute_url(self):
         return reverse("cookies.views.resource", args=(self.id,))
 
@@ -152,6 +160,7 @@ class Resource(Entity):
         permissions = (
             ('view_resource', 'View resource'),
         )
+
 
 class RemoteMixin(models.Model):
     """
@@ -166,6 +175,7 @@ class RemoteMixin(models.Model):
 
     class Meta:
         abstract = True
+
 
 class LocalMixin(models.Model):
     """
@@ -185,13 +195,13 @@ class LocalMixin(models.Model):
         Location where one can GET or PUT the LocalResource.file.
         """
 
-        try:
-            return rest_framework.reverse.reverse('resource_content', args=[self.id])
-        except:
+        if not self.id:
             return None
+        return rest_framework.reverse.reverse('resource_content', args=[self.id])
 
     class Meta:
         abstract = True
+
 
 class RemoteResource(Resource, RemoteMixin):
     """
@@ -200,6 +210,7 @@ class RemoteResource(Resource, RemoteMixin):
     """
 
     pass
+
 
 class LocalResource(Resource, LocalMixin):
     """
@@ -210,6 +221,7 @@ class LocalResource(Resource, LocalMixin):
 
     pass
 
+
 class Collection(Resource):
     """
     A set of :class:`.Entity` instances.
@@ -218,7 +230,6 @@ class Collection(Resource):
     resources = models.ManyToManyField( 'Resource', related_name='part_of',
                                         blank=True, null=True  )
 
-    @property
     def get_absolute_url(self):
         return reverse("cookies.views.collection", args=(self.id,))
 
