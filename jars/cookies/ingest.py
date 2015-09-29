@@ -1,4 +1,4 @@
-jfrom django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 from django.core.files import File
 from os.path import basename
@@ -9,14 +9,10 @@ from zipfile import ZipFile
 from os.path import basename
 
 
-import logging, logging.handlers
+import logging
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel('DEBUG')
-# Adding system handler
-console = logging.StreamHandler()
-console.setLevel("DEBUG")
-logger.addHandler(console)
 
 
 class BaseIngester(object):
@@ -37,10 +33,7 @@ class ZoteroRDFIngester(BaseIngester):
         self.zipfile = ZipFile(file)
         self.fnames = [ name for name in self.zipfile.namelist()
                             if not basename(name).startswith('._') ]
-        # To check logging
-        logger.debug("==Check logging==")
         for fname in self.fnames:
-            logger.debug(fname)
             self.zipfile.extract(fname, '/tmp/')
 
         # Locate the RDF file.
@@ -92,7 +85,7 @@ class ZoteroRDFIngester(BaseIngester):
 
         for btype in bib_types:
             articles = [ r[0] for r in self.graph.query('SELECT * WHERE { ?p a bib:'+btype+' }')]
-            debug('Found {0} {1} elements'.format(len(articles), btype))
+            logger.debug('Found {0} {1} elements'.format(len(articles), btype))
 
             # Don't bother loading the Type unless there are Resources to be
             #  created -- reduce DB load.
@@ -100,7 +93,7 @@ class ZoteroRDFIngester(BaseIngester):
 
                 # Generate a Type for this Resource.
                 rtype = Type.objects.get_or_create(name='Biblio.'+btype.lower())[0]
-                debug('loaded Type {0} in Schema {1}'.format(rtype, rtype.schema))
+                logger.debug('loaded Type {0} in Schema {1}'.format(rtype, rtype.schema))
 
             for article in articles:
                 fp, name, authors, pubdate, identifier = None, None, None, None, None
@@ -138,7 +131,7 @@ class ZoteroRDFIngester(BaseIngester):
                         resource.save()
                         resource.file.save(
                             fp.split('/')[-1], File(open(fp, 'r')), True)
-                        debug(
+                        logger.debug(
                             'created LocalResource {0}, with file {1}'.format(
                                 resource, resource.file)    )
 
