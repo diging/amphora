@@ -73,6 +73,8 @@ def handle_bulk(file, form):
     # Each file will result in a new LocalResource.
     for name in z.namelist():
         # Some archives have odd extra files, so we'll skip those.
+        # On extracting, some files may have names starting with ._ which are
+        # created by Mac osx and does not have relevant data. 
         if not basename(name).startswith('._'):
             # We need a filepointer to attach the file to the new LocalResource.
             fpath = z.extract(name, '/tmp/')
