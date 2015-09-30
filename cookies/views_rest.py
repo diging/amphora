@@ -1,6 +1,6 @@
 from django.conf.urls import url, include
 from django.contrib.auth.models import User
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from rest_framework import routers, serializers, viewsets, reverse, renderers, mixins
 from rest_framework.views import APIView
@@ -14,7 +14,11 @@ from rest_framework.authentication import TokenAuthentication
 from guardian.shortcuts import get_objects_for_user
 from django.db.models import Q
 
+from cookies.http import HttpResponseUnacceptable, IgnoreClientContentNegotiation
+
 import magic
+import re
+
 from models import *
 
 
@@ -38,20 +42,21 @@ class ResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Resource
         fields = ('url', 'id', 'uri', 'name','stored', 'content_location',
-                  'public')
+                  'public', 'text_available')
 
 
 class LocalResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = LocalResource
-        fields = ('url', 'id', 'name','stored', 'content_location', 'public')
+        fields = ('url', 'id', 'name','stored', 'content_location', 'public',
+                  'text_available')
 
 
 class RemoteResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = RemoteResource
-        fields = ('url', 'id', 'name','stored', 'location', 'content_location',
-                  'public')
+        fields = ('url', 'id', 'name', 'stored', 'location', 'content_location',
+                  'public', 'text_available')
 
 
 class CollectionSerializer(serializers.HyperlinkedModelSerializer):
@@ -143,24 +148,35 @@ class ResourceContentView(APIView):
     authentication_classes = (TokenAuthentication,)
     permission_classes = (ResourcePermission,)
 
+    # Allows us to work with Accept header directly.
+    content_negotiation_class = IgnoreClientContentNegotiation
+
     def get(self, request, pk):
         """
         Serve up the file for a :class:`.LocalResource`
         """
 
         resource = get_object_or_404(LocalResource, pk=pk)
-        if request.method == 'GET':
-            file = resource.file.storage.open(resource.file.name)
-            content = file.read()
-            content_type = magic.from_buffer(content)
 
-            response = HttpResponse(content, content_type=content_type)
+        # TODO: this could be more sophisticated.
+        accept = re.split('[,;]', request.META['HTTP_ACCEPT'])
 
-            cdpattern = 'attachment; filename="{fname}"'
-            fname = resource.file.name.split('/')[0]    # TODO: make simpler.
-            response['Content-Disposition'] = cdpattern.format(fname=fname)
+        # If the user wants the content of the original resource, great. If
+        #  the user wants only plain text, and the original resource is not
+        #  plain text, attempt to return any plain text that was extracted
+        #  at ingest.
+        if '*/*' not in accept and resource.content_type not in accept:
+            if 'text/plain' in accept and resource.text_available:
+                return HttpResponse(resource.indexable_content)
 
-            return response
+            # Fail miserably.
+            msgpattern = u'No resource available with type in "{0}"'
+            msg = msgpattern.format(request.META['HTTP_ACCEPT'])
+            return HttpResponseUnacceptable(msg)
+
+        # The file could live anywhere, so we just point the user in
+        #  that direction.
+        return HttpResponseRedirect(resource.file.url)
 
     def put(self, request, pk):
         """
@@ -169,15 +185,18 @@ class ResourceContentView(APIView):
 
         resource = get_object_or_404(LocalResource, pk=pk)
 
-        # Do not allow overwriting.
-        if hasattr(resource.file, 'url'):
-            return Response({
+        # The file associated with a LocalResource cannot be overwritten. JARS
+        #  does not support versioning.
+        if resource.file._committed:
+            data = {
                 "error": {
                     "status": 403,
                     "title": "Overwriting a LocalResource is not permitted.",
-                }}, status=403)
+                }}
+            return Response(data, status=403)
 
         resource.file = request.data['file']
+        resource.content_type = request.data['file'].content_type
         resource.save()
 
         return Response(status=204)
