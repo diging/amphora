@@ -402,7 +402,7 @@ class ResourceAdminForward(admin.ModelAdmin):
         else:
             form = BulkResourceForm()
 
-        return render(request, 'admin/generic_form.html', {'form':form})
+            return render(request, 'admin/generic_form.html', {'form':form})
 
 
     def get_queryset(self, request):
