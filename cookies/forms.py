@@ -159,12 +159,22 @@ class TargetField(forms.models.ModelChoiceField):
 
 
 class ResourceForm(forms.ModelForm):
+    content_type = forms.CharField(widget=forms.HiddenInput(), required=False)
+
     class Meta:
         exclude = ('indexable_content',)
         model = Resource
 
-    def save(self, commit=True):
-        return super(ResourceForm, self).save(commit)
+    def clean_content_type(self):
+        """
+        Get the content type directly from the uploaded file.
+        """
+
+        if 'file' in self.cleaned_data:
+            if hasattr(self.cleaned_data['file'], 'content_type'):
+                content_type = self.cleaned_data['file'].content_type
+                self.cleaned_data['content_type'] = content_type
+                return content_type
 
     def clean_name(self):
         """
@@ -202,7 +212,7 @@ class ResourceForm(forms.ModelForm):
 class LocalResourceForm(ResourceForm):
     class Meta:
         model = LocalResource
-        fields = ('name', 'file', 'entity_type','uri','public')
+        fields = ('name', 'file', 'content_type', 'entity_type','uri','public')
 
 class RemoteResourceForm(ResourceForm):
     class Meta:

@@ -57,19 +57,19 @@ def import_schema(schema_url, schema_title, default_domain=None):
 
     # Get all of the properties.
     properties = [ _handle_rdf_property(p,g) for p in g.subjects(type_element, property) ]
-    
+
     # Get all of the Classes.
     classes = [ _handle_rdf_property(p,g) for p in g.subjects(type_element, class_element) ]
     owl_classes = [ _handle_rdf_property(p,g) for p in g.subjects(type_element, owl_class_element) ]
-    
+
     logger.debug(
         '{0} properties, {1} classes, {2} OWL classes'.format(
             len(properties), len(classes), len(owl_classes)))
-    
+
     # Create a new Schema.
     schema = Schema(name=schema_title, uri=namespace)#, namespace=namespace)
     schema.save()
-    
+
     # Get the default domain Type, if specified.
     if default_domain is not None and default_domain != '':
         default_type = Type.objects.get(pk=int(default_domain))
@@ -95,14 +95,14 @@ def import_schema(schema_url, schema_title, default_domain=None):
         if default_type is not None:
             f.domain.add(default_type)
             f.save()
-        
+
         # Index the Field so that we can find it when handling parent-child
         #  relationships.
         fields[property['uri']] = f
 
     # Now go back and assign parenthood to each Field, where appropriate.
     for property in properties:
-    
+
         # Not all properties have parents.
         if len(property['parents']) > 0:
             for parent in property['parents']:
@@ -112,7 +112,7 @@ def import_schema(schema_url, schema_title, default_domain=None):
                     parent_field = Field.objects.get(uri=parent)
                 except ObjectDoesNotExist:
                     continue
-                
+
                 fields[property['uri']].parent = parent_field
                 fields[property['uri']].save()
 
@@ -138,7 +138,7 @@ def import_schema(schema_url, schema_title, default_domain=None):
 
     # Now go back and assign parenthood to each Type, where appropriate.
     for class_description in classes + owl_classes:
-    
+
         # Not all properties have parents.
         if len(class_description['parents']) > 0:
             for parent in class_description['parents']:
@@ -148,7 +148,7 @@ def import_schema(schema_url, schema_title, default_domain=None):
                     parent_type = Type.objects.get(uri=parent)
                 except ObjectDoesNotExist:
                     continue
-                
+
                 types[class_description['uri']].parent = parent_type
                 types[class_description['uri']].save()
 
@@ -159,7 +159,7 @@ def import_schema(schema_url, schema_title, default_domain=None):
 def _handle_rdf_property(p, g):
     description = rdflib.term.URIRef('http://purl.org/dc/terms/description')
     comment = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#comment')
-    
+
     label = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#label')
     range = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#range')
     subPropertyOf = rdflib.term.URIRef(
@@ -212,11 +212,11 @@ class RelationInline(admin.TabularInline):
     model = Relation
     form = RelationForm
     fk_name = 'source'
-    exclude = ('entity_type','name', 'hidden', 'public', 'namespace', 'uri',)
+    exclude = ('entity_type', 'name', 'hidden', 'public', 'namespace', 'uri',)
 
     def get_formset(self, request, obj=None, **kwargs):
         """
-        Modified to include ``obj`` in the call to 
+        Modified to include ``obj`` in the call to
         :meth:`.formfield_for_dbfield`\, so that we can apply instance-specific
         modifications to fields.
         """
@@ -237,7 +237,7 @@ class RelationInline(admin.TabularInline):
         # The field for Relation.predicate is labeled 'Field'.
         if obj and hasattr(formfield, 'label'):
             if formfield.label == 'Field' and obj.entity_type is not None:
-            
+
                 # Limit predicate Fields to those for which this Resource is
                 #  in their domain.
                 query = Q(domain=obj.entity_type) | Q(domain=None)
@@ -250,7 +250,7 @@ class RelationInline(admin.TabularInline):
 
 class StoredListFilter(admin.SimpleListFilter):
     """
-    Filter :class:`.Resource`\s based on whether they are 
+    Filter :class:`.Resource`\s based on whether they are
     :class:`.LocalResource`\s or :class:`.RemoteResource`\s.
     """
     title = _('storage location')
@@ -260,7 +260,7 @@ class StoredListFilter(admin.SimpleListFilter):
         """
         Defines filter options.
         """
-        
+
         return (
             ('local', _('Local')),
             ('remote', _('Remote')),
@@ -270,7 +270,7 @@ class StoredListFilter(admin.SimpleListFilter):
         """
         Generates querysets based on user's filter selection.
         """
-        
+
         if self.value() == 'local':
             return queryset.filter(real_type__model='localresource')
         elif self.value() == 'remote':
@@ -278,7 +278,7 @@ class StoredListFilter(admin.SimpleListFilter):
 
 class ResourceAdminForward(admin.ModelAdmin):
     """
-    
+
     """
 
     list_display =  (   'id', 'name','stored' )
@@ -286,10 +286,10 @@ class ResourceAdminForward(admin.ModelAdmin):
     list_filter = ( StoredListFilter, )
     form = ResourceForm
     inlines = (RelationInline,)
-    
+
     class Media:
         js = ('admin/js/contenteditable.js',)
-    
+
     def get_urls(self):
         """
         Here we override the add view to use a :class:`.ChooseResourceTypeForm`
@@ -301,7 +301,7 @@ class ResourceAdminForward(admin.ModelAdmin):
             url(r'^bulk/$', self.bulk_view, name='bulk-resource')
         )
         return my_urls + urls
-    
+
     def get_changelist_formset(self, request, **kwargs):
         """
         Changes the 'name' field to use a :class:`.ContenteditableInput`
@@ -313,21 +313,21 @@ class ResourceAdminForward(admin.ModelAdmin):
         formset.form.base_fields['name'].widget = ContenteditableInput()
 
         return formset
-    
+
     def get_form(self, request, obj=None, **kwargs):
         form = super(ResourceAdminForward, self).get_form(request,obj,**kwargs)
-        
+
         # Use different forms for Local and RemoteResources.
         if obj:
             if type(obj.cast()) is LocalResource:
                 form = LocalResourceForm
             elif type(obj.cast()) is RemoteResource:
                 form = RemoteResourceForm
-        
+
         # Limit entity_type to direct instantiations of Type and ConceptType.
         form.base_fields['entity_type'].queryset = Type.objects.filter(
             real_type__model__in=['type', 'concepttype'])
-        
+
         return form
 
     def change_view(self, request, obj_id, **kwargs):
@@ -351,23 +351,23 @@ class ResourceAdminForward(admin.ModelAdmin):
         Since we don't want the user to instantiate :class:`.Resource` directly,
         we will ask them to select a resource type and then direct them to the
         appropriate add view.
-        
+
         Presents a :class:`.ChooseResourceTypeForm`\. When the form is submitted
         will redirect the user to an add view for the chosen subclass of
         :class:`.Resource`\.
         """
-        
+
         # When the user submits their choice, we should figure out which
         #  subclass is appropriate, and redirect them to its add view.
         if request.method == 'POST':
             rtype = request.POST['resource_type']
-            
+
             if rtype == 'bulk':
                 rurl = reverse("admin:bulk-resource")
             else:
                 # Get the url for the add view based on the selected resource type.
                 rurl = reverse("admin:cookies_{0}_add".format(rtype))
-            
+
             # Since this view may be loaded in a popup (e.g. to add a Resource
             #  to a Collection) we should pass along any GET parameters to the
             #  ultimate add view.
@@ -376,14 +376,14 @@ class ResourceAdminForward(admin.ModelAdmin):
                                         in request.GET.items()  ])
 
             return HttpResponseRedirect(rurl)
-        
+
         # Load and render the ChooseResourceTypeForm.
         else:
             # The ChooseResourceTypeForm asks the user to select a resource
             #  type, which corresponds to a subclass of Resource (e.g.
             #  LocalResource).
             form = ChooseResourceTypeForm()
-            
+
             # The admin/generic_form.html template is nothing special;
             #  it just embeds the form in the admin base_site template.
             return render(request, 'admin/generic_form.html', {'form': form}  )
@@ -398,7 +398,7 @@ class ResourceAdminForward(admin.ModelAdmin):
             if form.is_valid():
                 content.handle_bulk(request.FILES['file'], form)
                 return HttpResponseRedirect(reverse("admin:cookies_resource_changelist"))
-    
+
         else:
             form = BulkResourceForm()
 
@@ -407,25 +407,26 @@ class ResourceAdminForward(admin.ModelAdmin):
 
     def get_queryset(self, request):
         """
-        Limit the QuerySet to :class:`.LocalResource` and 
+        Limit the QuerySet to :class:`.LocalResource` and
         :class:`.RemoteResource` instances.
         """
         qs = super(ResourceAdminForward, self).get_queryset(request)
         return qs.filter(real_type__model__in=['localresource','remoteresource'])
 
+
 class ResourceAdmin(admin.ModelAdmin):
     """
     Admin interface for managing :class:`.Resource`\s.
-    
+
     The main objective is to support adding/changing :class:`.Relation`\s for
     these :class:`.Resource`\s. This should be used by subclasses of
     :class:`.Resource` and NOT :class:`.Resource` itself.
     """
-    
+
     inlines = (RelationInline,)
     form = ResourceForm
     model = Resource
-    
+
     def changelist_view(self, request, **kwargs):
         """
         Redirect the user to the Resource changelist (rather than displaying
@@ -433,39 +434,39 @@ class ResourceAdmin(admin.ModelAdmin):
         """
         url = reverse("admin:cookies_resource_changelist")
         return HttpResponseRedirect(url)
-    
+
     def get_form(self, request, obj=None, **kwargs):
         """
         Use different forms for Local and RemoteResources.
         """
-        
+
         if self.model is LocalResource:
             form = LocalResourceForm
         elif self.model is RemoteResource:
             form = RemoteResourceForm
         else:
             form = super(ResourceAdmin, self).get_form(request, obj, **kwargs)
-        
+
         # Limit entity_type to direct instantiations of Type and ConceptType.
         form.base_fields['entity_type'].queryset = Type.objects.filter(
             real_type__model__in=['type', 'concepttype'])
-        
+
         return form
 
     def get_model_perms(self, request):
         """
         Return empty perms dict thus hiding the model from admin index.
-        
+
         Parameters
         ----------
         request : :class:`django.http.HttpRequest`
-        
+
         Returns
         -------
         perms : dict
             An empty dict.
         """
-        
+
         return {}
 
 
@@ -477,29 +478,30 @@ class CollectionAdmin(admin.ModelAdmin):
     filter_horizontal = ('resources',)
     list_display = ('name',)
     exclude = ('entity_type','hidden','namespace','uri','indexable_content')
-    
+
     model = Collection
+
 
 class HiddenAdmin(admin.ModelAdmin):
     """
     Subclasses of the :class:`.HiddenAdmin` will not be visible in the list of
     admin changelist views, but individual objects will be accessible directly.
     """
-    
+
     def get_model_perms(self, request):
         """
         Return empty perms dict thus hiding the model from admin index.
-        
+
         Parameters
         ----------
         request : :class:`django.http.HttpRequest`
-        
+
         Returns
         -------
         perms : dict
             An empty dict.
         """
-        
+
         return {}
 
 class FieldAdmin(admin.ModelAdmin):
@@ -513,7 +515,7 @@ class FieldAdmin(admin.ModelAdmin):
 
     def get_form(self, request, obj=None, **kwargs):
         """
-        Available values for :prop:`.domain` and :prop:`.range` should be 
+        Available values for :prop:`.domain` and :prop:`.range` should be
         limited to :class:`.Type` objects that directly instantiate the
         :class:`.Type` or :class:`.ConceptType` classes.
         """
@@ -525,12 +527,14 @@ class FieldAdmin(admin.ModelAdmin):
             real_type__model__in=['type','concepttype'])
         return form
 
+
 class FieldInline(admin.TabularInline):
     fk_name = 'schema'
     model = Field
     exclude = ( 'entity_type', 'hidden', 'public', 'namespace', 'uri',
                 'description',  )
     extra = 1
+
 
 class SchemaAdmin(admin.ModelAdmin):
     exclude = ('entity_type', 'hidden', 'public')
@@ -542,19 +546,19 @@ class SchemaAdmin(admin.ModelAdmin):
         Supports an extra step, in which the user chooses whether to add a
         :class:`.Schema` manually, or from a remote RDF file.
         """
-        
+
         if request.method == 'POST':
-        
+
             # If a form was submitted, this may have been either to choose the
             #  method (manual or remote) for adding a schema, or a submission
             #  of the actual add form.
             if 'schema_method' in request.POST:
-            
+
                 # If the 'schema_method' field is present, then the user has
                 #  submitted (presently, or in an earlier step) the method
                 #  choice form. Now we determine which one they chose.
                 if request.POST['schema_method'] == 'remote':
-                
+
                     # If the 'schema_url' field is present, then the user has
                     #  just submitted the remote schema form.
                     if 'schema_url' not in request.POST:
@@ -570,12 +574,12 @@ class SchemaAdmin(admin.ModelAdmin):
                         form = RemoteSchemaForm()
                         return render(request, 'admin/schema_remote_form.html',
                                         {'form': form}  )
-                
+
                     # Instantiate the Form and validate.
                     form = RemoteSchemaForm(request.POST)
                     if form.is_valid():
                         logger.debug('form {0} is valid'.format(form))
-                    
+
                         # If the form is valid, add the remote schema.
                         try:
                             self.add_remote_schema(form)
@@ -591,7 +595,7 @@ class SchemaAdmin(admin.ModelAdmin):
 
                         # ...or if we encounter a problem parsing the RDF doc.
                         except IndexError as E:
-                            
+
                             if 'schema_url' not in form.errors:
                                 form.errors['schema_url'] = []
                             form.errors['schema_url'] += ('Not valid RDF',)
@@ -628,9 +632,9 @@ class SchemaAdmin(admin.ModelAdmin):
         Handles the case in which the user selects to add a :class:`.Schema`
         from a remote RDF file.
         """
-        
+
         # The user has elected to add a schema from a remote RDF file.
-        
+
         # If a form was submitted, then the user just submitted the remote
         #  schema add form.
         schema_url = form.cleaned_data['schema_url']
@@ -646,10 +650,10 @@ class TypeAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         """
-        Should include only direct instances of :class:`.Type` and 
+        Should include only direct instances of :class:`.Type` and
         :class:`.ConceptType`\.
         """
-        
+
         qs = super(TypeAdmin, self).get_queryset(request)
         return qs.filter(real_type__model__in=('type', 'concepttype'))
 
@@ -661,4 +665,3 @@ admin.site.register(Resource, ResourceAdminForward)
 admin.site.register(LocalResource, ResourceAdmin)
 admin.site.register(RemoteResource, ResourceAdmin)
 admin.site.register(Collection, CollectionAdmin)
-
