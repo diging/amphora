@@ -18,17 +18,17 @@ from jars import settings
 class CreateLocalResourceCase(TestCase):
     """
     3.3.1.1 Use case: Create Local Resource
-    
+
     Brief Description
     -----------------
     The Curator creates a new Local Resource by uploading a file from their
     computer.
-    
+
     Step-by-Step Description
     ------------------------
     The Curator has already accessed the JARS main administrative interface, and
     may have accessed the Resource change list.
-    
+
     1. The Curator selects Add Resource.
     2. The system presents a choice of adding a local or remote resource.
     3. The Curator selects to add a local resource.
@@ -38,11 +38,11 @@ class CreateLocalResourceCase(TestCase):
     6. The system validates the form data and creates a new Local Resource
        object in the database.
     7. The system returns the Curator to the Resource change list.
-    
+
     Postcondition
     -------------
     The Local Resource has been added to the database.
-    
+
     Other
     -----
     Optional fields include Type, and whether the Resource is restricted.
@@ -52,17 +52,17 @@ class CreateLocalResourceCase(TestCase):
         """
         Create a User, and log them in.
         """
-        
+
         self.rf = RequestFactory()
 
         self.user = User.objects.create_user('tester', password='secret')
         self.user.is_superuser = True
         self.user.is_staff = True
         self.user.save()
-        
+
         self.c = Client()
         self.c.login(username='tester', password='secret')
-        
+
         self.url_prefix = "http://testserver"
         self.add_url = reverse("admin:cookies_resource_add")
         self.add_localurl = reverse("admin:cookies_localresource_add")
@@ -74,9 +74,9 @@ class CreateLocalResourceCase(TestCase):
         The Curator selects Add Resource. The system presents a choice of adding
         a local or remote resource.
         """
-        
+
         response = self.c.get(self.add_url, follow=True)
-        
+
         self.assertIsInstance(response, HttpResponse,
                 'Returns incorrect response'    )
         self.assertEqual(response.status_code, 200, 'Response status not OK')
@@ -89,7 +89,7 @@ class CreateLocalResourceCase(TestCase):
         The Curator selects to add a local resource. The system presents a blank
         form.
         """
-        
+
         response = self.c.post(self.add_url, {'resource_type': 'localresource'},
                     follow=True )
 
@@ -109,7 +109,7 @@ class CreateLocalResourceCase(TestCase):
         creates a new Local Resource object in the database. The system returns
         the Curator to the Resource change list.
         """
-        
+
         with open('./cookies/static/cookies/img/icon_addlink.gif', 'r') as f:
             data = {
                 'relations_from-TOTAL_FORMS': 1,
@@ -123,7 +123,7 @@ class CreateLocalResourceCase(TestCase):
 
         self.assertIsInstance(response, HttpResponseRedirect,
                 'Returns incorrect response'    )
-        
+
         self.assertEqual(response.url, self.url_prefix + self.locallist_url,
                 'Redirects to incorrect URL'    )
 
@@ -135,22 +135,22 @@ class CreateLocalResourceCase(TestCase):
 class CreateRemoteResourceCase(TestCase):
     """
     3.3.1.2 Use case: Create Remote Resource
-    
+
     Brief Description
     -----------------
     The Curator creates a new Remote Resource by entering the URL of a resource
     on a remote service.
-    
+
     Step-by-Step Description
     ------------------------
     The Curator has already accessed the JARS main administrative interface, and
     may have accessed the Resource change list.
-    
+
     1. The Curator selects Add Resource.
     2. The system presents a choice of adding a local or remote resource.
     3. The Curator selects to add a remote resource.
     4. The system presents a blank form.
-    5. The Curator enters a resource name, enters the URL of the remote 
+    5. The Curator enters a resource name, enters the URL of the remote
        resource, fills optional fields (can assign Type, flag as restricted),
        and submits the form.
     6. The system validates the form data and creates a new Remote Resource
@@ -170,17 +170,17 @@ class CreateRemoteResourceCase(TestCase):
         """
         Create a User, and log them in.
         """
-        
+
         self.rf = RequestFactory()
 
         self.user = User.objects.create_user('tester', password='secret')
         self.user.is_superuser = True
         self.user.is_staff = True
         self.user.save()
-        
+
         self.c = Client()
         self.c.login(username='tester', password='secret')
-        
+
         self.url_prefix = "http://testserver"
         self.add_url = reverse("admin:cookies_resource_add")
         self.add_remoteurl = reverse("admin:cookies_remoteresource_add")
@@ -193,9 +193,9 @@ class CreateRemoteResourceCase(TestCase):
         The Curator selects Add Resource. The system presents a choice of adding
         a local or remote resource.
         """
-        
+
         response = self.c.get(self.add_url, follow=True)
-        
+
         self.assertIsInstance(response, HttpResponse,
                 'Returns incorrect response'    )
         self.assertEqual(response.status_code, 200, 'Response status not OK')
@@ -205,10 +205,10 @@ class CreateRemoteResourceCase(TestCase):
 
     def test_user_selects_remote(self):
         """
-        The Curator selects to add a remote resource. The system presents a 
+        The Curator selects to add a remote resource. The system presents a
         blank form.
         """
-        
+
         response = self.c.post(self.add_url,
                     {'resource_type': 'remoteresource'}, follow=True )
 
@@ -223,13 +223,13 @@ class CreateRemoteResourceCase(TestCase):
 
     def test_user_submits_remote_form(self):
         """
-        The Curator enters a resource name, enters the URL of the remote 
+        The Curator enters a resource name, enters the URL of the remote
         resource, fills optional fields (can assign Type, flag as restricted),
         and submits the form. The system validates the form data and creates a
         new Remote Resource object in the database. The system returns the
         Curator to the Resource change list.
         """
-        
+
         data = {
             'relations_from-TOTAL_FORMS': 1,
             'relations_from-INITIAL_FORMS': 0,
@@ -253,16 +253,16 @@ class CreateRemoteResourceCase(TestCase):
 class UpdateMetadataCase(TestCase):
     """
     3.3.1.3 Use case: Update Metadata
-    
+
     Brief Description
     -----------------
     The Curator updates the metadata for a Resource by selecting fields and
     entering values for those fields.
-    
+
     Step-by-Step Description
     ------------------------
     The Curator has already accessed the Resource change list.
-    
+
     1. The Curator selects a Resource from the Resource change list.
     2. The system displays a form with existing metadata pre-filled, and an
        option to add a metadata Field to a resource.
@@ -273,15 +273,15 @@ class UpdateMetadataCase(TestCase):
     6. The system validates the form data and creates a new metadata Relation
        object in the database.
     7. The system returns the Curator to the Resource change list.
-    
+
     Alternate Paths
     ---------------
     * At step 3, instead of adding a new Field the Curator can change the values
       of metadata Fields already added to the Resource.
     * At step 3, the Curator can also delete existing metadata Fields.
-    * At step 5, the Curator can add additional metadata Fields before 
+    * At step 5, the Curator can add additional metadata Fields before
       submitting the form.
-      
+
     Postcondition
     -------------
     * A new metadata Relation has been added to the database.
@@ -296,17 +296,17 @@ class UpdateMetadataCase(TestCase):
         """
         Create a User, and log them in.
         """
-        
+
         self.rf = RequestFactory()
 
         self.user = User.objects.create_user('tester', password='secret')
         self.user.is_superuser = True
         self.user.is_staff = True
         self.user.save()
-        
+
         self.c = Client()
         self.c.login(username='tester', password='secret')
-        
+
         self.url_prefix = "http://testserver"
         self.list_url = reverse("admin:cookies_resource_changelist")
         self.locallist_url = reverse("admin:cookies_localresource_changelist")
@@ -314,7 +314,7 @@ class UpdateMetadataCase(TestCase):
 
         self.resource = LocalResource(name='TestResource')
         self.resource.save()
-    
+
         self.change_url = reverse("admin:cookies_resource_change",
             args=(self.resource.id,))
         self.localchange_url = reverse("admin:cookies_localresource_change",
@@ -329,7 +329,7 @@ class UpdateMetadataCase(TestCase):
         The Curator selects a Resource from the Resource change list. The system
         displays a form with existing metadata pre-filled, and an option to add
         a metadata Field to a resource.
-        
+
         Updated: the system will redirect to the form, hence a 302 response. We
         don't expect a context or form here, either.
         """
@@ -347,12 +347,12 @@ class UpdateMetadataCase(TestCase):
         #  test Resource, self.resource, is a LocalResource; it would be
         #  otherwise for a RemoteResource).
         response = self.c.get(response.url)
-        
+
         self.assertEqual(response.status_code, 200,
             'Expected status 200 but received {0}'.format(response.status_code))
         self.assertIn('adminform', response.context,
             'Response contains no form')
-        
+
         form_inst = response.context['adminform']
         self.assertIsInstance(form_inst, AdminForm,
             'Returns no AdminForm; got a {0} instead'.format(type(form_inst)))
@@ -386,12 +386,12 @@ class UpdateMetadataCase(TestCase):
         response = self.c.post(self.localchange_url, data)
         self.assertIsInstance(response, HttpResponseRedirect,
                 'Returns incorrect response'    )
-        
+
         self.assertEqual(response.status_code, 302,
             'Expected status 302 but received {0}'.format(response.status_code))
         self.assertEqual(response.url, self.url_prefix + self.locallist_url,
             'Redirects to incorrect URL'    )
-            
+
         # If we follow the redirect, we should get another redirect to the
         #  Resource list view.
         response = self.c.get(response.url)
@@ -399,7 +399,7 @@ class UpdateMetadataCase(TestCase):
             'Expected status 302 but received {0}'.format(response.status_code))
         self.assertEqual(response.url, self.url_prefix + self.list_url,
             'Redirects to incorrect URL'    )
-            
+
         # If we follow the redirect, we should finally arrive at the Resource
         #  list view with status 200.
         response = self.c.get(response.url)
@@ -415,10 +415,10 @@ class UpdateMetadataCase(TestCase):
 class CreateMetadataSchemaManuallyCase(TestCase):
     """
     3.3.1.8 Use case: Create Metadata Schema
-    
+
     The Curator creates a new Metadata Schema by entering a name for that
     Schema.
-    
+
     Step-by-Step Description
     ------------------------
     1. The Curator has already accessed the JARS main administrative interface,
@@ -431,27 +431,27 @@ class CreateMetadataSchemaManuallyCase(TestCase):
     6. The Curator enters a name for the Schema, and submits the form.
     7. The system creates a new Schema in the database, and returns the User to
        the Schema changelist view.
-    
+
     Postcondition
     -------------
     The Schema has been added to the database.
     """
-    
+
     def setUp(self):
         """
         Create a User, and log them in.
         """
-        
+
         self.rf = RequestFactory()
 
         self.user = User.objects.create_user('tester', password='secret')
         self.user.is_superuser = True
         self.user.is_staff = True
         self.user.save()
-        
+
         self.c = Client()
         self.c.login(username='tester', password='secret')
-        
+
         self.url_prefix = "http://testserver"
         self.add_url = reverse("admin:cookies_schema_add")
         self.list_url = reverse("admin:cookies_schema_changelist")
@@ -465,7 +465,7 @@ class CreateMetadataSchemaManuallyCase(TestCase):
         """
 
         response = self.c.get(self.add_url, follow=True)
-        
+
         self.assertIsInstance(response, HttpResponse,
                 'Returns incorrect response'    )
         self.assertEqual(response.status_code, 200, 'Response status not OK')
@@ -496,7 +496,7 @@ class CreateMetadataSchemaManuallyCase(TestCase):
         system creates a new Schema in the database, and returns the User to
         the Schema changelist view.
         """
-        
+
         data = {
             'types-TOTAL_FORMS': 1,
             'types-INITIAL_FORMS': 0,
@@ -521,19 +521,19 @@ class CreateMetadataSchemaManuallyCase(TestCase):
 class AddMetadataFieldtoSchemaCase(TestCase):
     """
     3.3.1.9 Use case: Add Metadata Field to Schema
-    
+
     Brief Description
     -----------------
     The Curator adds a new metadata field by entering a name for the Field, and
     optionally selecting domain and range Types, and/or a parent Field. The
     Curator adds the Field to a Schema by selecting a Schema while adding or
     editing a Field.
-    
+
     Step-by-Step Description
     ------------------------
     The Curator has already accessed the JARS main administrative interface, and
     may have accessed the Field change list.
-    
+
     1. The Curator selects to add a Field.
     2. The system presents a blank form.
     3. The Curator enters a name for the field, and optionally selects domain
@@ -542,7 +542,7 @@ class AddMetadataFieldtoSchemaCase(TestCase):
        submits the form.
     5. The system creates the new Field in the database, and associates it with
        the selected Schema.
-       
+
     Postcondition
     -------------
     The Field has been added to the database, along with a reference to the
@@ -553,21 +553,21 @@ class AddMetadataFieldtoSchemaCase(TestCase):
         """
         Create a User, and log them in.
         """
-        
+
         self.rf = RequestFactory()
 
         self.user = User.objects.create_user('tester', password='secret')
         self.user.is_superuser = True
         self.user.is_staff = True
         self.user.save()
-        
+
         self.c = Client()
         self.c.login(username='tester', password='secret')
-        
+
         self.url_prefix = "http://testserver"
         self.add_url = reverse("admin:cookies_field_add")
         self.list_url = reverse("admin:cookies_field_changelist")
-    
+
         self.schema = Schema(   name='TestSchema'   )
         self.schema.save()
 
@@ -577,7 +577,7 @@ class AddMetadataFieldtoSchemaCase(TestCase):
         """
 
         response = self.c.get(self.add_url, follow=True)
-        
+
         self.assertIsInstance(response, HttpResponse,
                 'Returns incorrect response'    )
         self.assertEqual(response.status_code, 200, 'Response status not OK')
@@ -590,8 +590,8 @@ class AddMetadataFieldtoSchemaCase(TestCase):
         """
         The Curator enters a name for the field, and optionally selects domain
         and range Types, and/or a parent Field. The Curator selects a Schema to
-        which the Field should be added, and submits the form. The system 
-        creates the new Field in the database, and associates it with the 
+        which the Field should be added, and submits the form. The system
+        creates the new Field in the database, and associates it with the
         selected Schema.
         """
 
@@ -606,7 +606,7 @@ class AddMetadataFieldtoSchemaCase(TestCase):
                 'Returns incorrect response'    )
         self.assertEqual(response.url, self.url_prefix + self.list_url,
                 'Redirects to incorrect URL'    )
-                
+
         # Check the database.
         field = Field.objects.filter(name='TestField')
         self.assertEqual(field.count(), 1,
@@ -618,16 +618,16 @@ class AddMetadataFieldtoSchemaCase(TestCase):
 class CreateMetadataSchemaFromRDFCase(TestCase):
     """
     3.3.1.10 Use case: Add Metadata Schema from RDF
-    
+
     Brief Description
     -----------------
     The Curator adds a metadata schema by specifying a remote RDF file.
-    
+
     Step-by-Step Description
     ------------------------
     The Curator has already accessed the JARS main administrative interface, and
     may have accessed the Schema change list.
-    
+
     1. The Curator selects to add a Schema.
     2. The system presents the option to create a schema manually, or from an
        RDF document.
@@ -636,7 +636,7 @@ class CreateMetadataSchemaFromRDFCase(TestCase):
     5. The Curator enters a URL for the RDF document and submits the form.
     6. The system reads and interprets the RDF document, and creates a new
        Schema and Fields accordingly.
-    
+
     Postcondition
     -------------
     The Schema and Fields have been added to the database.
@@ -646,17 +646,17 @@ class CreateMetadataSchemaFromRDFCase(TestCase):
         """
         Create a User, and log them in.
         """
-        
+
         self.rf = RequestFactory()
 
         self.user = User.objects.create_user('tester', password='secret')
         self.user.is_superuser = True
         self.user.is_staff = True
         self.user.save()
-        
+
         self.c = Client()
         self.c.login(username='tester', password='secret')
-        
+
         self.add_url = reverse("admin:cookies_schema_add")
         self.list_url = reverse("admin:cookies_schema_changelist")
 
@@ -678,9 +678,9 @@ class CreateMetadataSchemaFromRDFCase(TestCase):
     def test_user_submits_remote_form(self):
         """
         The Curator enters a URL for the RDF document and submits the form.
-        The system reads and interprets the RDF document, and creates a new 
+        The system reads and interprets the RDF document, and creates a new
         Schema and Fields accordingly.
-        
+
         Notes
         -----
         This test currently fails because testserver URLs aren't recognized as
@@ -694,9 +694,9 @@ class CreateMetadataSchemaFromRDFCase(TestCase):
             }
 
         response = self.c.post(self.add_url, data)
-        
+
         self.assertIsInstance(response, HttpResponse,
-            'Returns incorrect response'    )            
+            'Returns incorrect response'    )
         self.assertEqual(response.status_code, 302, # Redirect.
             'Expected status 302 but received {0}'.format(response.status_code))
 
@@ -707,3 +707,5 @@ class CreateMetadataSchemaFromRDFCase(TestCase):
         self.assertEqual(schema[0].types.count(), 77,
                 'The Fields were not added to the database' )
 
+
+Class

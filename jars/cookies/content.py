@@ -3,7 +3,7 @@
 from django.core.files import File
 from django.db.models.fields.files import FieldFile
 from django.db import IntegrityError
-
+from os.path import basename
 import slate
 import magic
 from bs4 import BeautifulSoup
@@ -12,6 +12,11 @@ from uuid import uuid4
 import os
 
 from .models import *
+
+import logging, logging.handlers
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel('DEBUG')
 
 xml_mime_types = [
     'application/xml', 'text/xml', 'text/html', 'text/x-server-parsed-html',
@@ -58,7 +63,6 @@ def handle_bulk(file, form):
     # The user has uploaded a zip file.
     # TODO: handle exceptions (e.g. not a zip file).
     z = zipfile.ZipFile(file)
-    
     # User can indicate a default Type to assign to each new Resource.
     default_type = form.cleaned_data['default_type']
 
@@ -68,10 +72,10 @@ def handle_bulk(file, form):
 
     # Each file will result in a new LocalResource.
     for name in z.namelist():
-    
         # Some archives have odd extra files, so we'll skip those.
-        if not name.startswith('._'):
-        
+        # On extracting, some files may have names starting with ._ which are
+        # created by Mac osx and does not have relevant data. 
+        if not basename(name).startswith('._'):
             # We need a filepointer to attach the file to the new LocalResource.
             fpath = z.extract(name, '/tmp/')
             fname = fpath.split('/')[-1]
@@ -81,33 +85,32 @@ def handle_bulk(file, form):
                 continue
 
             with open(fpath, 'r') as f:
-                
+
                 # This partial random UUID will help us to create a new unique
                 #  name if we encounter a duplicate.
                 _uuid = str(uuid4())[-5:]
-                
+
                 # First, try to create a LocalResource using the filename alone.
                 try:
                     resource = LocalResource(name=name)
                     resource.save()
-                
+
                 # If that doesn't work, add the partial random UUID to the end
                 #  of the filename.
                 except IntegrityError:
-                
+
                     # ...unless the user has chosen to ignore duplicates.
                     if bail_on_duplicate:
                         continue
-                    
+
                     resource = LocalResource(name=fname + _uuid)
                     resource.save()
-                    
+
                 # Now we associate the file, and save the LocalResource again.
                 resource.file.save(fname, File(f), True)
-                
+
                 # If the user has selected a default type for these resources,
                 #  load and assign it.
                 if default_type:
                     resource.entity_type = Type.objects.get(pk=default_type)
                     resource.save()
-
