@@ -38,7 +38,7 @@
                 <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
             {% endblock %}
         </div>
-        {% else %}            
+        {% else %}
         <div id="user-tools">
             <a href="{% url 'admin:login' %}">{% trans 'Log in' %}</a>
         </div>
@@ -48,7 +48,7 @@
     <!-- END Header -->
     {% block breadcrumbs %}
     <div class="breadcrumbs">
-    <a href="{% url 'cookies.views.index' %}">{% trans 'Home' %}</a>
+    <a href="{% url 'cookies.views.index' %}">{% trans 'Admin' %}</a>
     {% if title %} &rsaquo; {{ title }}{% endif %}
     </div>
     {% endblock %}
