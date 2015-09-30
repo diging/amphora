@@ -57,5 +57,4 @@ target/
 *.cnf
 
 db.sqlite3
-
 jars/static/*
