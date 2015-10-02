@@ -90,7 +90,9 @@ class Entity(HeritableObject):
     def save(self, *args, **kwargs):
         # Enforce unique name.
         if self.name is not None:
-            logger.debug('save Entity with name {0}'.format(self.name))
+            # Ensure encoding is in utf-8
+            utf_name = self.name.encode('utf-8')
+            logger.debug('save Entity with name {0}'.format(utf_name))
             with_name = Entity.objects.filter(name=self.name)
 
             # No Entity exists with that name.
