@@ -141,7 +141,9 @@ class Resource(Entity):
 
     @property
     def text_available(self):
-        return len(self.indexable_content) > 2
+        if self.indexable_content:
+            return len(self.indexable_content) > 2
+        return False
 
     @property
     def stored(self):
