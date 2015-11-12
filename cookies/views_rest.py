@@ -182,18 +182,20 @@ class ResourceContentView(APIView):
         """
         Update the file for a :class:`.LocalResource`
         """
-
         resource = get_object_or_404(LocalResource, pk=pk)
 
         # The file associated with a LocalResource cannot be overwritten. JARS
         #  does not support versioning.
-        if resource.file._committed:
+        # print resource.file.__dict__
+        
+        if resource.file._file:
             data = {
                 "error": {
                     "status": 403,
                     "title": "Overwriting a LocalResource is not permitted.",
                 }}
             return Response(data, status=403)
+
 
         resource.file = request.data['file']
         resource.content_type = request.data['file'].content_type
