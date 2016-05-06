@@ -54,12 +54,12 @@ def resource_post_save(sender, **kwargs):
     indexable content from its associated file (if there is one).
     """
 
-    if instance.indexable_content and len(instance.indexable_content) > 0:
-        return
-        
     instance = kwargs.get('instance', None)
     logger.debug(
         'post_save signal for Resource, instance: {0}'.format(instance))
+
+    if instance.indexable_content and len(instance.indexable_content) > 0:
+        return
 
     # Only attempt to extract content if the instance has a file associated
     #  with it, and indexable_content has not been set.
