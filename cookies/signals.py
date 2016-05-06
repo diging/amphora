@@ -1,6 +1,8 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import models
+from haystack import signals
 
 from cookies.models import ConceptType, ConceptEntity, Resource
 from cookies import content
@@ -60,7 +62,7 @@ def resource_post_save(sender, **kwargs):
 
     if instance.processed:
         return
-    
+
     # Only attempt to extract content if the instance has a file associated
     #  with it, and indexable_content has not been set.
     if instance.file._committed and not instance.indexable_content:
@@ -68,3 +70,24 @@ def resource_post_save(sender, **kwargs):
 
 # TODO: list for RemoteResource post_save and try to get text via request and
 # BeautifulSoup.text
+
+
+class ResourceSignalProcessor(signals.RealtimeSignalProcessor):
+    def handle_save(self, sender, instance, **kwargs):
+        """
+        Given an individual model instance, determine which backends the
+        update should be sent to & update the object on those backends.
+        """
+        if hasattr(instance, 'content_resource'):
+            if instance.content_resource:
+                return
+
+        using_backends = self.connection_router.for_write(instance=instance)
+
+        for using in using_backends:
+            try:
+                index = self.connections[using].get_unified_index().get_index(sender)
+                index.update_object(instance, using=using)
+            except NotHandled:
+                # TODO: Maybe log it or let the exception bubble?
+                pass
