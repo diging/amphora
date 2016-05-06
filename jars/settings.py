@@ -171,7 +171,7 @@ LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
 
 HOSTNAME = socket.gethostname()
 
-STATICFILES_STORAGE = 'whitenoise.django.GzipManifestStaticFilesStorage'
+# STATICFILES_STORAGE = 'whitenoise.django.GzipManifestStaticFilesStorage'
 #
 # DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
 
