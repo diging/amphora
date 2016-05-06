@@ -164,7 +164,7 @@ STATIC_ROOT = 'static/'
 MEDIA_ROOT = os.environ.get('MEDIA_ROOT', 'media')
 MEDIA_URL = MEDIA_ROOT + '/'
 
-URI_NAMESPACE = 'http://jars'
+URI_NAMESPACE = 'http://diging.asu.edu/amphora'
 
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
