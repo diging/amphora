@@ -45,6 +45,7 @@ class TargetResourceSerializer(serializers.HyperlinkedModelSerializer):
 
 class RelationSerializer(serializers.HyperlinkedModelSerializer):
     target = TargetResourceSerializer()
+    predicate = FieldSerializer()
     class Meta:
         model = Relation
         fields = ('id', 'uri', 'url', 'name', 'target', 'predicate')
