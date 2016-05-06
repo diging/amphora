@@ -91,4 +91,4 @@ class JARSElasticsearchSearchBackend(Elasticsearch2SearchBackend):
                                      geo_sort=geo_sort)
 
 class JARSElasticsearchSearchEngine(Elasticsearch2SearchEngine):
-    backend = JARSlasticsearch2SearchBackend
+    backend = JARSElasticsearchSearchBackend
