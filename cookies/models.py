@@ -98,7 +98,7 @@ class Entity(models.Model):
         #        flexibility (e.g. calling a Handle server).
         if not self.uri:
             self.uri = u'/'.join([settings.URI_NAMESPACE,
-                                  self.__class__.__name__,
+                                  self.__class__.__name__.lower(),
                                   unicode(self.id)])
         super(Entity, self).save()
 
