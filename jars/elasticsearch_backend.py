@@ -1,48 +1,12 @@
-from haystack.backends.elasticsearch_backend import ElasticsearchSearchBackend, ElasticsearchSearchEngine, ElasticsearchSearchQuery
-import six
+from haystack.backends.elasticsearch2_backend import Elasticsearch2SearchBackend, Elasticsearch2SearchEngine
+from haystack.models import SearchResult
 
 
-class JARSElasticsearchSearchQuery(ElasticsearchSearchQuery):
-    def clean(self, query_fragment):
-        """
-        Provides a mechanism for sanitizing user input before presenting the
-        value to the backend.
-        A basic (override-able) implementation is provided.
-        """
-        # print query_fragment
-        if not isinstance(query_fragment, six.string_types):
-            return query_fragment
-
-        words = query_fragment.split()
-        cleaned_words = []
-        # print words
-        for word in words:
-            if word in self.backend.RESERVED_WORDS:
-                word = word.replace(word, word.lower())
-
-            for char in self.backend.RESERVED_CHARACTERS:
-                word = word.replace(char, '\\%s' % char)
-
-            cleaned_words.append(word)
-        # print cleaned_words
-
-        return ' '.join(cleaned_words)
-
-
-class JARSElasticsearchSearchBackend(ElasticsearchSearchBackend):
-    RESERVED_CHARACTERS = (
-        '\\', '+', '-', '&&', '||', '!', '(', ')', '{', '}',
-        '[', ']', '^', '"', '~',  ':', '/', #'*', '?',
-    )
-
+class JARSElasticsearchSearchBackend(Elasticsearch2SearchBackend):
     DEFAULT_SETTINGS = {
         'settings': {
             "analysis": {
                 "analyzer": {
-                    "default" : {
-                        "tokenizer" : "standard",
-                        "filter" : ["standard", "asciifolding"]
-                    },
                     "ngram_analyzer": {
                         "type": "custom",
                         "tokenizer": "standard",
@@ -51,7 +15,7 @@ class JARSElasticsearchSearchBackend(ElasticsearchSearchBackend):
                     "edgengram_analyzer": {
                         "type": "custom",
                         "tokenizer": "standard",
-                        "filter": ["haystack_edgengram", "lowercase", "asciifolding"]
+                        "filter": ["haystack_edgengram", "lowercase"]
                     }
                 },
                 "tokenizer": {
@@ -83,7 +47,48 @@ class JARSElasticsearchSearchBackend(ElasticsearchSearchBackend):
         }
     }
 
+    def search(self, query_string, **kwargs):
+        if len(query_string) == 0:
+            return {
+                'results': [],
+                'hits': 0,
+            }
 
-class JARSElasticsearchSearchEngine(ElasticsearchSearchEngine):
-    backend = JARSElasticsearchSearchBackend
-    query = JARSElasticsearchSearchQuery
+        if not self.setup_complete:
+            self.setup()
+
+        search_kwargs = self.build_search_kwargs(query_string, **kwargs)
+        search_kwargs['from'] = kwargs.get('start_offset', 0)
+
+        order_fields = set()
+        for order in search_kwargs.get('sort', []):
+            for key in order.keys():
+                order_fields.add(key)
+
+        geo_sort = '_geo_distance' in order_fields
+
+        end_offset = kwargs.get('end_offset')
+        start_offset = kwargs.get('start_offset', 0)
+        if end_offset is not None and end_offset > start_offset:
+            search_kwargs['size'] = end_offset - start_offset
+
+        try:
+            raw_results = self.conn.search(body=search_kwargs,
+                                           index=self.index_name,
+                                           doc_type='modelresult',
+                                           _source=True)
+        except elasticsearch.TransportError as e:
+            if not self.silently_fail:
+                raise
+
+            self.log.error("Failed to query Elasticsearch using '%s': %s", query_string, e, exc_info=True)
+            raw_results = {}
+
+        return self._process_results(raw_results,
+                                     highlight=kwargs.get('highlight'),
+                                     result_class=kwargs.get('result_class', SearchResult),
+                                     distance_point=kwargs.get('distance_point'),
+                                     geo_sort=geo_sort)
+
+class JARSElasticsearchSearchEngine(Elasticsearch2SearchEngine):
+    backend = JARSlasticsearch2SearchBackend
