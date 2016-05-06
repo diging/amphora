@@ -2,6 +2,9 @@ from django.core.files import File
 from django.db.models.fields.files import FieldFile
 from django.db import IntegrityError
 from django.db.models import Q
+from django.db.models.signals import post_save
+
+from signals import resource_post_save
 
 import slate
 import magic
@@ -13,7 +16,7 @@ import os
 
 from cookies.models import *
 from cookies.ingest import read
-
+from cookies.context import temporarily_disconnect_signal
 
 xml_mime_types = [
     'application/xml', 'text/xml', 'text/html', 'text/x-server-parsed-html',
@@ -45,7 +48,8 @@ def handle_content(obj, commit=True):
             else:
                 obj.indexable_content += ' '
     if commit:
-        obj.save()
+        with temporarily_disconnect_signal(post_save, resource_post_save, Resource):
+            obj.save()
 
 
 def indexable(mime_type):
