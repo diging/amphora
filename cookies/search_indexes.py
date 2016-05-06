@@ -15,4 +15,14 @@ class ResourceIndex(indexes.SearchIndex, indexes.Indexable):
         return self.get_model().objects.filter(content_resource=False)
 
     def prepare_text(self, instance):
-        return u'\n\n'.join([instance.name, instance.indexable_content])
+        if instance.name:
+            name = instance.name
+        else:
+            name = ''
+
+        if instance.indexable_content:
+            indexable = instance.indexable_content
+        else:
+            indexable = ''
+
+        return u'\n\n'.join([name, indexable])
