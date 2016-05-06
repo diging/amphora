@@ -4,24 +4,23 @@ from rest_framework.urlpatterns import format_suffix_patterns
 from django.conf import settings
 from django.conf.urls.static import static
 
-import autocomplete_light
-autocomplete_light.autodiscover()
-
 from django.contrib import admin
 admin.autodiscover()
 
 from cookies import views, views_rest
+from cookies.autocomplete import EntityAutocomplete
+
 
 router = routers.DefaultRouter()
 router.register(r'resource', views_rest.ResourceViewSet)
-router.register(r'localresource', views_rest.LocalResourceViewSet)
-router.register(r'remoteresource', views_rest.RemoteResourceViewSet)
 router.register(r'collection', views_rest.CollectionViewSet)
+router.register(r'relation', views_rest.RelationViewSet)
+router.register(r'field', views_rest.FieldViewSet)
 
 
 urlpatterns = patterns('',
     url(r'^admin/', include(admin.site.urls)),
-    url(r'^autocomplete/', include('autocomplete_light.urls')),
+    url(r'^autocomplete/$', EntityAutocomplete.as_view(create_field='name'), name='autocomplete'),
 
     url(r'^resource/([0-9]+)/$', views.resource, name="resource"),
     url(r'^resource/$', views.resource_list, name="resources"),
@@ -31,7 +30,7 @@ urlpatterns = patterns('',
     url(r'^rest/', include(router.urls)),
     url(r'^rest/auth/$', include('rest_framework.urls', namespace='rest_framework')),
 
-    url(r'^search/', include('haystack.urls'), name='search'),
+    url(r'^search/$', views.ResourceSearchView.as_view(), name='search'),
     url(r'^o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^s3/', views.sign_s3, name='sign_s3'),
     url(r'^testupload/', views.test_upload, name='test_upload'),

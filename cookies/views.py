@@ -7,6 +7,10 @@ from django.db.models.query import QuerySet
 from django.db.models import Q
 from django.conf import settings
 
+from haystack.generic_views import SearchView
+from haystack.query import SearchQuerySet
+
+
 from guardian.shortcuts import get_objects_for_user
 
 import iso8601
@@ -15,7 +19,7 @@ import magic
 from hashlib import sha1
 import time, os, json, base64, hmac, urllib
 
-import autocomplete_light
+from dal import autocomplete
 
 from .forms import *
 from .models import *
@@ -84,3 +88,33 @@ def sign_s3(request):
 
 def test_upload(request):
     return render(request, 'testupload.html', {})
+
+
+class ResourceSearchView(SearchView):
+    """Class based view for thread-safe search."""
+    template = 'templates/search/search.html'
+    queryset = SearchQuerySet()
+    results_per_page = 20
+
+    def get_context_data(self, *args, **kwargs):
+        """Return context data."""
+        context = super(ResourceSearchView, self).get_context_data(*args, **kwargs)
+        sort_base = self.request.get_full_path().split('?')[0] + '?q=' + context['query']
+
+        context.update({
+            'sort_base': sort_base,
+        })
+        return context
+
+    def form_valid(self, form):
+
+        self.queryset = form.search()
+
+        context = self.get_context_data(**{
+            self.form_name: form,
+            'query': form.cleaned_data.get(self.search_field),
+            'object_list': self.queryset,
+            'search_results' : self.queryset,
+        })
+
+        return self.render_to_response(context)

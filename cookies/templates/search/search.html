@@ -18,15 +18,11 @@
             {% if query %}
                 <div class="search-results">
                 <table class="results-table">
-                {% for result in page.object_list %}
+                {% for result in page_obj.object_list %}
                     <tr>
                         <td>
-                            <a href="{{ result.object.get_absolute_url }}">{{ result.object.name }}</a> ({{ result.object.stored }})
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <p class="highlight"> {% highlight result.object.indexable_content with query %}</p>
+                            <h4><a href="{{ result.object.get_absolute_url }}">{{ result.name }}</a></h4>
+                            <p class="highlight"> {% highlight result.text with query %}</p>
                         </td>
                     </tr>
                 {% empty %}

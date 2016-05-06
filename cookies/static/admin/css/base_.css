@@ -477,11 +477,11 @@ textarea, select, .vTextField {
     border: 1px solid #ccc;
     margin-bottom: 5px;
     background: #fff;
-   	border-top-left-radius: 5px; 
-   	border-top-right-radius: 5px; 
-   	border-bottom-left-radius: 15px; 
-   	border-bottom-right-radius: 15px; 
-   	
+   	border-top-left-radius: 5px;
+   	border-top-right-radius: 5px;
+   	border-bottom-left-radius: 15px;
+   	border-bottom-right-radius: 15px;
+
    	overflow: hidden;
 }
 
@@ -863,7 +863,7 @@ img.bigjar {
 .index-login {
     margin-left: auto;
     margin-right: auto;
-    width: 220px;    
+    width: 220px;
     text-align: center;
 }
 
@@ -908,29 +908,29 @@ div.search {
     div.search li {
         list-style: none;
     }
-    
+
         div.search-results {
-            text-align: center;
+            text-align: left;
         }
-          
-        
+
+
         table.results-table {
             margin-left: auto;
             margin-right:auto;
-            width: 70%;
+            width: 90%;
         }
-    
+
         span.highlighted {
             color: orange;
         }
-        
+
     .search-input {
-        width: 60%; 
+        width: 60%;
         height: 2.25em;
         outline: none;
         border: 1px solid gray;
     }
-    
+
 /* Custom views */
 
 .resource_summary div{
@@ -939,38 +939,38 @@ div.search {
     .resource_name {
         padding: 6px 0px;
     }
-    
+
 .collection_summary div{
     padding: 4px 0px;
 }
     .collection_name {
         padding: 6px 0px;
-    }    
-    
+    }
+
 .resource_collections {
     width: 80%;
 }
     .resource_collections table {
         width: 100%;
     }
-    
+
 .resource_relations {
     width: 80%;
 }
     .resource_relations table {
         width: 100%;
-    }       
-    
+    }
+
 .collection_resources {
     width: 80%;
 }
     .collection_resources table {
         width: 100%;
-    }    
-    
+    }
+
 .collection_relations {
     width: 80%;
 }
     .collection_relations table {
         width: 100%;
-    }        
+    }

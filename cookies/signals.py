@@ -2,13 +2,15 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.exceptions import ObjectDoesNotExist
 
-from .models import ConceptType, ConceptEntity, LocalResource
-from . import content
+from cookies.models import ConceptType, ConceptEntity, Resource
+from cookies import content
+from tasks import handle_content
 
 import logging
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel('DEBUG')
+
 
 @receiver(post_save, sender=ConceptEntity)
 def conceptentity_post_save(sender, **kwargs):
@@ -38,28 +40,28 @@ def conceptentity_post_save(sender, **kwargs):
                     'name': type_instance.label,
                     'type_concept': type_instance,
                 })[0]
-                
+
             # We associate this cookies.ConceptType with its corresponding
             #  concepts.Type instance to make it easier to find later on.
             instance.entity_type = ctype_instance
             instance.save()
 
-@receiver(post_save, sender=LocalResource)
-def localresource_post_save(sender, **kwargs):
+
+@receiver(post_save, sender=Resource)
+def resource_post_save(sender, **kwargs):
     """
-    When a :class:`.LocalResource` is saved, we will attempt to extract any
+    When a :class:`.Resource` is saved, we will attempt to extract any
     indexable content from its associated file (if there is one).
     """
 
     instance = kwargs.get('instance', None)
     logger.debug(
-        'post_save signal for LocalResource, instance: {0}'.format(instance))
+        'post_save signal for Resource, instance: {0}'.format(instance))
 
     # Only attempt to extract content if the instance has a file associated
     #  with it, and indexable_content has not been set.
     if instance.file._committed and not instance.indexable_content:
-        # TODO: Celery-ify.
-        content.handle_content(instance)
+        handle_content.delay(instance)
 
 # TODO: list for RemoteResource post_save and try to get text via request and
 # BeautifulSoup.text

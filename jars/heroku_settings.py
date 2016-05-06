@@ -36,7 +36,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
 #    "audit_log.middleware.UserLoggingMiddleware",
 )
 
-ALLOWED_HOSTS = ['diging.asu.edu']
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -56,7 +56,7 @@ INSTALLED_APPS = (
     'oauth2_provider',
     'rest_framework',
     'rest_framework.authtoken',
-
+    'djcelery',
     'guardian',
 
 )

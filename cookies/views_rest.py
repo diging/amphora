@@ -22,6 +22,34 @@ import re
 from models import *
 
 
+class MultiSerializerViewSet(viewsets.ModelViewSet):
+    serializers = {
+        'default': None,
+    }
+
+    def get_serializer_class(self):
+        return self.serializers.get(self.action, self.serializers['default'])
+
+
+class FieldSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Field
+        fields = ('id', 'name')
+
+
+class TargetResourceSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Resource
+        fields = ('id', 'name')
+
+
+class RelationSerializer(serializers.HyperlinkedModelSerializer):
+    target = TargetResourceSerializer()
+    class Meta:
+        model = Relation
+        fields = ('id', 'uri', 'url', 'name', 'target', 'predicate')
+
+
 class ResourcePermission(BasePermission):
     def has_object_permission(self, request, view, obj):
         authorized = request.user.has_perm('cookies.view_resource', obj)
@@ -30,43 +58,45 @@ class ResourcePermission(BasePermission):
         return True
 
 
-class ContentField(serializers.Field):
-    def to_representation(self, obj):
-        return obj.url
-
-    def to_internal_value(self, data):
-        return data
-
-
-class ResourceSerializer(serializers.HyperlinkedModelSerializer):
+class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Resource
-        fields = ('url', 'id', 'uri', 'name','stored', 'content_location',
-                  'public', 'text_available')
+        fields = ('url', 'id', 'uri', 'name', 'public',)
 
 
-class LocalResourceSerializer(serializers.HyperlinkedModelSerializer):
+class ContentRelationSerializer(serializers.HyperlinkedModelSerializer):
+    content_resource = ContentResourceSerializer()
     class Meta:
-        model = LocalResource
-        fields = ('url', 'id', 'name','stored', 'content_location', 'public',
-                  'text_available')
+        model = ContentRelation
+        fields = ('id', 'content_resource', 'content_type', 'content_encoding')
 
 
-class RemoteResourceSerializer(serializers.HyperlinkedModelSerializer):
+
+class ResourceDetailSerializer(serializers.HyperlinkedModelSerializer):
+    content = ContentRelationSerializer(many=True)
+    relations_from = RelationSerializer(many=True)
+
     class Meta:
-        model = RemoteResource
-        fields = ('url', 'id', 'name', 'stored', 'location', 'content_location',
-                  'public', 'text_available')
+        model = Resource
+        fields = ('url', 'id', 'uri', 'name', 'public', 'content', 'relations_from')
+
+
+class ResourceListSerializer(serializers.HyperlinkedModelSerializer):
+    content = ContentRelationSerializer(many=True)
+
+    class Meta:
+        model = Resource
+        fields = ('url', 'uri', 'name', 'public', 'content',)
 
 
 class CollectionSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Collection
-        fields = ('url', 'id', 'name', 'uri', 'public')
+        fields = ('url', 'name', 'uri', 'public', 'size')
 
 
 class CollectionDetailSerializer(serializers.HyperlinkedModelSerializer):
-    resources = ResourceSerializer(many=True, read_only=True)
+    resources = ResourceListSerializer(many=True, read_only=True)
     class Meta:
         model = Collection
         fields = ('url', 'id', 'name', 'resources', 'public')
@@ -86,60 +116,40 @@ class CollectionViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class ResourceViewSet(  mixins.RetrieveModelMixin,
-                        mixins.ListModelMixin,
-                        viewsets.GenericViewSet):
+class RelationViewSet(viewsets.ModelViewSet):
+    parser_classes = (JSONParser,)
+    queryset = Relation.objects.all()
+    serializer_class = RelationSerializer
+    parser_classes = (JSONParser,)
+
+
+class FieldViewSet(viewsets.ModelViewSet):
+    parser_classes = (JSONParser,)
+    queryset = Field.objects.all()
+    serializer_class = FieldSerializer
+    parser_classes = (JSONParser,)
+
+
+
+class ResourceViewSet(MultiSerializerViewSet):
     parser_classes = (JSONParser,)
     queryset = Resource.objects.all()
-    serializer_class = ResourceSerializer
+    serializers = {
+        'list': ResourceListSerializer,
+        'retrieve':  ResourceDetailSerializer,
+        'default':  ResourceListSerializer,
+    }
     permission_classes = (ResourcePermission,)
+
 
     def get_queryset(self):
         queryset = super(ResourceViewSet, self).get_queryset()
+
+        if not self.kwargs.get('pk', None):
+            queryset = queryset.filter(content_resource=False)
         uri = self.request.query_params.get('uri', None)
         if uri:
             queryset = queryset.filter(uri=uri)
-        return queryset
-
-
-class LocalResourceViewSet(viewsets.ModelViewSet):
-    parser_classes = (JSONParser,)
-    queryset = LocalResource.objects.all()
-    serializer_class = LocalResourceSerializer
-    parser_classes = (JSONParser,)
-    permission_classes = (ResourcePermission,)
-
-    def get_queryset(self):
-        queryset = super(LocalResourceViewSet, self).get_queryset()
-
-        # Check permissions. For some reason ResourcePermission is not getting
-        #  a vote here, so we'll have to do this for now.
-        viewperm = get_objects_for_user(self.request.user,
-                                        'cookies.view_resource')
-        queryset = queryset.filter(
-            Q(hidden=False)       # No hidden resources, ever
-            & (Q(public=True)     # Either the resource is public, or...
-                | Q(pk__in=[r.id for r in viewperm])))  # The user has permission.
-        return queryset
-
-
-class RemoteResourceViewSet(viewsets.ModelViewSet):
-    parser_classes = (JSONParser,)
-    queryset = RemoteResource.objects.all()
-    serializer_class = RemoteResourceSerializer
-    permission_classes = (ResourcePermission,)
-
-    def get_queryset(self):
-        queryset = super(RemoteResourceViewSet, self).get_queryset()
-
-        # Check permissions. For some reason ResourcePermission is not getting
-        #  a vote here, so we'll have to do this for now.
-        viewperm = get_objects_for_user(self.request.user,
-                                        'cookies.view_resource')
-        queryset = queryset.filter(
-            Q(hidden=False)       # No hidden resources, ever
-            & (Q(public=True)     # Either the resource is public, or...
-                | Q(pk__in=[r.id for r in viewperm])))  # The user has permission.
         return queryset
 
 
@@ -153,10 +163,10 @@ class ResourceContentView(APIView):
 
     def get(self, request, pk):
         """
-        Serve up the file for a :class:`.LocalResource`
+        Serve up the file for a :class:`.Resource`
         """
 
-        resource = get_object_or_404(LocalResource, pk=pk)
+        resource = get_object_or_404(Resource, pk=pk)
 
         # TODO: this could be more sophisticated.
         accept = re.split('[,;]', request.META['HTTP_ACCEPT'])
@@ -180,22 +190,20 @@ class ResourceContentView(APIView):
 
     def put(self, request, pk):
         """
-        Update the file for a :class:`.LocalResource`
+        Update the file for a :class:`.Resource`
         """
-        resource = get_object_or_404(LocalResource, pk=pk)
 
-        # The file associated with a LocalResource cannot be overwritten. JARS
+        resource = get_object_or_404(Resource, pk=pk)
+
+        # The file associated with a Resource cannot be overwritten. JARS
         #  does not support versioning.
-        # print resource.file.__dict__
-        
         if resource.file._file:
             data = {
                 "error": {
                     "status": 403,
-                    "title": "Overwriting a LocalResource is not permitted.",
+                    "title": "Overwriting a Resource is not permitted.",
                 }}
             return Response(data, status=403)
-
 
         resource.file = request.data['file']
         resource.content_type = request.data['file'].content_type

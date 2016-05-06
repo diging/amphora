@@ -9,6 +9,7 @@ from django.template import RequestContext
 from django import forms
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
+from django.contrib.contenttypes.admin import GenericTabularInline
 
 
 from urllib2 import HTTPError
@@ -16,13 +17,12 @@ from urllib2 import HTTPError
 from functools import partial
 from itertools import chain
 from unidecode import unidecode
-import autocomplete_light
 
 import rdflib
 
 from .models import *
 from .forms import *
-from . import content
+from cookies.tasks import handle_bulk
 
 import logging
 logging.basicConfig()
@@ -52,7 +52,7 @@ def import_schema(schema_url, schema_title, default_domain=None):
 
 #    # Get the title of the schema.
 #    titled = [ p for p in g.subjects(predicate=title) ][0]
-#    namespace = str(titled)
+#    namespace = unicode(titled)
     namespace = schema_url
 
     # Get all of the properties.
@@ -193,225 +193,40 @@ def _handle_rdf_property(p, g):
             this_label = unidecode(labels[0])
 
     except IndexError:
-        this_label = str(p).split('#')[-1]
+        this_label = unicode(p).split('#')[-1]
 
     # Grab only the attributes we'll need, and string-ify so we're not
     #  reliant on rdflib downstream.
     prop = {
-        'uri': str(p),
+        'uri': unicode(p),
         'label': this_label,
         'description': this_description,
         'range': this_range,
-        'parents': [ str(unidecode(s)) for s in g.objects(p, subPropertyOf) ] +\
-                    [ str(unidecode(s)) for s in g.objects(p, subClassOf) ],
+        'parents': [s for s in g.objects(p, subPropertyOf)] +\
+                    [s for s in g.objects(p, subClassOf)],
         }
 
     return prop
 
-class RelationInline(admin.TabularInline):
+
+class ContentInline(admin.TabularInline):
+    """
+    Tabular inline representing :class:`.ContentRelation` instances for a
+    :class:`.Resource` instance.
+    """
+    fk_name = 'for_resource'
+    model = ContentRelation
+    extra = 0
+
+
+class RelationInline(GenericTabularInline):
     model = Relation
     form = RelationForm
-    fk_name = 'source'
-    exclude = ('entity_type', 'name', 'hidden', 'public', 'namespace', 'uri',)
-
-    def get_formset(self, request, obj=None, **kwargs):
-        """
-        Modified to include ``obj`` in the call to
-        :meth:`.formfield_for_dbfield`\, so that we can apply instance-specific
-        modifications to fields.
-        """
-
-        kwargs['formfield_callback'] = partial(
-            self.formfield_for_dbfield, request=request, obj=obj)
-        return super(RelationInline, self).get_formset(request, obj, **kwargs)
-
-    def formfield_for_dbfield(self, db_field, **kwargs):
-        """
-        Modified to alter QuerySet for the Relation.predicate.
-        """
-        obj = kwargs.pop('obj', None)
-
-        formfield = super(RelationInline, self).formfield_for_dbfield(
-                                                            db_field, **kwargs)
-
-        # The field for Relation.predicate is labeled 'Field'.
-        if obj and hasattr(formfield, 'label'):
-            if formfield.label == 'Field' and obj.entity_type is not None:
-
-                # Limit predicate Fields to those for which this Resource is
-                #  in their domain.
-                query = Q(domain=obj.entity_type) | Q(domain=None)
-                qs = Field.objects.filter(query)
-                # ... or Fields for which a domain is not specified.
-
-                formfield.queryset = qs
-
-        return formfield
-
-class StoredListFilter(admin.SimpleListFilter):
-    """
-    Filter :class:`.Resource`\s based on whether they are
-    :class:`.LocalResource`\s or :class:`.RemoteResource`\s.
-    """
-    title = _('storage location')
-    parameter_name = 'stored'
-
-    def lookups(self, request, model_admin):
-        """
-        Defines filter options.
-        """
-
-        return (
-            ('local', _('Local')),
-            ('remote', _('Remote')),
-        )
-
-    def queryset(self, request, queryset):
-        """
-        Generates querysets based on user's filter selection.
-        """
-
-        if self.value() == 'local':
-            return queryset.filter(real_type__model='localresource')
-        elif self.value() == 'remote':
-            return queryset.filter(real_type__model='remoteresource')
-
-class ResourceAdminForward(admin.ModelAdmin):
-    """
-
-    """
-
-    list_display =  (   'id', 'name','stored' )
-    list_editable = (   'name', )
-    list_filter = ( StoredListFilter, )
-    form = ResourceForm
-    inlines = (RelationInline,)
-
-    class Media:
-        js = ('admin/js/contenteditable.js',)
-
-    def get_urls(self):
-        """
-        Here we override the add view to use a :class:`.ChooseResourceTypeForm`
-        which, when submitted, redirects to the appropriate add view for a
-        subclass of :class:`.Resource`\.
-        """
-        urls = super(ResourceAdminForward, self).get_urls()
-        my_urls = patterns('',
-            url(r'^bulk/$', self.bulk_view, name='bulk-resource')
-        )
-        return my_urls + urls
-
-    def get_changelist_formset(self, request, **kwargs):
-        """
-        Changes the 'name' field to use a :class:`.ContenteditableInput`
-        widget.
-        """
-        formset = super(ResourceAdminForward, self).get_changelist_formset(
-                                                            request, **kwargs)
-
-        formset.form.base_fields['name'].widget = ContenteditableInput()
-
-        return formset
-
-    def get_form(self, request, obj=None, **kwargs):
-        form = super(ResourceAdminForward, self).get_form(request,obj,**kwargs)
-
-        # Use different forms for Local and RemoteResources.
-        if obj:
-            if type(obj.cast()) is LocalResource:
-                form = LocalResourceForm
-            elif type(obj.cast()) is RemoteResource:
-                form = RemoteResourceForm
-
-        # Limit entity_type to direct instantiations of Type and ConceptType.
-        form.base_fields['entity_type'].queryset = Type.objects.filter(
-            real_type__model__in=['type', 'concepttype'])
-
-        return form
-
-    def change_view(self, request, obj_id, **kwargs):
-        """
-        Redirect to the appropriate change view based on the Resource subclass
-        of the object with ``obj_id``.
-        """
-
-        obj = Resource.objects.get(pk=obj_id).cast()
-        if isinstance(obj, LocalResource):
-            url = reverse("admin:cookies_localresource_change", args=(obj_id,))
-        elif isinstance(obj, RemoteResource):
-            url = reverse("admin:cookies_remoteresource_change", args=(obj_id,))
-        else:
-            return super(ResourceAdminForward, self).change_view(
-                                                      request, obj_id, **kwargs)
-        return HttpResponseRedirect(url)
-
-    def add_view(self, request, **kwargs):
-        """
-        Since we don't want the user to instantiate :class:`.Resource` directly,
-        we will ask them to select a resource type and then direct them to the
-        appropriate add view.
-
-        Presents a :class:`.ChooseResourceTypeForm`\. When the form is submitted
-        will redirect the user to an add view for the chosen subclass of
-        :class:`.Resource`\.
-        """
-
-        # When the user submits their choice, we should figure out which
-        #  subclass is appropriate, and redirect them to its add view.
-        if request.method == 'POST':
-            rtype = request.POST['resource_type']
-
-            if rtype == 'bulk':
-                rurl = reverse("admin:bulk-resource")
-            else:
-                # Get the url for the add view based on the selected resource type.
-                rurl = reverse("admin:cookies_{0}_add".format(rtype))
-
-            # Since this view may be loaded in a popup (e.g. to add a Resource
-            #  to a Collection) we should pass along any GET parameters to the
-            #  ultimate add view.
-            rurl += '?' + '&'.join([ '='.join([param,value])
-                                        for param, value
-                                        in request.GET.items()  ])
-
-            return HttpResponseRedirect(rurl)
-
-        # Load and render the ChooseResourceTypeForm.
-        else:
-            # The ChooseResourceTypeForm asks the user to select a resource
-            #  type, which corresponds to a subclass of Resource (e.g.
-            #  LocalResource).
-            form = ChooseResourceTypeForm()
-
-            # The admin/generic_form.html template is nothing special;
-            #  it just embeds the form in the admin base_site template.
-            return render(request, 'admin/generic_form.html', {'form': form}  )
-
-    def bulk_view(self, request, **kwargs):
-        """
-        View for bulk uploads.
-        """
-
-        if request.method == 'POST':
-            form = BulkResourceForm(request.POST, request.FILES)
-            if form.is_valid():
-                content.handle_bulk(request.FILES['file'], form)
-                return HttpResponseRedirect(reverse("admin:cookies_resource_changelist"))
-
-        else:
-            form = BulkResourceForm()
-
-            return render(request, 'admin/generic_form.html', {'form':form})
-
-
-    def get_queryset(self, request):
-        """
-        Limit the QuerySet to :class:`.LocalResource` and
-        :class:`.RemoteResource` instances.
-        """
-        qs = super(ResourceAdminForward, self).get_queryset(request)
-        return qs.filter(real_type__model__in=['localresource','remoteresource'])
+    ct_field = 'source_type'
+    ct_fk_field = 'source_instance_id'
+    exclude = ('name', 'hidden', 'public', 'namespace', 'uri', 'target_type',
+               'target_instance_id', 'entity_type')
+    extra = 0
 
 
 class ResourceAdmin(admin.ModelAdmin):
@@ -423,51 +238,40 @@ class ResourceAdmin(admin.ModelAdmin):
     :class:`.Resource` and NOT :class:`.Resource` itself.
     """
 
-    inlines = (RelationInline,)
+    inlines = (ContentInline, RelationInline,)
     form = ResourceForm
     model = Resource
 
-    def changelist_view(self, request, **kwargs):
-        """
-        Redirect the user to the Resource changelist (rather than displaying
-        the subtype changelist).
-        """
-        url = reverse("admin:cookies_resource_changelist")
-        return HttpResponseRedirect(url)
+    def get_queryset(self, request):
+        return Resource.objects.filter(content_resource=False)
 
-    def get_form(self, request, obj=None, **kwargs):
+    def bulk_view(self, request, **kwargs):
         """
-        Use different forms for Local and RemoteResources.
+        View for bulk uploads.
         """
 
-        if self.model is LocalResource:
-            form = LocalResourceForm
-        elif self.model is RemoteResource:
-            form = RemoteResourceForm
+        if request.method == 'POST':
+            form = BulkResourceForm(request.POST, request.FILES)
+            if form.is_valid():
+                handle_bulk.delay(request.FILES['file'].temporary_file_path(), {k: v for k, v in form.cleaned_data.iteritems() if k != 'file'})
+                return HttpResponseRedirect(reverse("admin:cookies_resource_changelist"))
+
         else:
-            form = super(ResourceAdmin, self).get_form(request, obj, **kwargs)
+            form = BulkResourceForm()
 
-        # Limit entity_type to direct instantiations of Type and ConceptType.
-        form.base_fields['entity_type'].queryset = Type.objects.filter(
-            real_type__model__in=['type', 'concepttype'])
+            return render(request, 'admin/generic_form.html', {'form':form})
 
-        return form
-
-    def get_model_perms(self, request):
+    def get_urls(self):
         """
-        Return empty perms dict thus hiding the model from admin index.
-
-        Parameters
-        ----------
-        request : :class:`django.http.HttpRequest`
-
-        Returns
-        -------
-        perms : dict
-            An empty dict.
+        Here we override the add view to use a :class:`.ChooseResourceTypeForm`
+        which, when submitted, redirects to the appropriate add view for a
+        subclass of :class:`.Resource`\.
         """
-
-        return {}
+        urls = super(ResourceAdmin, self).get_urls()
+        my_urls = patterns('',
+            url(r'^bulk/$', self.bulk_view, name='bulk-resource')
+        )
+        return my_urls + urls
 
 
 class CollectionAdmin(admin.ModelAdmin):
@@ -504,13 +308,14 @@ class HiddenAdmin(admin.ModelAdmin):
 
         return {}
 
+
 class FieldAdmin(admin.ModelAdmin):
-    fields = (  'name', 'namespace', 'uri', 'schema', 'parent', 'description',
-                'domain', 'range'   )
-    list_display = (    'schema', 'parent', 'name', )
-    list_filter = ( 'schema',   )
-    exclude = ( 'entity_type', 'hidden', 'public',  )
-    filter_vertical = (   'domain', 'range'   )
+    fields = ('name', 'namespace', 'uri', 'schema', 'parent', 'description',
+              'domain', 'range')
+    list_display = ('name', 'parent', 'schema')
+    list_filter = ('schema',)
+    exclude = ('entity_type', 'hidden', 'public',)
+    filter_vertical = ('domain', 'range')
     form = FieldAdminForm
 
     def get_form(self, request, obj=None, **kwargs):
@@ -521,10 +326,8 @@ class FieldAdmin(admin.ModelAdmin):
         """
 
         form = super(FieldAdmin, self).get_form(request, obj, **kwargs)
-        form.base_fields['domain'].queryset = Type.objects.filter(
-            real_type__model__in=['type','concepttype'])
-        form.base_fields['range'].queryset = Type.objects.filter(
-            real_type__model__in=['type','concepttype'])
+        form.base_fields['domain'].queryset = Type.objects.all()
+        form.base_fields['range'].queryset = Type.objects.all()
         return form
 
 
@@ -537,8 +340,7 @@ class FieldInline(admin.TabularInline):
 
 
 class SchemaAdmin(admin.ModelAdmin):
-    exclude = ('entity_type', 'hidden', 'public')
-
+    exclude = ('hidden', 'public')
     inlines = (FieldInline,)
 
     def add_view(self, request):
@@ -605,8 +407,7 @@ class SchemaAdmin(admin.ModelAdmin):
 
 
                     # Pass the invalid form back to the view.
-                    return render(request, 'admin/schema_remote_form.html',
-                                    {'form': form}  )
+                    return render(request, 'admin/schema_remote_form.html', {'form': form})
                 elif request.POST['schema_method'] == 'manual':
                     # If the 'name' field is present, it means that the user has
                     #  submitted the manual schema add form.
@@ -644,24 +445,17 @@ class SchemaAdmin(admin.ModelAdmin):
         # TODO: handle exceptions (especially IntegrityError).
         import_schema(schema_url, schema_title, default_domain)
 
+
 class TypeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'parent', 'schema')
+    list_display = ['name', 'parent', 'schema']
+    link_fields = ('name',)
     list_filter = ('schema',)
 
-    def get_queryset(self, request):
-        """
-        Should include only direct instances of :class:`.Type` and
-        :class:`.ConceptType`\.
-        """
-
-        qs = super(TypeAdmin, self).get_queryset(request)
-        return qs.filter(real_type__model__in=('type', 'concepttype'))
 
 admin.site.register(Type, TypeAdmin)
 admin.site.register(Field, FieldAdmin)
 admin.site.register(Schema, SchemaAdmin)
 
-admin.site.register(Resource, ResourceAdminForward)
-admin.site.register(LocalResource, ResourceAdmin)
-admin.site.register(RemoteResource, ResourceAdmin)
+admin.site.register(Resource, ResourceAdmin)
 admin.site.register(Collection, CollectionAdmin)
+admin.site.register(ContentRelation)

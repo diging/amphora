@@ -1,9 +1,14 @@
 from django.db import models, IntegrityError, transaction
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericRelation
+from django.contrib.contenttypes.fields import GenericForeignKey
 from django.core.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.urlresolvers import reverse
+
+from django.conf import settings
+
 import rest_framework
 
 import iso8601
@@ -16,128 +21,108 @@ logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel('ERROR')
 
-
 from jars import settings
 import concepts
 
 
-def resource_file_name(instance, filename):
+def help_text(text):
+    return u' '.join([chunk.strip() for chunk in text.split('\n')])
+
+
+
+def _resource_file_name(instance, filename):
     """
     Generates a file name for Files added to a :class:`.LocalResource`\.
     """
 
-    return '/'.join(['content', filename])
+    return '/'.join([unicode(instance.id), 'content', filename])
 
 
-class HeritableObject(models.Model):
-    """
-    An object that is aware of its "real" type, i.e. the subclass that it
-    instantiates.
-    """
-
-    real_type = models.ForeignKey(ContentType, editable=False)
-
-    def save(self, *args, **kwargs):
-        if not self.id:
-            self.real_type = self._get_real_type()
-        super(HeritableObject, self).save(*args, **kwargs)
-
-    def _get_real_type(self):
-        return ContentType.objects.get_for_model(type(self))
-
-    def cast(self):
-        """
-        Re-cast this object using its "real" subclass.
-        """
-
-        return self.real_type.get_object_for_this_type(pk=self.pk)
-
-    class Meta:
-        abstract = True
-
-
-class Entity(HeritableObject):
+class Entity(models.Model):
     """
     A named object that represents some element in the data.
     """
 
-    entity_type = models.ForeignKey(
-        'Type', blank=True, null=True, verbose_name='type',
-        help_text='Specifying a type helps to determine what metadata fields'+\
-        ' are appropriate for this resource, and can help with searching.'   +\
-        ' Note that type-specific filtering of metadata fields will only take'+\
-        ' place after this resource has been saved.')
-    name = models.CharField(max_length=255,
-        help_text='Names are unique accross ALL entities in the system.')
+    entity_type = models.ForeignKey('Type', blank=True, null=True,
+                                    verbose_name='type', help_text=help_text(
+        """
+        Specifying a type helps to determine what metadata fields are
+        appropriate for this resource, and can help with searching. Note that
+        type-specific filtering of metadata fields will only take place after
+        this resource has been saved.
+        """))
+    name = models.CharField(max_length=255, help_text=help_text(
+        """
+        Names are unique accross ALL entities in the system.
+        """))
 
-    hidden = models.BooleanField(default=False,
-        help_text='If a resource is hidden it will not appear in search' +\
-        ' results and will not be accessible directly, even for logged-in' +\
-        ' users.')
-    public = models.BooleanField(default=True,
-        help_text='If a resource is not public it will only be accessible'+\
-        ' to logged-in users and will not appear in public search results.')
+    hidden = models.BooleanField(default=False, help_text=help_text(
+        """
+        If a resource is hidden it will not appear in search results and will
+        not be accessible directly, even for logged-in users.
+        """))
+
+    public = models.BooleanField(default=True, help_text=help_text(
+        """
+        If a resource is not public it will only be accessible to logged-in
+        users and will not appear in public search results.
+        """))
 
     namespace = models.CharField(max_length=255, blank=True, null=True)
-    uri = models.CharField(max_length=255, blank=True, null=True,
-        verbose_name='URI',
-        help_text='You may provide your own URI, or allow the system to'+\
-        ' assign one automatically (recommended).')
+    uri = models.CharField(max_length=255, verbose_name='URI', help_text=help_text(
+       """
+       You may provide your own URI, or allow the system to assign one
+       automatically (recommended).
+       """))
+
+
+    relations_from = GenericRelation('Relation',
+                                     content_type_field='source_type',
+                                     object_id_field='source_instance_id')
+
+    relations_to = GenericRelation('Relation',
+                                   content_type_field='target_type',
+                                   object_id_field='target_instance_id')
+
+    events = GenericRelation('Event', content_type_field='on_type',
+                             object_id_field='on_instance_id')
 
     class Meta:
         verbose_name_plural = 'entities'
+        abstract = True
 
     def save(self, *args, **kwargs):
-        # Enforce unique name.
-        if self.name is not None:
-            logger.debug('save Entity with name {0}'.format(self.name))
-            with_name = Entity.objects.filter(name=self.name)
-
-            # No Entity exists with that name.
-            if with_name.count() == 0:
-                pass
-            # One Entity exists with that name, and it is the current Entity.
-            elif with_name.count() == 1 and with_name[0].id == self.id:
-                pass
-            else:
-                logger.debug('id: {0}, with_name: {1}'.format(self.id, [ (e.name, e.id) for e in with_name ]))
-                raise IntegrityError(
-                            'An Entity with that name already exists.')
-
-        # Enforce unique URI.
-        if self.uri is not None:
-            with_uri = Entity.objects.filter(uri=self.uri)
-            if with_uri.count() == 0: pass
-            elif with_uri.count() == 1 and with_uri[0].id == self.id: pass
-            else: raise IntegrityError(
-                            'An Entity with that URI already exists.')
-
-        # Parent class save operation.
-        super(Entity, self).save(*args, **kwargs)
-
+        super(Entity, self).save()
         # Generate a URI if one has not already been assigned.
         #  TODO: this should call a method to generate a URI, to allow for more
         #        flexibility (e.g. calling a Handle server).
         if not self.uri:
-            self.uri = '/'.join([   settings.URI_NAMESPACE,
-                                    str(self.real_type.model),
-                                    str(self.id) ])
+            self.uri = u'/'.join([settings.URI_NAMESPACE,
+                                  self.__class__.__name__,
+                                  unicode(self.id)])
         super(Entity, self).save()
 
     def __unicode__(self):
         return unicode(self.name)
 
 
-class Resource(Entity):
+class ResourceBase(Entity):
     """
-    An :class:`.Entity` that contains potentially useful information.
-
-    Should be instantiated as one of its subclasses, :class:`.LocalResource` or
-    :class:`.RemoteResource`\.
     """
 
     indexable_content = models.TextField(blank=True, null=True)
     content_type = models.CharField(max_length=255, blank=True, null=True)
+    content_resource = models.BooleanField(default=False)
+
+    file = models.FileField(upload_to=_resource_file_name, blank=True,
+                            null=True, help_text=help_text(
+        """
+        Drop a file onto this field, or click "Choose File" to select a file on
+        your computer.
+        """))
+
+    location = models.URLField(max_length=255, verbose_name='URL', blank=True,
+                               null=True)
 
     @property
     def text_available(self):
@@ -153,106 +138,92 @@ class Resource(Entity):
     def get_absolute_url(self):
         return reverse("cookies.views.resource", args=(self.id,))
 
-
     @property
     def content_location(self):
-        return self.cast().url
+        return self.url
 
     class Meta:
         permissions = (
             ('view_resource', 'View resource'),
         )
-
-
-class RemoteMixin(models.Model):
-    """
-    A Remote object has a URL.
-    """
-
-    location = models.URLField(max_length=255, verbose_name='URL')
-
-    @property
-    def url(self):
-        return self.location
-
-    class Meta:
         abstract = True
 
 
-class LocalMixin(models.Model):
-    """
-    A Local object can (optionally) have a File attached to it.
-    """
-
-    file = models.FileField(upload_to=resource_file_name, blank=True, null=True,
-        help_text='Drop a file onto this field, or click "Choose File" to'+\
-        ' select a file on your computer.')
-
-    def __init__(self, *args, **kwargs):
-        super(LocalMixin, self).__init__(*args, **kwargs)
-        setattr(self, 'url', self._url())
-
-    def _url(self):
-        """
-        Location where one can GET or PUT the LocalResource.file.
-        """
-
-        if not self.id:
-            return None
-        return rest_framework.reverse.reverse('resource_content', args=[self.id])
-
-    class Meta:
-        abstract = True
-
-
-class RemoteResource(Resource, RemoteMixin):
-    """
-    An :class:`.Entity` that contains some potentially useful information,
-    stored remotely (e.g. a Wikipedia article).
-    """
-
+class Resource(ResourceBase):
     pass
 
 
-class LocalResource(Resource, LocalMixin):
+class ContentRelation(models.Model):
     """
-    An :class:`.Entity` that contains some potentially useful information,
-    stored locally, maybe in a File (e.g. a stored Text document, or a
-    concept of a person.
+    Associates a :class:`.Resource` with its content representation(s).
     """
 
-    pass
+    for_resource = models.ForeignKey('Resource', related_name='content')
+    content_resource = models.OneToOneField('Resource', related_name='parent')
+    content_type = models.CharField(max_length=100, null=True, blank=True)
+    content_encoding = models.CharField(max_length=100, null=True, blank=True)
 
 
-class Collection(Resource):
+class Collection(ResourceBase):
     """
     A set of :class:`.Entity` instances.
     """
 
-    resources = models.ManyToManyField( 'Resource', related_name='part_of',
+    resources = models.ManyToManyField('Resource', related_name='part_of',
                                         blank=True, null=True  )
 
     def get_absolute_url(self):
         return reverse("cookies.views.collection", args=(self.id,))
 
+    @property
+    def size(self):
+        return self.resources.count()
+
+
 ### Types and Fields ###
 
-class Schema(HeritableObject):
+
+class Schema(models.Model):
     name = models.CharField(max_length=255)
 
     namespace = models.CharField(max_length=255, blank=True, null=True)
     uri = models.CharField(max_length=255, blank=True, null=True,
-        verbose_name='URI')
+                           verbose_name='URI')
 
     active = models.BooleanField(default=True)
 
     def __unicode__(self):
         return unicode(self.name)
 
-class Type(HeritableObject):
+
+class Type(models.Model):
+    name = models.CharField(max_length=255)
+
+    namespace = models.CharField(max_length=255, blank=True, null=True)
+    uri = models.CharField(max_length=255, blank=True, null=True,
+        verbose_name='URI')
+
+    domain = models.ManyToManyField('Type', blank=True, null=True,
+                                    help_text=help_text(
+        """
+        The domain specifies the resource types to which this Type or Field can
+        apply. If no domain is specified, then this Type or Field can apply to
+        any resource.
+        """))
+
+    schema = models.ForeignKey('Schema', related_name='types', blank=True, null=True)
+    parent = models.ForeignKey('Type', related_name='children', blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+
+    def __unicode__(self):
+        return self.name
+
+
+class Field(models.Model):
     """
-    If :attr:`.domain` is null, can be applied to any :class:`.Entity`
-    regardless of its :attr:`.Entity.entity_type`\.
+    A :class:`.Field` is a type for :class:`.Relation`\s.
+
+    If range is null, can be applied to any Entity regardless of Type.
     """
 
     name = models.CharField(max_length=255)
@@ -262,37 +233,32 @@ class Type(HeritableObject):
         verbose_name='URI')
 
     domain = models.ManyToManyField(
-        'Type', related_name='in_domain_of', blank=True, null=True,
+        'Type', blank=True, null=True,
         help_text='The domain specifies the resource types to which this Type'+\
         ' or Field can apply. If no domain is specified, then this Type or'   +\
         ' Field can apply to any resource.')
 
-    schema = models.ForeignKey(
-        'Schema', related_name='types', blank=True, null=True   )
+    schema = models.ForeignKey('Schema', related_name='fields', blank=True, null=True)
 
-    parent = models.ForeignKey(
-        'Type', related_name='children', blank=True, null=True   )
+    parent = models.ForeignKey('Field', related_name='children', blank=True, null=True)
 
     description = models.TextField(blank=True, null=True)
 
-    def __unicode__(self):
-        return unicode(self.name)
-
-
-class Field(Type):
-    """
-    A :class:`.Field` is a :class:`.Type` for :class:`.Relation`\s.
-
-    If range is null, can be applied to any Entity regardless of Type.
-    """
-
     range = models.ManyToManyField(
         'Type', related_name='in_range_of', blank=True, null=True,
-        help_text='The field\'s range specifies the resource types that are' +\
-        ' valid values for this field. If no range is specified, then this'  +\
-        ' field will accept any value.')
+        help_text=help_text(
+        """
+        The field's range specifies the resource types that are valid values
+        for this field. If no range is specified, then this field will accept
+        any value.
+        """))
+
+    def __unicode__(self):
+        return self.name
+
 
 ### Values ###
+
 
 class ValueQueryset(models.QuerySet):
     def get_or_create(self, defaults=None, **kwargs):
@@ -370,6 +336,7 @@ class ValueQueryset(models.QuerySet):
         obj.save(force_insert=True, using=self.db)
         return obj
 
+
 class ValueManager(models.Manager):
     """
     Allows us to use a custom :class:`.QuerySet`\, the :class:`.ValueQueryset`\.
@@ -378,117 +345,48 @@ class ValueManager(models.Manager):
     def get_queryset(self):
         return ValueQueryset(self.model, using=self._db, hints=self._hints)
 
-class Value(Entity):
-    """
-    Value should never be instantiated directly.
 
-    TODO: We may want to make this abstract.
-    """
-
-    stop_recursion = False
-
-    def __setattr__(self, key, value):
-        if key == 'name' and not self.stop_recursion:
-            self._value = value
-            self.stop_recursion = True
-            self.name = str(value)[:255]
-            self.stop_recursion = False
-        else:
-            super(Value, self).__setattr__(key, value)
-
-    def __getattr__(self, key):
-        if key == 'name':
-            return self._value
-        super(Value, self).__getattr__(key)
-
-    def save(self, *args, **kwargs):
-        # There are a few housekeeping tasks when a Value is created.
-        if not self.id and self.entity_type is None:
-
-            # First, we need to establish its 'real_type', so that we can
-            #  down-cast it, below. This is handled by the HeritableObject
-            #  save method.
-            super(Value, self).save(force_insert=False)
-
-            # Next, we ensure that the value for name is of the correct type.
-            self.name = self._convert(self.name)
-
-            # All instances of Value subclasses should have a Type in the
-            #  "System" Schema. In case this hasn't been created yet, we use
-            #  the Schema Manager's get_or_create method.
-            schema = Schema.objects.get_or_create(name='System')[0]
-            schema.save()
-
-            # We're looking for the Type that is identical to the name of the
-            #  'real_type' of this Value object. E.g. if this is an
-            #  IntegerValue, then it should have the Type "IntegerValue".
-            try:
-                rdf_schema = Entity.objects.get(name ='RDF').cast()
-            except ObjectDoesNotExist:
-                rdf_schema = Schema(name ='RDF')
-                rdf_schema.save()
-
-            try:
-                literal = Type.objects.get(name='Literal')
-            except ObjectDoesNotExist:
-                literal = Type(
-                            uri = settings.LITERAL,
-                            schema = rdf_schema,
-                            namespace = settings.RDFNS,
-                            name = 'Literal',
-                            )
-                literal.save()
-
-            cast_name = type(self.cast()).__name__
-            try:
-                e_type = Type.objects.get(name=cast_name)
-            except ObjectDoesNotExist:
-                e_type = Type(
-                            name = cast_name,
-                            schema = schema,
-                            parent = literal,
-                            )
-                e_type.save()
-            self.entity_type = e_type
-
-            # Since we just assigned a value to entity_type, we'll save again.
-            super(Value, self).save(force_insert=False)
-
-    def _convert(self, value):
-        """
-        Re-casts a string or unicode input as the datatype expected by a
-        :class:`.Value` subclass.
-        """
-
-        # Each Value subclass should have a staticmethod called pytype that
-        #  will return the correct Python object for a given str or unicode
-        #  value.
-        try:
-            return globals()[type(self).__name__].pytype(str(value))
-        except ValueError:
-            raise ValidationError('Invalid input type')
-
-class IntegerValue(Value):
-    objects = ValueManager()
-    _value = models.IntegerField(default=0, unique=True)
+class IntegerValue(models.Model):
+    name = models.IntegerField(default=0, unique=True)
     pytype = staticmethod(int)
 
-class StringValue(Value):
-    objects = ValueManager()
-    _value = models.TextField()
-    pytype = staticmethod(str)
+    def __unicode__(self):
+        return unicode(self.name)
 
-class FloatValue(Value):
-    objects = ValueManager()
-    _value = models.FloatField(unique=True)
+
+class StringValue(models.Model):
+    name = models.TextField()
+    pytype = staticmethod(unicode)
+
+    def __unicode__(self):
+        return unicode(self.name)
+
+
+class FloatValue(models.Model):
+    name = models.FloatField(unique=True)
     pytype = staticmethod(float)
 
-class DateTimeValue(Value):
-    objects = ValueManager()
-    _value = models.DateTimeField(unique=True, null=True, blank=True)
+    def __unicode__(self):
+        return unicode(self.name)
+
+
+class DateValue(models.Model):
+    name = models.DateField(unique=True, null=True, blank=True)
     pytype = staticmethod(iso8601.parse_date)
 
+    def __unicode__(self):
+        return unicode(self.name)
+
+
+class DateTimeValue(models.Model):
+    name = models.DateTimeField(unique=True, null=True, blank=True)
+    pytype = staticmethod(iso8601.parse_date)
+
+    def __unicode__(self):
+        return unicode(self.name)
+
 ### Relations ###
+
 
 class Relation(Entity):
     """
@@ -501,11 +399,19 @@ class Relation(Entity):
     case anything goes).
     """
 
-    source = models.ForeignKey(     'Entity', related_name='relations_from' )
-    predicate = models.ForeignKey(
-        'Field', related_name='instances', verbose_name='field')
-    target = models.ForeignKey(
-        'Entity', related_name='relations_to', verbose_name='value')
+    source_type = models.ForeignKey(ContentType, related_name='relations_from',
+                                    on_delete=models.CASCADE)
+    source_instance_id = models.PositiveIntegerField()
+    source = GenericForeignKey('source_type', 'source_instance_id')
+
+    predicate = models.ForeignKey('Field', related_name='instances',
+                                  verbose_name='field')
+
+    target_type = models.ForeignKey(ContentType, related_name='relations_to',
+                                    on_delete=models.CASCADE)
+    target_instance_id = models.PositiveIntegerField()
+    target = GenericForeignKey('target_type', 'target_instance_id')
+
 
     class Meta:
         verbose_name = 'metadata relation'
@@ -514,15 +420,21 @@ class Relation(Entity):
         self.name = uuid4()
         super(Relation, self).save(*args, **kwargs)
 
+
 ### Actions and Events ###
 
-class Event(HeritableObject):
+
+class Event(models.Model):
     when = models.DateTimeField(auto_now_add=True)
     by = models.ForeignKey(User, related_name='events')
-    did = models.ForeignKey(    'Action', related_name='events' )
-    on = models.ForeignKey(     'Entity', related_name='events' )
+    did = models.ForeignKey('Action', related_name='events')
 
-class Action(HeritableObject):
+    on_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    on_instance_id = models.PositiveIntegerField()
+    on = GenericForeignKey('on_type', 'on_instance_id')
+
+
+class Action(models.Model):
     GRANT = 'GR'
     DELETE = 'DL'
     CHANGE = 'CH'
@@ -572,26 +484,26 @@ class Action(HeritableObject):
         """
 
         # Log the action as an Event.
-        event = Event(
-                    by=actor,
-                    did=self.type,
-                    on=entity
-                    )
+        event = Event(by=actor, did=self.type, on=entity)
         event.save()
 
         return event
 
-class Authorization(HeritableObject):
+
+class Authorization(models.Model):
     actor = models.ForeignKey(User, related_name='is_authorized_to')
     to_do = models.ForeignKey('Action', related_name='authorizations')
-    on = models.ForeignKey('Entity')
+    on_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    on_instance_id = models.PositiveIntegerField()
+    on = GenericForeignKey('on_type', 'on_instance_id')
 
     def __unicode__(self):
-        return u'{0} can {1} {2}'.format(self.actor, self.to_do, self.on)
+        return u'%s can %s on %s' % (self.actor, self.to_do, self.on)
 
 
 class ConceptEntity(Entity):
     concept = models.ForeignKey('concepts.Concept')
+
 
 class ConceptType(Type):
     type_concept = models.ForeignKey('concepts.Type')
