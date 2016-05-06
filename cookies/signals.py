@@ -4,6 +4,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from haystack import signals
 
+from haystack.exceptions import NotHandled
+
 from cookies.models import ConceptType, ConceptEntity, Resource
 from cookies import content
 from tasks import handle_content
