@@ -2,6 +2,7 @@ from django.core.files.uploadhandler import FileUploadHandler
 from django.core.files.uploadedfile import UploadedFile
 
 import tempfile
+import os
 from django.conf import settings
 
 
@@ -21,6 +22,10 @@ class PersistentTemporaryUploadedFile(UploadedFile):
                 delete=False)
         else:
             file = tempfile.NamedTemporaryFile(suffix='.upload', delete=False)
+
+        # The worker who accesses this file after upload may not be running as
+        #  the same user as the main application.
+        os.chmod(file.name, 0664)
         super(PersistentTemporaryUploadedFile, self).__init__(
             file, name,
             content_type,
