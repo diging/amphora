@@ -16,7 +16,7 @@ django-cors-headers==1.1.0
 django-extensions==1.6.3
 django-filter==0.10.0
 django-guardian==1.4.4
-git+git://github.com/django-haystack/django-haystack.git@es2#egg=django-haystack
+-e git://github.com/erickpeirson/django-haystack.git@d42090f5dda4323e5d377a9ec4fda719c8ea365d#egg=django_haystack-origin_es2
 django-oauth-plus==2.2.8
 django-oauth-toolkit==0.9.0
 django-oauth2==1.1
