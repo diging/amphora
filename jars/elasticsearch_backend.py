@@ -1,6 +1,6 @@
 from haystack.backends.elasticsearch2_backend import Elasticsearch2SearchBackend, Elasticsearch2SearchEngine
 from haystack.models import SearchResult
-
+import elasticsearch
 
 class JARSElasticsearchSearchBackend(Elasticsearch2SearchBackend):
     DEFAULT_SETTINGS = {
