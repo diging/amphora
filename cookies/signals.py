@@ -47,7 +47,7 @@ def conceptentity_post_save(sender, **kwargs):
             instance.save()
 
 
-@receiver(post_save, sender=Resource)
+# @receiver(post_save, sender=Resource)
 def resource_post_save(sender, **kwargs):
     """
     When a :class:`.Resource` is saved, we will attempt to extract any
@@ -58,9 +58,9 @@ def resource_post_save(sender, **kwargs):
     logger.debug(
         'post_save signal for Resource, instance: {0}'.format(instance))
 
-    if instance.indexable_content and len(instance.indexable_content) > 0:
+    if instance.processed:
         return
-
+    
     # Only attempt to extract content if the instance has a file associated
     #  with it, and indexable_content has not been set.
     if instance.file._committed and not instance.indexable_content:

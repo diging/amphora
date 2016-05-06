@@ -111,6 +111,7 @@ class ResourceBase(Entity):
     """
 
     indexable_content = models.TextField(blank=True, null=True)
+    processed = models.BooleanField(default=False)
     content_type = models.CharField(max_length=255, blank=True, null=True)
     content_resource = models.BooleanField(default=False)
 
