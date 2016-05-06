@@ -168,7 +168,8 @@ def handle_bulk(file, form_data):
                     # Now we associate the file, and save the Resource again.
                     contentResource = Resource.objects.create(
                         name=fname,
-                        content_resource=True
+                        content_resource=True,
+                        processed=True
                     )
                     contentResource.file.save(fname, File(f), True)
                     content_type, content_encoding = mimetypes.guess_type(contentResource.file.name)
