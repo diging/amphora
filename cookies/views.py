@@ -36,12 +36,11 @@ def resource(request, obj_id):
 
 
 def resource_list(request):
-    viewperm = get_objects_for_user(request.user, 'cookies.view_resource')\
-                .values_list('id', flat=True)
+    # viewperm = get_objects_for_user(request.user, 'cookies.view_resource')\
+    #             .values_list('id', flat=True)
     resources = Resource.objects.filter(
         Q(hidden=False)     # No hidden resources, ever
-        & (Q(public=True)     # Either the resource is public, or...
-            | Q(pk__in=viewperm)))  # The user has permission.
+        & Q(public=True))     # Either the resource is public, or...
     return render(request, 'resources.html', {'resources':resources})
 
 
