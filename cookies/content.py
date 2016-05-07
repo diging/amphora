@@ -200,12 +200,16 @@ def handle_bulk(file, form_data):
                     if type(subv) is tuple:
                         pass
                     else:
-                        name = subv.split('/')[-1].split('#')[-1]
-                        predicate, _ = Field.objects.get_or_create(uri=subv, defaults={'name': name})
-                        target = _get_target(subv)
-                        Relation.objects.create(source=localresource,
-                                                predicate=predicate,
-                                                target=target)
+                        try:
+                            name = subv.split('/')[-1].split('#')[-1]
+                            predicate, _ = Field.objects.get_or_create(uri=subv, defaults={'name': name})
+                            target = _get_target(subv)
+                            Relation.objects.create(source=localresource,
+                                                    predicate=predicate,
+                                                    target=target)
+                        # TODO: revisit what is going on here.
+                        except:
+                            pass
 
             else:
                 target = _get_target(v)
