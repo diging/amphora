@@ -194,6 +194,8 @@ def handle_bulk(file, form_data):
             name = k.split('/')[-1].split('#')[-1]
             predicate, _ = Field.objects.get_or_create(uri=k,
                                                        defaults={'name': name})
+            if name.lower == 'abstract' and type(v) in [unicode, str] and len(v) > 0:
+                localresource.indexable_content += v
 
             if type(v) is list:
                 for subv in v:
