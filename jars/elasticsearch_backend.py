@@ -4,6 +4,7 @@ import elasticsearch
 
 
 class JARSElasticsearchSearchBackend(Elasticsearch2SearchBackend):
+    silently_fail = True
     DEFAULT_SETTINGS = {
         'settings': {
             "analysis": {
