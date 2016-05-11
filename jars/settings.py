@@ -197,3 +197,4 @@ CELERY_IMPORTS = ('cookies.tasks',)
 
 
 FILE_UPLOAD_HANDLERS = ["cookies.uploadhandler.PersistentTemporaryFileUploadHandler",]
+FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'uploads')
