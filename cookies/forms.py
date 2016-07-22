@@ -140,13 +140,55 @@ class RelationForm(autocomplete.FutureModelForm):
 
     class Meta:
         model = Relation
-        exclude = ['entity_type',]
+        exclude = ['entity_type', ]
 
 
 class ResourceForm(forms.ModelForm):
     class Meta:
         model = Resource
-        exclude = []
+        exclude = ['content_resource', 'content_type', 'processed', 'hidden',
+                    'indexable_content']
 
     def __init__(self, *args, **kwargs):
         super(ResourceForm, self).__init__(*args, **kwargs)
+
+
+class UserResourceForm(forms.Form):
+    name = forms.CharField(help_text='Give your resource a unique name')
+    resource_type = forms.ModelChoiceField(**{
+        'queryset': Type.objects.all().order_by('name'),
+        'help_text': 'Types help JARS determine what metadata fields are' \
+                   + ' appropriate for your resource.',
+    })
+    public = forms.BooleanField(**{
+        'help_text': u'If checked, this resource will be available to the' \
+                   + u' public. By checking this box you affirm that you have' \
+                   + u' the right to upload and distribute this resource.'
+    })
+    uri = forms.CharField(**{
+        'required': False,
+        'help_text': u'You may (optionally) specifiy an URI for your resource.'\
+                   + u' If you\'re unsure, leave this blank and let JARS' \
+                   + u' generate a URI for you.',
+        'label': 'URI',
+    })
+    namespace = forms.CharField(**{
+        'help_text': u'Use this field if you wish to explicitly specify a' \
+                   + u' namespace for this resource.',
+        'required': False,
+    })
+    collection = forms.ModelChoiceField(queryset=Collection.objects.all().order_by('name'))
+
+
+
+class UserResourceFileForm(forms.Form):
+    upload_file = forms.FileField()
+
+
+class UserResourceURLForm(forms.Form):
+
+    url = forms.URLField(**{
+        'label': 'Enter an URL',
+        'help_text': u'If your resource is already online, specify the full' \
+                   + u' path to the resource here.'
+    })

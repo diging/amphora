@@ -19,26 +19,31 @@
 
 <h3>Resources</h2>
 <div class="collection_resources">
-    <table>
-    {% for resource in collection.resources.all %}
-    <tr class="resource" id="resource_{{ resource.id }}">
-        <td class="resource-name"><a href="{{ resource.get_absolute_url }}">{{ resource.name }}</a></td>
-    </tr>
-    {% endfor %}
-    </table>
+    <ul class="list-group">
+        {% for resource in collection.resources.all %}
+        <a class="resource-name list-group-item" href="{{ resource.get_absolute_url }}">{{ resource.name }}</a>
+        {% endfor %}
+    </ul>
 </div>
 
+{% if collection.relations_from.count > 0 %}
 <h3>Metadata</h2>
 <div class="collection_relations">
-    <table>
+    <dl class="dl-horizontal">
         {% for relation in collection.relations_from.all %}
-        <tr class="relation" id="relation_{{ relation.id }}" uri="{{ relation.uri }}">
-            <td class="predicate" id="predicate_{{ relation.predicate.id }}" uri="{{ relation.predicate.uri }}">{{ relation.predicate.name }}</td>
-            <td class="target" id="target_{{ relation.target.id }}" uri="{{ relation.target.uri }}">{{ relation.target.name }}</td>
-        </tr>
+        <dt class="predicate"
+            id="predicate_{{ relation.predicate.id }}"
+            uri="{{ relation.predicate.uri }}">
+            {{ relation.predicate.name }}
+        </dt>
+        <dd class="target"
+            id="target_{{ relation.target.id }}"
+            uri="{{ relation.target.uri }}">
+            {{ relation.target.name }}
+        </dd>
         {% endfor %}
-    </table>
+    </dl>
 </div>
-
+{% endif %}
 
 {% endblock %}

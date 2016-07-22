@@ -1,42 +1,57 @@
-{% load admin_static %}{% load firstof from future %}<!DOCTYPE html>
-<html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
-<head>
-<title>{% block title %}{% endblock %}</title>
-<link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base_.css" %}{% endblock %}" />
-{% block extrastyle %}{% endblock %}
-<!--[if lte IE 7]><link rel="stylesheet" type="text/css" href="{% block stylesheet_ie %}{% static "admin/css/ie.css" %}{% endblock %}" /><![endif]-->
-{% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}" />{% endif %}
-<script type="text/javascript">window.__admin_media_prefix__ = "{% filter escapejs %}{% static "admin/" %}{% endfilter %}";</script>
-{% block extrahead %}{% endblock %}
-{% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE" />{% endblock %}
-</head>
-{% load i18n %}
+{% extends "base.html" %}
 
+{% load admin_static %}
+{% load firstof from future %}
+{% load i18n %}
 {% load static %}
 
-<body width="100%">
-<!-- Container -->
-<div id="container">
-    <div class="index-head">
-        <img src="{% static "cookies/img/jar.png" %}" height="150" class="bigjar" />
-    </div>
-    <div class="search">
-        <form method="get" action="{% url "search" %}">
-            <input id="id_q" name="q" type="search" value="" class="search-input" autofocus="autofocus"/>
-                        <input type="submit" value="Search">
-        </form>
-    </div>
-    <div class="index-login">
-        {% if user.is_active %}
-            {% trans 'Welcome,' %}
-            <strong>{% firstof user.get_short_name user.get_username %}</strong>.
-                {% url 'django-admindocs-docroot' as docsroot %}
-                <a href="{% url 'admin:index' %}">{% trans 'Admin' %}</a>.
-                <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>.
+{% block branding %}
+{% endblock %}
+
+{% block content %}
+<div class="container middle">
+    <div class="row" style="margin-top: auto; margin-bottom:auto;">
+        <div class="col-sm-8 col-sm-offset-2">
+            <div class="row">
+                <div class="index-head ">
+                    <img src="{% static "cookies/img/jar.png" %}"
+                        style="height: 150px; margin-left: auto; margin-right: auto;"
+                        class="img img-responsive bigjar" />
+                </div>
+            </div>
+            <div class="row" style="margin-top: 15px;">
+                <div class="search">
+                    <form method="get" action="{% url "resources" %}">
+                        <div class="input-group">
+                            <input id="id_q"
+                                name="name"
+                                type="search"
+                                value=""
+                                class="search-input form-control"
+                                autofocus="autofocus"/>
+                            <span class="input-group-btn">
+                                <input class="btn btn-success" type="submit"
+                                        value="Search">
+                            </span>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="row" style="margin-top: 15px;">
+                <div class="index-login">
+                    {% if user.is_active %}
+                        {% trans 'Welcome,' %}
+                        <strong>{% firstof user.get_short_name user.get_username %}</strong>.
+                            {% url 'django-admindocs-docroot' as docsroot %}
+                            <a href="{% url 'admin:index' %}">{% trans 'Admin' %}</a>.
+                            <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>.
+
+                    {% else %}
+                        <a href="{% url "admin:login" %}">{% trans 'Log in' %}</a>.
+                    {% endif %}
+                </div>
+            </div>
         </div>
-        {% else %}
-            <a href="{% url "admin:login" %}">{% trans 'Log in' %}</a>.
-        {% endif %}
     </div>
 </div>
-</body>
+{% endblock %}

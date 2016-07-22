@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load addcss %}
+
+{% block content %}
+{% if content_resource %}
+
+<div class="alert alert-success">
+    Creating a new resource for <strong>{{ content_resource }}</strong>.
+</div>
+
+{% endif %}
+
+<form class="form" action="." method="POST">
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}
+    <div class="alert alert-warning">{{ error }}</div>
+    {% endfor %}
+    {% for field in form %}
+    <div class="form-group">
+        {% for error in field.errors %}
+        <div class="alert alert-warning">{{ error }}</div>
+        {% endfor %}
+        <label>{{ field.label }}</label>
+        {{ field|addcss:"form-control" }}
+        <p class="text-muted">{{ field.help_text }}</p>
+    </div>
+
+    {% endfor %}
+
+    <div class="text-center">
+        <input class="btn btn-success" type="submit" value="Create">
+    </div>
+</form>
+{% endblock %}

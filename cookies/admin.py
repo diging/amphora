@@ -216,7 +216,7 @@ class ContentInline(admin.TabularInline):
     """
     fk_name = 'for_resource'
     model = ContentRelation
-    extra = 0
+    extra = 1
 
 
 class RelationInline(GenericTabularInline):

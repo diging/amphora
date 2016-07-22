@@ -1,83 +1,105 @@
-{% load admin_static %}{% load firstof from future %}<!DOCTYPE html>
+{% load admin_static %}{% load firstof from future %}
+{% load i18n %}
+<!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
 <head>
-<title>{% block title %}{% endblock %}</title>
-<link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base_.css" %}{% endblock %}" />
-{% block extrastyle %}{% endblock %}
-<!--[if lte IE 7]><link rel="stylesheet" type="text/css" href="{% block stylesheet_ie %}{% static "admin/css/ie.css" %}{% endblock %}" /><![endif]-->
-{% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}" />{% endif %}
-<script type="text/javascript">window.__admin_media_prefix__ = "{% filter escapejs %}{% static "admin/" %}{% endfilter %}";</script>
-{% block extrahead %}{% endblock %}
-{% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE" />{% endblock %}
-</head>
-{% load i18n %}
+    <title>{% block title %}{% endblock %}</title>
 
+    <link rel="stylesheet" type="text/css" href="{% static "cookies/css/bootstrap.min.css" %}" />
+    <link rel="stylesheet" type="text/css" href="{% static "cookies/css/base.css" %}" />
+    {% block extrastyle %}{% endblock %}
+    <!--[if lte IE 7]><link rel="stylesheet" type="text/css" href="{% block stylesheet_ie %}{% static "admin/css/ie.css" %}{% endblock %}" /><![endif]-->
+    {% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}" />{% endif %}
+    <script type="text/javascript">window.__admin_media_prefix__ = "{% filter escapejs %}{% static "admin/" %}{% endfilter %}";</script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.js" type="text/javascript"></script>
+    <script type="text/javascript" src="{% static "cookies/js/bootstrap.min.js" %}"></script>
+    {% block extrahead %}{% endblock %}
+    {% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE" />{% endblock %}
+</head>
 <body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}">
 
-<!-- Container -->
-<div id="container">
+    <!-- Container -->
+    <div class="container-fluid">
 
-    {% if not is_popup %}
-    <!-- Header -->
-    <div id="header">
-        <div id="branding">
-        {% block branding %}{% endblock %}
-        </div>
-        {% if user.is_active and user.is_staff %}
-        <div id="user-tools">
-            {% trans 'Welcome,' %}
-            <strong>{% firstof user.get_short_name user.get_username %}</strong>.
-            {% block userlinks %}
-                {% url 'django-admindocs-docroot' as docsroot %}
-                {% if docsroot %}
+        {% if not is_popup %}
+        {% block branding %}
+        <div class="panel-heading" style="">
+            <div class="row">
+                {% block nav-global %}{% endblock %}
+                {% if user.is_active and user.is_staff %}
+                <div id="user-tools" class="text-right">
+                    {% trans 'Welcome,' %}
+                    <strong>{% firstof user.get_short_name user.get_username %}</strong>.
+                    {% block userlinks %}
+                    {% url 'django-admindocs-docroot' as docsroot %}
+                    {% if docsroot %}
                     <a href="{{ docsroot }}">{% trans 'Documentation' %}</a> /
+                    {% endif %}
+                    {% if user.has_usable_password %}
+                    <a href="{% url 'admin:password_change' %}">{% trans 'Change password' %}</a> /
+                    {% endif %}
+                    <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
+                    {% endblock %}
+                </div>
+                {% else %}
+                <div id="user-tools">
+                    <a href="{% url 'admin:login' %}">{% trans 'Log in' %}</a>
+                </div>
                 {% endif %}
-                {% if user.has_usable_password %}
-                <a href="{% url 'admin:password_change' %}">{% trans 'Change password' %}</a> /
-                {% endif %}
-                <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
-            {% endblock %}
-        </div>
-        {% else %}
-        <div id="user-tools">
-            <a href="{% url 'admin:login' %}">{% trans 'Log in' %}</a>
-        </div>
-        {% endif %}
-        {% block nav-global %}{% endblock %}
-    </div>
-    <!-- END Header -->
-    {% block breadcrumbs %}
-    <div class="breadcrumbs">
-    <a href="{% url 'cookies.views.index' %}">{% trans 'Admin' %}</a>
-    {% if title %} &rsaquo; {{ title }}{% endif %}
-    </div>
-    {% endblock %}
-    {% endif %}
+            </div>
+            <div class="row" style="margin-top: 15px;">
+                <img class="img img-responsive" style="height:45px; display: inline-block; margin-right: 15px; vertical-align: top;" src="{% static "cookies/img/jar.png" %}" />
+                <span class="h1">
+                    <span class="text-warning" style="vertical-align: middle;">JARS</span>&nbsp;
+                    <small class=" text-muted" style="vertical-align: middle;">Just Another Repository for Scholars</small>
+                </span>
+            </div>
 
-    {% block messages %}
+            <div class="row" style="margin-top: 10px;">
+                {% block breadcrumbs %}
+                <div class="breadcrumbs">
+                    <a href="{% url 'cookies.views.index' %}">{% trans 'Admin' %}</a>
+                    {% if title %} &rsaquo; {{ title }}{% endif %}
+                </div>
+                {% endblock %}
+            </div>
+        </div>
+        {% endblock %}
+        {% endif %}
+    </div>
+    <div class="container-fluid">
+
+        {% block messages %}
         {% if messages %}
         <ul class="messagelist">{% for message in messages %}
-          <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message|capfirst }}</li>
-        {% endfor %}</ul>
-        {% endif %}
-    {% endblock messages %}
+            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message|capfirst }}</li>
+            {% endfor %}</ul>
+            {% endif %}
+            {% endblock messages %}
 
-    <!-- Content -->
-    <div id="content" class="{% block coltype %}colM{% endblock %}">
-        {% block pretitle %}{% endblock %}
-        {% block content_title %}{% if title %}<h1>{{ title }}</h1>{% endif %}{% endblock %}
-        {% block content %}
-        {% block object-tools %}{% endblock %}
-        {{ content }}
+            <!-- Content -->
+            <div id="content" class="{% block coltype %}colM{% endblock %}">
+                {% block pretitle %}{% endblock %}
+                {% block content_title %}{% if title %}<h1>{{ title }}</h1>{% endif %}{% endblock %}
+                {% block content %}
+                {% block object-tools %}{% endblock %}
+                {{ content }}
+                {% endblock %}
+                {% block sidebar %}{% endblock %}
+                <br class="clear" />
+            </div>
+            <!-- END Content -->
+
+
+        </div>
+        <!-- END Container -->
+        {% block footer %}
+        <div id="footer" class="footer text-center">
+            {% if user.is_active %}
+            <a href="{% url "create-resource" %}" class="btn btn-lg glyphicon glyphicon-cloud-upload"></a>
+            {% endif %}
+        </div>
         {% endblock %}
-        {% block sidebar %}{% endblock %}
-        <br class="clear" />
-    </div>
-    <!-- END Content -->
 
-    {% block footer %}<div id="footer"></div>{% endblock %}
-</div>
-<!-- END Container -->
-
-</body>
-</html>
+    </body>
+    </html>

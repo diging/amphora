@@ -43,6 +43,9 @@ class Entity(models.Model):
     A named object that represents some element in the data.
     """
 
+    created = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, blank=True, null=True)
+
     entity_type = models.ForeignKey('Type', blank=True, null=True,
                                     verbose_name='type', help_text=help_text(
         """
@@ -65,7 +68,9 @@ class Entity(models.Model):
     public = models.BooleanField(default=True, help_text=help_text(
         """
         If a resource is not public it will only be accessible to logged-in
-        users and will not appear in public search results.
+        users and will not appear in public search results. If this option is
+        selected, you affirm that you have the right to upload and distribute
+        this resource.
         """))
 
     namespace = models.CharField(max_length=255, blank=True, null=True)
@@ -131,17 +136,10 @@ class ResourceBase(Entity):
             return len(self.indexable_content) > 2
         return False
 
-    @property
-    def stored(self):
-        if hasattr(self, 'remoteresource'): return 'Remote'
-        if hasattr(self, 'localresource'): return 'Local'
-
     def get_absolute_url(self):
         return reverse("cookies.views.resource", args=(self.id,))
 
-    @property
-    def content_location(self):
-        return self.url
+
 
     class Meta:
         permissions = (
@@ -151,7 +149,12 @@ class ResourceBase(Entity):
 
 
 class Resource(ResourceBase):
-    pass
+    @property
+    def content_location(self):
+        if self.content_resource:
+            if self.file:
+                return self.file.url
+            return self.location
 
 
 class ContentRelation(models.Model):
@@ -160,7 +163,7 @@ class ContentRelation(models.Model):
     """
 
     for_resource = models.ForeignKey('Resource', related_name='content')
-    content_resource = models.OneToOneField('Resource', related_name='parent')
+    content_resource = models.ForeignKey('Resource', related_name='parent')
     content_type = models.CharField(max_length=100, null=True, blank=True)
     content_encoding = models.CharField(max_length=100, null=True, blank=True)
 

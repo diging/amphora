@@ -2,6 +2,9 @@
 {% load i18n %}
 {% load staticfiles %}
 {% load breadcrumbs %}
+{% load pagination_tags %}
+{% load addcss %}
+
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
@@ -11,16 +14,62 @@
 {% endblock %}
 
 {% block content %}
-<h2>Resources</h2>
+{% autopaginate filtered_objects.qs 10 as resources %}
+<div class="h2">Resources</div>
+
+
+<div class="panel-group">
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h4 class="panel-title">
+                <span class="glyphicon glyphicon-filter"></span>
+                <a data-toggle="collapse" class="accordion-toggle collapsed" href="#filters">Filters</a>
+                <small style="margin-left: 20px;">
+                    {% for key, values in filtered_objects.data.iteritems %}
+                    {% if values|length > 0 %}
+                    <strong>{{ key }}</strong>: {{ values }}
+                    {% endif %}
+                    {% endfor %}
+                </small>
+            </h4>
+        </div>
+        <div id="filters" class="panel-collapse collapse">
+            <div class="panel-body">
+                <form class="form" action="." method="GET">
+                {% for field in filtered_objects.form %}
+                    {% for error in field.errors %}
+                    <div class="alert alert-warning">{{ error }}</div>
+                    {% endfor %}
+                    <div class="form-group">
+                        <label>{{ field.label }}</label>
+                        {{ field|addcss:"form-control" }}
+                    </div>
+
+                {% endfor %}
+                <input type="submit" class="pull-right btn btn-success" value="Apply">
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="collection_resources">
-    <table>
+    <div class="pagination container text-center">
+        {% paginate %}
+    </div>
+    <ul class="list-group">
         {% for resource in resources %}
-        <tr>
-            <td><a href="{{ resource.get_absolute_url }}">{{ resource.name }}</a></td>
-        </tr>
+        <a class="list-group-item"
+            href="{{ resource.get_absolute_url }}">
+            {{ resource.name }}
+        </a>
         {% endfor %}
-    </table>
+    </ul>
+    <div class="pagination container text-center">
+        {% paginate %}
+    </div>
 </div>
+
+
 
 {% endblock %}

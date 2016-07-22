@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load addcss %}
+{% load staticfiles %}
+
+{% block content %}
+<div class="row" style="margin-top: 50px;">
+    <div class="col-sm-4 col-sm-offset-2 text-center">
+        <a class="btn btn-lg" href="">
+            <span class="glyphicon glyphicon-globe" style="height: 20px;"></span>&nbsp;
+            Giles: North America
+        </a>
+        <p class="text-muted">
+            Upload to our secure server located in Tempe, Arizona.
+        </p>
+    </div>
+    <div class="col-sm-4  text-center">
+        <a class="btn btn-lg" href="">
+            <span class="glyphicon glyphicon-globe" style="height: 20px;"></span>&nbsp;
+            Giles: Europe
+        </a>
+        <p class="text-muted">
+            Upload to our secure server located in Berlin, Germany.
+        </p>
+    </div>
+</div>
+{% endblock %}

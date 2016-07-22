@@ -24,6 +24,11 @@ urlpatterns = patterns('',
 
     url(r'^resource/([0-9]+)/$', views.resource, name="resource"),
     url(r'^resource/$', views.resource_list, name="resources"),
+    url(r'^resource/create/$', views.create_resource, name="create-resource"),
+    url(r'^resource/create/upload/$', views.create_resource_file, name="create-resource-file"),
+    url(r'^resource/create/remote/$', views.create_resource_url, name="create-resource-url"),
+    url(r'^resource/create/giles/$', views.create_resource_choose_giles, name="create-resource-choose-giles"),
+    url(r'^resource/create/details/([0-9]+)/$', views.create_resource_details, name="create-resource-details"),
     url(r'^collection/([0-9]+)/$', views.collection, name="collection"),
     url(r'^collection/$', views.collection_list, name="collections"),
 

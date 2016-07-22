@@ -1,8 +1,11 @@
 from django.shortcuts import render, render_to_response, get_object_or_404
 from django.forms.extras.widgets import SelectDateWidget
-from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
-from django.template import RequestContext
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.core.urlresolvers import reverse
+from django.template import RequestContext, loader
 from django.db.models.query import QuerySet
 from django.db.models import Q
 from django.conf import settings
@@ -13,16 +16,23 @@ from haystack.query import SearchQuerySet
 
 from guardian.shortcuts import get_objects_for_user
 
-import iso8601
-import inspect
-import magic
+import iso8601, urlparse, inspect, magic, requests, urllib3, copy
 from hashlib import sha1
 import time, os, json, base64, hmac, urllib
 
 from dal import autocomplete
 
-from .forms import *
-from .models import *
+from cookies.forms import *
+from cookies.models import *
+from cookies.filters import *
+
+
+def _ping_resource(path):
+    try:
+        response = requests.head(path)
+    except requests.exceptions.ConnectTimeout:
+        return False, {}
+    return response.status_code == requests.codes.ok, response.headers
 
 
 def resource(request, obj_id):
@@ -36,12 +46,28 @@ def resource(request, obj_id):
 
 
 def resource_list(request):
-    # viewperm = get_objects_for_user(request.user, 'cookies.view_resource')\
-    #             .values_list('id', flat=True)
-    resources = Resource.objects.filter(
+    queryset = Resource.objects.filter(
         Q(hidden=False)     # No hidden resources, ever
         & Q(public=True))     # Either the resource is public, or...
-    return render(request, 'resources.html', {'resources':resources})
+
+    filtered_objects = ResourceFilter(request.GET, queryset=queryset)
+
+    # paginator = Paginator(filtered_objects, 10) # Show 25 contacts per page
+    # page = request.GET.get('page')
+    # try:
+    #     resources = paginator.page(page)
+    # except PageNotAnInteger:
+    #     resources = paginator.page(1)
+    # except EmptyPage:
+    #     resources = paginator.page(paginator.num_pages)
+    context = RequestContext(request, {
+        'filtered_objects': filtered_objects,
+    })
+    print filtered_objects.data
+    template = loader.get_template('resources.html')
+
+
+    return HttpResponse(template.render(context))
 
 
 def collection(request, obj_id):
@@ -117,3 +143,133 @@ class ResourceSearchView(SearchView):
         })
 
         return self.render_to_response(context)
+
+
+@login_required
+def create_resource(request):
+    context = RequestContext(request, {})
+
+    template = loader.get_template('create_resource.html')
+
+    return HttpResponse(template.render(context))
+
+
+@login_required
+def create_resource_file(request):
+    context = RequestContext(request, {})
+
+    template = loader.get_template('create_resource_file.html')
+
+    if request.method == 'GET':
+        form = UserResourceFileForm()
+
+    elif request.method == 'POST':
+        print request.FILES
+        form = UserResourceFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            uploaded_file = request.FILES['upload_file']
+            content = Resource.objects.create(**{
+                'content_type': uploaded_file.content_type,
+                'content_resource': True,
+                'name': uploaded_file._name,
+                'created_by': request.user,
+            })
+            # The file upload handler needs the Resource to have an ID first,
+            #  so we add the file after creation.
+            content.file = uploaded_file
+            content.save()
+            return HttpResponseRedirect(reverse('create-resource-details',
+                                                args=(content.id,)))
+
+    context.update({'form': form})
+    return HttpResponse(template.render(context))
+
+
+@login_required
+def create_resource_url(request):
+    context = RequestContext(request, {})
+
+    template = loader.get_template('create_resource_url.html')
+
+    if request.method == 'GET':
+        form = UserResourceURLForm()
+
+    elif request.method == 'POST':
+        form = UserResourceURLForm(request.POST)
+        if form.is_valid():
+            url = form.cleaned_data.get('url')
+            exists, headers = _ping_resource(url)
+            if exists:
+                content, _ = Resource.objects.get_or_create(**{
+                    'location': url,
+                    'content_resource': True,
+                    'defaults': {
+                        'name': url,
+                        'content_type': headers.get('Content-Type', None),
+                        'created_by': request.user,
+                    }
+                })
+                return HttpResponseRedirect(reverse('create-resource-details',
+                                                    args=(content.id,)))
+            else:
+                form.add_error('url', u'Could not access a resource at that' \
+                                    + u' location. Please check the URL and' \
+                                    + u' try again.')
+
+
+
+    context.update({'form': form})
+    return HttpResponse(template.render(context))
+
+
+@login_required
+def create_resource_details(request, content_id):
+    content_resource = get_object_or_404(Resource, pk=content_id)
+    context = RequestContext(request, {})
+    if request.method == 'GET':
+        form = UserResourceForm(initial={
+            'name': content_resource.name,
+            'uri': content_resource.location,
+            'public': True,    # If the resource is already online, it's public.
+        })
+        # It wouldn't mean much for the user to indicate that the resource was
+        #  non-public, given that we are accessing it over a public connection.
+        # form.fields['public'].widget.attrs.update({'disabled': True})
+    elif request.method == 'POST':
+        form = UserResourceForm(request.POST)
+        if form.is_valid():
+            resource_data = copy.copy(form.cleaned_data)
+            resource_data['entity_type'] = resource_data.pop('resource_type', None)
+            collection = resource_data.pop('collection', None)
+            resource_data['created_by'] = request.user
+            resource = Resource.objects.create(**resource_data)
+            content_relation = ContentRelation.objects.create(**{
+                'for_resource': resource,
+                'content_resource': content_resource,
+                'content_type': content_resource.content_type,
+            })
+
+            if collection:
+                collection.resources.add(resource)
+                collection.save()
+
+            return HttpResponseRedirect(reverse('resource', args=(resource.id,)))
+
+    context.update({
+        'form': form,
+        'content_resource': content_resource,
+    })
+
+
+    template = loader.get_template('create_resource_details.html')
+
+    return HttpResponse(template.render(context))
+
+
+@login_required
+def create_resource_choose_giles(request):
+    context = RequestContext(request, {})
+
+    template = loader.get_template('create_resource_choose_giles.html')
+
+    return HttpResponse(template.render(context))

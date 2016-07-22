@@ -62,7 +62,7 @@ class ResourcePermission(BasePermission):
 class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Resource
-        fields = ('url', 'id', 'uri', 'name', 'public',)
+        fields = ('url', 'id', 'uri', 'name', 'public', 'file')
 
 
 class ContentRelationSerializer(serializers.HyperlinkedModelSerializer):
@@ -72,14 +72,13 @@ class ContentRelationSerializer(serializers.HyperlinkedModelSerializer):
         fields = ('id', 'content_resource', 'content_type', 'content_encoding')
 
 
-
 class ResourceDetailSerializer(serializers.HyperlinkedModelSerializer):
     content = ContentRelationSerializer(many=True)
     relations_from = RelationSerializer(many=True)
 
     class Meta:
         model = Resource
-        fields = ('url', 'id', 'uri', 'name', 'public', 'content', 'relations_from')
+        fields = ('url', 'id', 'uri', 'name', 'public', 'content', 'relations_from',  'file')
 
 
 class ResourceListSerializer(serializers.HyperlinkedModelSerializer):
@@ -87,13 +86,13 @@ class ResourceListSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Resource
-        fields = ('url', 'uri', 'name', 'public', 'content',)
+        fields = ('url', 'uri', 'name', 'public', 'content', 'id')
 
 
 class CollectionSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Collection
-        fields = ('url', 'name', 'uri', 'public', 'size')
+        fields = ('url', 'name', 'uri', 'public', 'size', 'id')
 
 
 class CollectionDetailSerializer(serializers.HyperlinkedModelSerializer):
@@ -131,7 +130,6 @@ class FieldViewSet(viewsets.ModelViewSet):
     parser_classes = (JSONParser,)
 
 
-
 class ResourceViewSet(MultiSerializerViewSet):
     parser_classes = (JSONParser,)
     queryset = Resource.objects.all()
@@ -142,7 +140,6 @@ class ResourceViewSet(MultiSerializerViewSet):
     }
     permission_classes = (ResourcePermission,)
 
-
     def get_queryset(self):
         queryset = super(ResourceViewSet, self).get_queryset()
 
@@ -151,6 +148,10 @@ class ResourceViewSet(MultiSerializerViewSet):
         uri = self.request.query_params.get('uri', None)
         if uri:
             queryset = queryset.filter(uri=uri)
+
+        query = self.request.query_params.get('search', None)
+        if query:
+            queryset = queryset.filter(name__icontains=query)
         return queryset
 
 

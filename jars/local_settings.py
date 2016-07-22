@@ -34,7 +34,6 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     "django.core.context_processors.static",
     "django.core.context_processors.tz",
     "django.contrib.messages.context_processors.messages",
-    "django.core.context_processors.request"
 #    "audit_log.middleware.UserLoggingMiddleware",
 )
 
@@ -171,11 +170,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.6/howto/static-files/
 
-STATIC_URL = '/amphora/static/'
+STATIC_URL = '/tmp/jars/static/'
 STATIC_ROOT = 'static/'
 
-MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/diging/applications/media')
-MEDIA_URL = '/media/'#MEDIA_ROOT + '/amphora/'
+MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/tmp/jars/media')
+MEDIA_URL = MEDIA_ROOT + '/amphora/'
 
 URI_NAMESPACE = 'http://diging.asu.edu/amphora'
 
