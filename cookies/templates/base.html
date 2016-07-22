@@ -7,6 +7,7 @@
 
     <link rel="stylesheet" type="text/css" href="{% static "cookies/css/bootstrap.min.css" %}" />
     <link rel="stylesheet" type="text/css" href="{% static "cookies/css/base.css" %}" />
+    <link rel="stylesheet" type="text/css" href="{% static "cookies/css/font-awesome.min.css" %}" />
     {% block extrastyle %}{% endblock %}
     <!--[if lte IE 7]><link rel="stylesheet" type="text/css" href="{% block stylesheet_ie %}{% static "admin/css/ie.css" %}{% endblock %}" /><![endif]-->
     {% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}" />{% endif %}
@@ -36,14 +37,13 @@
                     <a href="{{ docsroot }}">{% trans 'Documentation' %}</a> /
                     {% endif %}
                     {% if user.has_usable_password %}
-                    <a href="{% url 'admin:password_change' %}">{% trans 'Change password' %}</a> /
                     {% endif %}
-                    <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
+                    <a class="btn btn-sm" href="{% url 'logout' %}?next={{ request.path }}"><i class="fa fa-github" aria-hidden="true"></i> {% trans 'Log out' %}</a>
                     {% endblock %}
                 </div>
                 {% else %}
-                <div id="user-tools">
-                    <a href="{% url 'admin:login' %}">{% trans 'Log in' %}</a>
+                <div id="user-tools" class="text-right">
+                    <a class="btn btn-sm" href="{% url 'social:begin' 'github' %}"><i class="fa fa-github" aria-hidden="true"></i> {% trans 'Log in' %}</a>
                 </div>
                 {% endif %}
             </div>

@@ -19,8 +19,10 @@ router.register(r'field', views_rest.FieldViewSet)
 
 
 urlpatterns = patterns('',
+    url('', include('social.apps.django_app.urls', namespace='social')),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^autocomplete/$', EntityAutocomplete.as_view(create_field='name'), name='autocomplete'),
+    url(r'^logout/$', views.logout_view, name='logout'),
 
     url(r'^resource/([0-9]+)/$', views.resource, name="resource"),
     url(r'^resource/$', views.resource_list, name="resources"),

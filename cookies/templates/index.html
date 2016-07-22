@@ -43,11 +43,10 @@
                         {% trans 'Welcome,' %}
                         <strong>{% firstof user.get_short_name user.get_username %}</strong>.
                             {% url 'django-admindocs-docroot' as docsroot %}
-                            <a href="{% url 'admin:index' %}">{% trans 'Admin' %}</a>.
-                            <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>.
+                            <a class="btn btn-sm" href="{% url 'logout' %}?next={{ request.path }}"><i class="fa fa-github" aria-hidden="true"></i> {% trans 'Log out' %}</a>
 
                     {% else %}
-                        <a href="{% url "admin:login" %}">{% trans 'Log in' %}</a>.
+                        <a class="btn btn-sm" href="{% url 'social:begin' 'github' %}"><i class="fa fa-github" aria-hidden="true"></i> {% trans 'Log in' %}</a>
                     {% endif %}
                 </div>
             </div>

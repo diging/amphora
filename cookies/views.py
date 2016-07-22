@@ -2,6 +2,7 @@ from django.shortcuts import render, render_to_response, get_object_or_404
 from django.forms.extras.widgets import SelectDateWidget
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import logout
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.urlresolvers import reverse
@@ -260,7 +261,6 @@ def create_resource_details(request, content_id):
         'content_resource': content_resource,
     })
 
-
     template = loader.get_template('create_resource_details.html')
 
     return HttpResponse(template.render(context))
@@ -268,8 +268,19 @@ def create_resource_details(request, content_id):
 
 @login_required
 def create_resource_choose_giles(request):
+    """
+    Directs to US or DE servers.
+
+    """
+    # TODO: implement flag for bulk vs. single.
     context = RequestContext(request, {})
 
     template = loader.get_template('create_resource_choose_giles.html')
 
     return HttpResponse(template.render(context))
+
+
+@login_required
+def logout_view(request):
+    logout(request)
+    return HttpResponseRedirect(request.GET.get('next', reverse('index')))

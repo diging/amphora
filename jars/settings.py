@@ -34,7 +34,9 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     "django.core.context_processors.static",
     "django.core.context_processors.tz",
     "django.contrib.messages.context_processors.messages",
-    "django.core.context_processors.request"
+    "django.core.context_processors.request",
+    'social.apps.django_app.context_processors.backends',
+    'social.apps.django_app.context_processors.login_redirect',
 #    "audit_log.middleware.UserLoggingMiddleware",
 )
 
@@ -63,6 +65,7 @@ INSTALLED_APPS = (
     'rest_framework',
     'rest_framework.authtoken',
     'guardian',
+     'social.apps.django_app.default',
 
 )
 
@@ -96,6 +99,7 @@ if es.username:
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend', # default
     'guardian.backends.ObjectPermissionBackend',
+    'social.backends.github.GithubOAuth2',
 )
 ANONYMOUS_USER_ID = -1
 
@@ -203,3 +207,8 @@ CELERY_IMPORTS = ('cookies.tasks',)
 
 FILE_UPLOAD_HANDLERS = ["cookies.uploadhandler.PersistentTemporaryFileUploadHandler",]
 FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'uploads')
+
+
+SOCIAL_AUTH_GITHUB_KEY = os.environ.get('SOCIAL_AUTH_GITHUB_KEY', None)
+SOCIAL_AUTH_GITHUB_SECRET = os.environ.get('SOCIAL_AUTH_GITHUB_SECRET', None)
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
