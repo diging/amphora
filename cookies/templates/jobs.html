@@ -1,26 +1,23 @@
 {% extends "base_site.html" %}
 {% load i18n %}
 {% load staticfiles %}
+{% load breadcrumbs %}
 {% load pagination_tags %}
 {% load addcss %}
-{% load breadcrumbs %}
+{% load job_status %}
+
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'index' %}">{% trans 'Home' %}</a>
-    {% breadcrumb_url 'Collections' 'collections' %}
-    {% breadcrumb_url collection.name 'collection' collection.id  %}
+    {% breadcrumb_url 'Tasks' 'jobs' %}
 </div>
 {% endblock %}
 
 {% block content %}
-{% autopaginate filtered_objects.qs 10 as resources %}
-<div class="collection_summary">
-    <h2 class="collection_name">{{ collection.name }}</h1>
-    <div class="collection_uri"><strong>URI:</strong> {{ collection.uri }}</div>
-</div>
+{% autopaginate filtered_objects.qs 10 as tasks %}
+<div class="h2">Tasks</div>
 
-<div class="h3">Resources</div>
 
 <div class="panel-group">
     <div class="panel panel-default">
@@ -57,13 +54,19 @@
     </div>
 </div>
 
-<div class="collection_resources">
+<div class="collection_tasks">
     <div class="pagination container text-center">
         {% paginate %}
     </div>
     <ul class="list-group">
-        {% for resource in resources %}
-        <a class="resource-name list-group-item" href="{{ resource.get_absolute_url }}">{{ resource.name }}</a>
+        {% for task in tasks %}
+        <a class="list-group-item"
+            href="{{ task.get_absolute_url }}">
+            {{ task|get_status_icon }}&nbsp;
+            <span class="text-muted">{{ task.result_id }}</span> created on&nbsp;
+            <strong>{{ task.created }}</strong> by&nbsp;
+            <span class="text-warning">{{ task.created_by }}</span>
+        </a>
         {% endfor %}
     </ul>
     <div class="pagination container text-center">
@@ -71,24 +74,6 @@
     </div>
 </div>
 
-{% if collection.relations_from.count > 0 %}
-<h3>Metadata</h2>
-<div class="collection_relations">
-    <dl class="dl-horizontal">
-        {% for relation in collection.relations_from.all %}
-        <dt class="predicate"
-            id="predicate_{{ relation.predicate.id }}"
-            uri="{{ relation.predicate.uri }}">
-            {{ relation.predicate.name }}
-        </dt>
-        <dd class="target"
-            id="target_{{ relation.target.id }}"
-            uri="{{ relation.target.uri }}">
-            {{ relation.target.name }}
-        </dd>
-        {% endfor %}
-    </dl>
-</div>
-{% endif %}
+
 
 {% endblock %}

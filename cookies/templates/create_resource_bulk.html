@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load addcss %}
+
+{% block content %}
+<div class="h1">
+    Upload a Zotero collection
+</div>
+<p class="text-info">
+    In order to add your Zotero collection to JARS, you will first need to
+    export that collection in Zotero RDF format.
+</p>
+<p class="text-info">
+    To export a collection:
+    <ol>
+        <li>Select the collection from your Library.</li>
+        <li>
+            Right-click on the collection, and select "Export Collection".
+            A small modal dialog should appear.
+        </li>
+        <li>
+            Select "Zotero RDF" from the Format field.
+        </li>
+        <li>Check the "Export Files" option.</li>
+        <li>Click OK. An Export (save) dialog should appear.</li>
+        <li>
+            Navigate to the place on your filesystem to which you wish to export
+            your collection. Put it someplace easy to find.
+        </li>
+        <li>
+            Give your export a name in the "Save As" field, and click OK. This
+            will create a new directory. Inside, you should find an RDF file
+            and a subdirectory called "files".
+        </li>
+        <li>
+            Select the new directory (that contains the RDF and files), and
+            create a ZIP archive.
+        </li>
+        <li>
+            Use the form below to upload the ZIP file.
+        </li>
+    </ol>
+</p>
+
+<form class="form" action="." method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}
+    <div class="alert alert-warning">{{ error }}</div>
+    {% endfor %}
+    {% for field in form %}
+    <div class="form-group">
+        {% for error in field.errors %}
+        <div class="alert alert-warning">{{ error }}</div>
+        {% endfor %}
+        <label>{{ field.label }}</label>
+        {{ field|addcss:"form-control" }}
+        <p class="text-muted">{{ field.help_text }}</p>
+    </div>
+
+    {% endfor %}
+
+    <div class="text-center">
+        <input class="btn btn-success" type="submit" value="Upload">
+    </div>
+</form>
+{% endblock %}

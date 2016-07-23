@@ -25,6 +25,10 @@ body {
     margin-top: 10%;
 }
 
+.glyphicon-ok {
+    color: green;
+}
+
 /* Sticky footer styles
 -------------------------------------------------- */
 html {

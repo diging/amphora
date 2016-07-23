@@ -123,6 +123,7 @@ def _get_target(v):
 
 
 def handle_bulk(file, form_data):
+    # TODO: this could use a bit of refactoring.
 
     # User can indicate a default Type to assign to each new Resource.
     default_type = form_data.get('default_type', None)
@@ -137,14 +138,22 @@ def handle_bulk(file, form_data):
     bail_on_duplicate = form_data.get('ignore_duplicates', False)
 
     collection_name = form_data['name']
-    collection = Collection.objects.create(name=collection_name)
+    collection = Collection.objects.create(**{
+        'name': collection_name,
+        'created_by': form_data.get('created_by'),
+        'public': form_data.get('public'),
+    })
 
     # Each file will result in a new Resource.
     for resource in resources:
         name = resource.__dict__.get('name', unicode(uuid4()))
         # First, try to create a Resource using the filename alone.
         try:
-            localresource = Resource(name=name)
+            localresource = Resource.objects.create(
+                name=name,
+                public=form_data.get('public'),
+                created_by=form_data.get('created_by')
+            )
             localresource.save()
 
         # If that doesn't work, add the partial random UUID to the end
@@ -154,7 +163,11 @@ def handle_bulk(file, form_data):
             if bail_on_duplicate:
                 continue
 
-            localresource = Resource(name=name + u' - ' + unicode(uuid4()))
+            localresource = Resource.objects.create(
+                name=name + u' - ' + unicode(uuid4()),
+                public=form_data.get('public'),
+                created_by=form_data.get('created_by'),
+            )
             localresource.save()
 
         fpaths = resource.__dict__.get('file', None)
@@ -169,7 +182,9 @@ def handle_bulk(file, form_data):
                     contentResource = Resource.objects.create(
                         name=fname,
                         content_resource=True,
-                        processed=True
+                        processed=True,
+                        public=form_data.get('public'),
+                        created_by=form_data.get('created_by'),
                     )
                     contentResource.file.save(fname, File(f), True)
                     content_type, content_encoding = mimetypes.guess_type(contentResource.file.name)
@@ -208,7 +223,9 @@ def handle_bulk(file, form_data):
                             target = _get_target(subv)
                             Relation.objects.create(source=localresource,
                                                     predicate=predicate,
-                                                    target=target)
+                                                    target=target,
+                                                    public=form_data.get('public'),
+                                                    created_by=form_data.get('created_by'),)
                         # TODO: revisit what is going on here.
                         except:
                             pass
@@ -220,4 +237,7 @@ def handle_bulk(file, form_data):
 
                 relation = Relation.objects.create(source=localresource,
                                                    predicate=predicate,
-                                                   target=target)
+                                                   target=target,
+                                                   public=form_data.get('public'),
+                                                   created_by=form_data.get('created_by'))
+    return {'view': 'collection', 'id': collection.id}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load addcss %}
+
+{% block content %}
+<div class="h2">Process Giles Upload</div>
+
+<p class="text-info">
+    If you want, you can set the collection for all of the files in this upload
+    session.
+</p>
+<form class="form" action="." method="POST">
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}
+    <div class="alert alert-warning">{{ error }}</div>
+    {% endfor %}
+    {% for field in form %}
+    <div class="form-group">
+        {% for error in field.errors %}
+        <div class="alert alert-warning">{{ error }}</div>
+        {% endfor %}
+        <label>{{ field.label }}</label>
+        {{ field|addcss:"form-control" }}
+        <p class="text-muted">{{ field.help_text }}</p>
+    </div>
+
+    {% endfor %}
+
+    <div class="text-center">
+        <input class="btn btn-success" type="submit" value="Submit">
+        <a class="btn btn-primary">Create new</a>
+    </div>
+</form>
+
+<ul class="list-group" style="margin-top: 25px;">
+    {% for resource in session.resources.all %}
+    <a href="{% url "edit-resource-giles" resource.id %}" class="list-group-item">{{ resource.name }}</a>
+    {% endfor %}
+</ul>
+{% endblock %}

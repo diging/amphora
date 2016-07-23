@@ -7,10 +7,9 @@ from cookies import content
 
 @shared_task
 def handle_content(obj, commit=True):
-    content.handle_content(obj, commit)
+    return content.handle_content(obj, commit)
 
 
 @shared_task
 def handle_bulk(file, form_data):
-    content.handle_bulk(file, form_data)
-    return
+    return content.handle_bulk(file, form_data)

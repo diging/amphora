@@ -13,7 +13,10 @@ import os
 import socket
 import sys
 from urlparse import urlparse
+import requests
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+
+LOCAL_PATH = '/'
 
 
 # Quick-start development settings - unsuitable for production
@@ -212,3 +215,24 @@ FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'uploads')
 SOCIAL_AUTH_GITHUB_KEY = os.environ.get('SOCIAL_AUTH_GITHUB_KEY', None)
 SOCIAL_AUTH_GITHUB_SECRET = os.environ.get('SOCIAL_AUTH_GITHUB_SECRET', None)
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
+
+LOGIN_URL = LOCAL_PATH + 'login/github/'
+LOGIN_REDIRECT_URL = 'index'
+
+
+GILES = 'http://diging-dev.asu.edu:8081/giles-review'
+# GET_METHOD = requests.get
+
+import json
+def GET_METHOD(path, params={}, headers={}):
+    class MockResponse(object):
+        def __init__(self, status_code, content):
+            self.status_code = status_code
+            self.content = content
+
+        def json(self):
+            return json.loads(self.content)
+
+    if path.startswith('/'.join([GILES, 'rest', 'files', 'upload'])):
+        with open('cookies/tests/data/giles_file_response.json', 'r') as f:
+            return MockResponse(200, f.read())

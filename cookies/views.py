@@ -13,11 +13,12 @@ from django.conf import settings
 
 from haystack.generic_views import SearchView
 from haystack.query import SearchQuerySet
+from celery.result import AsyncResult
 
 
 from guardian.shortcuts import get_objects_for_user
 
-import iso8601, urlparse, inspect, magic, requests, urllib3, copy
+import iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle
 from hashlib import sha1
 import time, os, json, base64, hmac, urllib
 
@@ -26,6 +27,8 @@ from dal import autocomplete
 from cookies.forms import *
 from cookies.models import *
 from cookies.filters import *
+from cookies.tasks import *
+from cookies.giles import *
 
 
 def _ping_resource(path):
@@ -39,7 +42,8 @@ def _ping_resource(path):
 def resource(request, obj_id):
     resource = get_object_or_404(Resource, pk=obj_id)
     authorized = request.user.has_perm('cookies.view_resource', resource)
-    if resource.hidden or not (resource.public or authorized):
+    # TODO: simplify this.
+    if resource.hidden or not (resource.public or authorized or resource.created_by == request.user):
         # TODO: render a real template for the error response.
         return HttpResponse('You do not have permission to view this resource',
                             status=401)
@@ -47,20 +51,12 @@ def resource(request, obj_id):
 
 
 def resource_list(request):
+    # Either the resource is public, or owned by the requesting user.
     queryset = Resource.objects.filter(
-        Q(hidden=False)     # No hidden resources, ever
-        & Q(public=True))     # Either the resource is public, or...
+        Q(content_resource=False)
+        & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id)))
 
     filtered_objects = ResourceFilter(request.GET, queryset=queryset)
-
-    # paginator = Paginator(filtered_objects, 10) # Show 25 contacts per page
-    # page = request.GET.get('page')
-    # try:
-    #     resources = paginator.page(page)
-    # except PageNotAnInteger:
-    #     resources = paginator.page(1)
-    # except EmptyPage:
-    #     resources = paginator.page(paginator.num_pages)
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
     })
@@ -73,12 +69,34 @@ def resource_list(request):
 
 def collection(request, obj_id):
     collection = get_object_or_404(Collection, pk=obj_id)
-    return render(request, 'collection.html', {'collection':collection})
+    if not collection.public and not collection.created_by == request.user:
+        return HttpResponse('You do not have permission to view this resource',
+                            status=401)
+
+    filtered_objects = ResourceFilter(request.GET, queryset=collection.resources.filter(
+        Q(content_resource=False)
+        & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id))
+    ))
+    context = RequestContext(request, {
+        'filtered_objects': filtered_objects,
+        'collection': collection
+    })
+    template = loader.get_template('collection.html')
+    return HttpResponse(template.render(context))
 
 
 def collection_list(request):
-    collections = Collection.objects.all()
-    return render(request, 'collections.html', {'collections':collections})
+    queryset = Collection.objects.filter(
+        Q(content_resource=False)\
+        & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id))
+    )
+    filtered_objects = CollectionFilter(request.GET, queryset=queryset)
+    context = RequestContext(request, {
+        'filtered_objects': filtered_objects,
+    })
+    template = loader.get_template('collections.html')
+
+    return HttpResponse(template.render(context))
 
 
 def index(request):
@@ -281,6 +299,139 @@ def create_resource_choose_giles(request):
 
 
 @login_required
+def create_resource_bulk(request):
+    """
+    Zotero bulk upload.
+    """
+
+    context = RequestContext(request, {})
+    if request.method == 'GET':
+        form = BulkResourceForm()
+    elif request.method == 'POST':
+        form = BulkResourceForm(request.POST, request.FILES)
+        if form.is_valid():
+            uploaded_file = request.FILES['upload_file']
+            # TODO: validate file type.
+
+            # Pickle can't handle file pointers.
+            safe_data = {k: v for k, v in form.cleaned_data.iteritems()
+                         if k != 'upload_file'}
+            safe_data.update({'created_by': request.user})
+            result = handle_bulk.delay(uploaded_file.temporary_file_path(),
+                                       safe_data)
+
+            job = UserJob.objects.create(**{
+                'created_by': request.user,
+                'result_id': result.id,
+            })
+            # result = handle_bulk.delay(uploaded_file, form.cleaned_data)
+
+            return HttpResponseRedirect(reverse('job-status', args=(result.id,)))
+
+
+    template = loader.get_template('create_resource_bulk.html')
+    context.update({'form': form})
+    return HttpResponse(template.render(context))
+
+
+@login_required
 def logout_view(request):
     logout(request)
     return HttpResponseRedirect(request.GET.get('next', reverse('index')))
+
+
+@login_required
+def jobs(request):
+    queryset = UserJob.objects.filter(created_by=request.user).order_by('-created')
+    filtered_objects = UserJobFilter(request.GET, queryset=queryset)
+    context = RequestContext(request, {
+        'filtered_objects': filtered_objects,
+    })
+    template = loader.get_template('jobs.html')
+    return HttpResponse(template.render(context))
+
+
+@login_required
+def job_status(request, result_id):
+    job = get_object_or_404(UserJob, result_id=result_id)
+    async_result = AsyncResult(result_id)
+    context = RequestContext(request, {
+        'job': job,
+        'async_result': async_result,
+    })
+
+    if async_result.status == 'SUCCESS' or async_result.status == 'FAILURE':
+        result = async_result.get()
+        job.result = jsonpickle.encode(result)
+        job.save()
+        return HttpResponseRedirect(reverse(result['view'], args=(result['id'], )))
+
+    template = loader.get_template('job_status.html')
+    return HttpResponse(template.render(context))
+
+
+@login_required
+def handle_giles_upload(request):
+    try:
+        session = handle_giles_callback(request)
+    except ValueError:
+        return HttpResponseRedirect(reverse('create-resource'))
+
+    return HttpResponseRedirect(reverse('create-process-giles', args=(session.id,)))
+
+
+@login_required
+def process_giles_upload(request, session_id):
+    session = get_object_or_404(GilesSession, pk=session_id)
+    context = RequestContext(request, {'session': session,})
+
+    if request.method == 'GET':
+        form = ChooseCollectionForm()
+        form.fields['collection'].queryset = form.fields['collection'].queryset.filter(created_by_id=request.user.id)
+        if session.collection:
+            collection_id = session.collection
+        else:
+            collection_id = request.GET.get('collection_id', None)
+        if collection_id:
+            form.fields['collection'].initial = collection_id
+            context.update({'collection_id': collection_id})
+
+    elif request.method == 'POST':
+        form = ChooseCollectionForm(request.POST)
+        form.fields['collection'].queryset = form.fields['collection'].queryset.filter(created_by_id=request.user.id)
+        if form.is_valid():
+            session.collection = form.cleaned_data['collection']
+            session.save()
+    context.update({'form': form})
+    template = loader.get_template('create_process_giles_upload.html')
+    return HttpResponse(template.render(context))
+
+
+@login_required
+def edit_resource_giles(request, resource_id):
+    resource = get_object_or_404(Resource, pk=resource_id)
+    context = RequestContext(request, {'resource': resource,})
+    template = loader.get_template('edit_resource_details_giles.html')
+    if request.method == 'GET':
+        form = UserEditResourceForm(initial={
+            'name': resource.name,
+            'resource_type': resource.entity_type,
+            'public': resource.public,
+            'uri': resource.uri,
+            'namespace': resource.namespace,
+        })
+
+    elif request.method == 'POST':
+        form = UserEditResourceForm(request.POST)
+        if form.is_valid():
+            resource.update(**{
+                'name': form.cleaned_data['name'],
+                'entity_type': form.cleaned_data['resource_type'],
+                'public': form.cleaned_data['public'],
+                'uri': form.cleaned_data['uri'],
+                'namespace': form.cleaned_data['namespace'],
+            })
+
+    context.update({'form': form})
+
+    return HttpResponse(template.render(context))

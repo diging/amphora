@@ -25,10 +25,10 @@
         {% if not is_popup %}
         {% block branding %}
         <div class="panel-heading" style="">
-            <div class="row">
+            <div class="row" style="margin-top: 15px;">
                 {% block nav-global %}{% endblock %}
                 {% if user.is_active and user.is_staff %}
-                <div id="user-tools" class="text-right">
+                <span id="user-tools" class="pull-right">
                     {% trans 'Welcome,' %}
                     <strong>{% firstof user.get_short_name user.get_username %}</strong>.
                     {% block userlinks %}
@@ -40,14 +40,12 @@
                     {% endif %}
                     <a class="btn btn-sm" href="{% url 'logout' %}?next={{ request.path }}"><i class="fa fa-github" aria-hidden="true"></i> {% trans 'Log out' %}</a>
                     {% endblock %}
-                </div>
+                </span>
                 {% else %}
-                <div id="user-tools" class="text-right">
+                <span id="user-tools" class="pull-right">
                     <a class="btn btn-sm" href="{% url 'social:begin' 'github' %}"><i class="fa fa-github" aria-hidden="true"></i> {% trans 'Log in' %}</a>
-                </div>
+                </span>
                 {% endif %}
-            </div>
-            <div class="row" style="margin-top: 15px;">
                 <img class="img img-responsive" style="height:45px; display: inline-block; margin-right: 15px; vertical-align: top;" src="{% static "cookies/img/jar.png" %}" />
                 <span class="h1">
                     <span class="text-warning" style="vertical-align: middle;">JARS</span>&nbsp;
@@ -89,17 +87,39 @@
                 <br class="clear" />
             </div>
             <!-- END Content -->
-
-
         </div>
         <!-- END Container -->
         {% block footer %}
         <div id="footer" class="footer text-center">
             {% if user.is_active %}
-            <a href="{% url "create-resource" %}" class="btn btn-lg glyphicon glyphicon-cloud-upload"></a>
+            <a href="{% url "create-resource" %}"
+                class="btn btn-lg glyphicon glyphicon-cloud-upload"
+                data-toggle="tooltip"
+                data-title="Upload Resource">
+            </a>
+            {% endif %}
+            <a href="{% url "collections" %}{% if request.user.id > 0 %}?created_by={{ request.user.id }}{% endif %}"
+                class="btn btn-lg glyphicon glyphicon-folder-close"
+                data-toggle="tooltip"
+                data-title="Collections">
+            </a>
+            <a href="{% url "resources" %}{% if request.user.id > 0 %}?created_by={{ request.user.id }}{% endif %}"
+                class="btn btn-lg glyphicon glyphicon-list"
+                data-toggle="tooltip"
+                data-title="Resources">
+            </a>
+            {% if user.is_active %}
+            <a href="{% url "jobs" %}"
+                class="btn btn-lg glyphicon glyphicon-tasks"
+                data-toggle="tooltip"
+                data-title="Tasks">
+            </a>
             {% endif %}
         </div>
         {% endblock %}
 
+    <script>
+    $('[data-toggle="tooltip"]').tooltip();
+    </script>
     </body>
-    </html>
+</html>

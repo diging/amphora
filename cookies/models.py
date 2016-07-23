@@ -9,14 +9,10 @@ from django.core.urlresolvers import reverse
 
 from django.conf import settings
 
-import rest_framework
 
-import iso8601
-import sys
-import six
+import iso8601, json, sys, six, logging, rest_framework
 from uuid import uuid4
 
-import logging
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel('ERROR')
@@ -149,6 +145,13 @@ class ResourceBase(Entity):
 
 
 class Resource(ResourceBase):
+    next_page = models.OneToOneField('Resource',
+                                     related_name='previous_page',
+                                     blank=True, null=True)
+
+    
+
+
     @property
     def content_location(self):
         if self.content_resource:
@@ -511,3 +514,43 @@ class ConceptEntity(Entity):
 
 class ConceptType(Type):
     type_concept = models.ForeignKey('concepts.Type')
+
+
+class UserJob(models.Model):
+    """
+    For tracking async jobs.
+    """
+    created_by = models.ForeignKey(User, related_name='jobs')
+    created = models.DateTimeField(auto_now_add=True)
+    result_id = models.CharField(max_length=255)
+    result = models.TextField()
+
+    def get_absolute_url(self):
+        return reverse('job-status', args=(self.result_id,))
+
+
+class GilesSession(models.Model):
+    created_by = models.ForeignKey(User, related_name='giles_sessions')
+    created = models.DateTimeField(auto_now_add=True)
+    _file_ids = models.TextField()
+    _file_details = models.TextField()
+
+
+    content_resources = models.ManyToManyField('Resource', related_name='content_in_giles_sessions')
+    resources = models.ManyToManyField('Resource', related_name='giles_sessions')
+    collection = models.ForeignKey('Collection', null=True, blank=True)
+
+    def _get_file_ids(self):
+        return json.loads(self._file_ids)
+
+    def _set_file_ids(self, value):
+        self._file_ids = json.dumps(value)
+
+    def _get_file_details(self):
+        return json.loads(self._file_details)
+
+    def _set_file_details(self, value):
+        self._file_details = json.dumps(value)
+
+    file_ids = property(_get_file_ids, _set_file_ids)
+    file_details = property(_get_file_details, _set_file_details)
