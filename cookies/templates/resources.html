@@ -1,4 +1,4 @@
-{% extends "base_site.html" %}
+{% extends "base.html" %}
 {% load i18n %}
 {% load staticfiles %}
 {% load breadcrumbs %}
@@ -16,7 +16,6 @@
 {% block content %}
 {% autopaginate filtered_objects.qs 10 as resources %}
 <div class="h2">Resources</div>
-
 
 <div class="panel-group">
     <div class="panel panel-default">

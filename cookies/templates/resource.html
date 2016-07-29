@@ -1,7 +1,9 @@
-{% extends "base_site.html" %}
+{% extends "base.html" %}
 {% load i18n %}
 {% load staticfiles %}
 {% load breadcrumbs %}
+{% load preview %}
+
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'index' %}">{% trans 'Home' %}</a>
@@ -11,64 +13,82 @@
 {% endblock %}
 
 {% block content %}
-<div class="resource_summary">
-    <h2 class="resource_name">{{ resource.name }}</h1>
-        <dl class="dl-horizontal">
-            <dt>Created</dt>
-            <dd>{{ resource.created }}</dd>
-            <dt>Created by</dt>
-            <dd>{{ resource.created_by }}</dd>
-            <dt class="resource_uri">URI</dt>
-            <dd>{{ resource.uri }}</dd>
-            <dt class="resource_entity_type">Type</dt>
-            <dd>{{ resource.entity_type }}</dd>
+<div class="row">
+    <div class="col-sm-6">
+        <div class="resource_summary">
+            <div class="h2 resource_name">
+                {{ resource.name }}
+                {% if resource.created_by == request.user %}
+                <span class="pull-right">
+                    <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
+                        href="{% url "edit-resource-details" resource.id %}?next={{ request.path }}"
+                        data-toggle="tooltip"
+                        data-title="Edit record"></a>
+                </span>
+                {% endif %}
+            </div>
 
-            {% if resource.content %}
-            <dt class="resource_content">Content</dt>
-            {% for content_relation in resource.content.all %}
-            <dd>
-                <a href="{{ content_relation.content_resource.content_location }}">
-                    {{ content_relation.content_resource.content_location|truncatechars:50 }}
-                </a>&nbsp;
-                <label class="label label-primary">
-                    {{ content_relation.content_type }}
-                </label>
-            </dd>
-            {% endfor %}
-            {% endif %}
-        </dl>
+            <dl class="dl-horizontal">
+                <dt>Created</dt>
+                <dd>{{ resource.created }}</dd>
+                <dt>Created by</dt>
+                <dd>{{ resource.created_by }}</dd>
+                <dt class="resource_uri">URI</dt>
+                <dd>{{ resource.uri }}</dd>
+                <dt class="resource_entity_type">Type</dt>
+                <dd>{{ resource.entity_type }}</dd>
+
+                {% if resource.content %}
+                <dt class="resource_content">Content</dt>
+                {% for content_relation in resource.content.all %}
+                <dd>
+                    <a href="{{ content_relation.content_resource.content_location }}">
+                        {{ content_relation.content_resource.content_location|truncatechars:50 }}
+                    </a>&nbsp;
+                    <label class="label label-primary">
+                        {{ content_relation.content_type }}
+                    </label>
+                </dd>
+                {% endfor %}
+                {% endif %}
+            </dl>
+        </div>
+        <h3>Collections</h2>
+        <div class="resource_collections">
+            <ul class="list-group">
+                {% for collection in resource.part_of.all %}
+                <a href="{% url "collection" collection.id %}"
+                    class="list-group-item">
+                    {{ collection.name }}
+                </a>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <h3>Metadata</h2>
+        <div class="resource_relations">
+            <dl class="dl-horizontal">
+                {% for relation in resource.relations_from.all %}
+                <dt class="predicate"
+                    id="predicate_{{ relation.predicate.id }}"
+                    uri="{{ relation.predicate.uri }}">
+                    {{ relation.predicate.name }}
+                </dt>
+                <dd class="target"
+                    id="target_{{ relation.target.id }}"
+                    uri="{{ relation.target.uri }}">
+                    {{ relation.target.name }}
+                </dd>
+                {% endfor %}
+            </dl>
+        </div>
+    </div>
+    <div class="col-sm-6">
+        {{ resource|preview:request }}
     </div>
 </div>
 
-<h3>Collections</h2>
-<div class="resource_collections">
-    <ul class="list-group">
-        {% for collection in resource.part_of.all %}
-        <a href="{% url "collection" collection.id %}"
-            class="list-group-item">
-            {{ collection.name }}
-        </a>
-        {% endfor %}
-    </ul>
-</div>
 
-<h3>Metadata</h2>
-<div class="resource_relations">
-    <dl class="dl-horizontal">
-        {% for relation in resource.relations_from.all %}
-        <dt class="predicate"
-            id="predicate_{{ relation.predicate.id }}"
-            uri="{{ relation.predicate.uri }}">
-            {{ relation.predicate.name }}
-        </dt>
-        <dd class="target"
-            id="target_{{ relation.target.id }}"
-            uri="{{ relation.target.uri }}">
-            {{ relation.target.name }}
-        </dd>
-        {% endfor %}
-    </dl>
-</div>
 
 
 {% endblock %}

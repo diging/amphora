@@ -5,6 +5,8 @@ from django.core.urlresolvers import reverse
 from cookies.giles import get_file_details, handle_giles_callback
 from cookies.models import *
 
+from social.apps.django_app.default.models import UserSocialAuth
+
 import unittest, mock, json
 from collections import Counter
 
@@ -31,6 +33,13 @@ class TestGiles(unittest.TestCase):
             email='test@test.com',
             password='nope',
         )
+        self.auth = UserSocialAuth.objects.create(**{
+            'user': self.user,
+            'provider': 'github',
+            'uid': 'asdf1234',
+        })
+        self.auth.extra_data['access_token'] = 'fdsa5432'
+        self.auth.save()
 
         self.page_field = Field.objects.create(uri='http://xmlns.com/foaf/0.1/page')
         self.part_type = Type.objects.create(uri='http://purl.org/net/biblio#Part')
@@ -38,8 +47,11 @@ class TestGiles(unittest.TestCase):
         self.document_type = Type.objects.create(uri='http://xmlns.com/foaf/0.1/Document')
 
     def test_get_file_details(self):
+        request = self.factory.get(reverse('create-handle-giles') + '?uploadids=asdf1234')
+        request.user = self.user
+
         get = mock.Mock(side_effect=mock_get_fileids)
-        result = get_file_details('asdf1234', get=get)
+        result = get_file_details(request, 'asdf1234', get=get)
 
         self.assertEqual(get.call_count, 1)
         self.assertIsInstance(result, dict)
@@ -89,6 +101,7 @@ class TestGiles(unittest.TestCase):
         self.part_type.delete()
         self.image_type.delete()
         self.document_type.delete()
+        self.auth.delete()
 
 
 if __name__ == '__main__':

@@ -33,7 +33,11 @@
 
 <ul class="list-group" style="margin-top: 25px;">
     {% for resource in session.resources.all %}
-    <a href="{% url "edit-resource-giles" resource.id %}" class="list-group-item">{{ resource.name }}</a>
+    <a href="{% url "edit-resource-details" resource.id %}?next={{ request.path }}"
+        class="list-group-item">
+        {{ resource.name }}&nbsp;
+        {% if resource.relations_from.count > 0 %}({{ resource.relations_from.count }} pages){% endif %}&nbsp;
+    </a>
     {% endfor %}
 </ul>
 {% endblock %}

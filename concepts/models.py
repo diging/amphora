@@ -3,12 +3,13 @@ from django.contrib.contenttypes.models import ContentType
 
 optional = { 'blank': True, 'null': True }
 
+
 class HeritableObject(models.Model):
     """
-    An object that is aware of its "real" type, i.e. the subclass that it 
+    An object that is aware of its "real" type, i.e. the subclass that it
     instantiates.
     """
-    
+
     real_type = models.ForeignKey(ContentType, editable=False)
     label = models.CharField(max_length=255, **optional)
 
@@ -33,12 +34,14 @@ class HeritableObject(models.Model):
     class Meta:
         abstract = True
 
+
 class Concept(HeritableObject):
     uri = models.CharField(max_length=255)
     resolved = models.BooleanField(default=False)
     typed = models.ForeignKey('Type', related_name='instances', **optional )
     description = models.TextField(**optional)
     authority = models.CharField(max_length=255)
+
 
 class Type(Concept):
     pass

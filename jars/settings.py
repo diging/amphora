@@ -221,18 +221,18 @@ LOGIN_REDIRECT_URL = 'index'
 
 
 GILES = 'http://diging-dev.asu.edu:8081/giles-review'
-# GET_METHOD = requests.get
+GET = requests.get
 
 import json
-def GET_METHOD(path, params={}, headers={}):
-    class MockResponse(object):
-        def __init__(self, status_code, content):
-            self.status_code = status_code
-            self.content = content
-
-        def json(self):
-            return json.loads(self.content)
-
-    if path.startswith('/'.join([GILES, 'rest', 'files', 'upload'])):
-        with open('cookies/tests/data/giles_file_response.json', 'r') as f:
-            return MockResponse(200, f.read())
+# def GET_METHOD(path, params={}, headers={}):
+#     class MockResponse(object):
+#         def __init__(self, status_code, content):
+#             self.status_code = status_code
+#             self.content = content
+#
+#         def json(self):
+#             return json.loads(self.content)
+#
+#     if path.startswith('/'.join([GILES, 'rest', 'files', 'upload'])):
+#         with open('cookies/tests/data/giles_file_response.json', 'r') as f:
+#             return MockResponse(200, f.read())

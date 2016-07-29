@@ -62,4 +62,15 @@
         <input class="btn btn-success" type="submit" value="Upload">
     </div>
 </form>
+
+<script>
+$('#id_collection').change(function(e) {
+    var val = $(this).val();
+    if (val == "") {
+        $('#id_name').removeAttr('disabled');
+    } else {
+        $('#id_name').attr('disabled', true);
+    }
+})
+</script>
 {% endblock %}

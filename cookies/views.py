@@ -1,6 +1,8 @@
 from django.shortcuts import render, render_to_response, get_object_or_404
 from django.forms.extras.widgets import SelectDateWidget
-from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect
+from django.forms import formset_factory
+
+from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect, Http404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from django.core.exceptions import ObjectDoesNotExist
@@ -48,6 +50,22 @@ def resource(request, obj_id):
         return HttpResponse('You do not have permission to view this resource',
                             status=401)
     return render(request, 'resource.html', {'resource':resource})
+
+
+def resource_by_uri(request):
+    """
+    Display details about a :class:`.Resource` identified by URI. If
+    :class:`.Resource` is a ``content_resource``, displays details about the
+    "parent".
+    """
+    uri = request.GET.get('uri', None)
+    if uri is None:
+        raise Http404('No resource URI provided')
+
+    resource = get_object_or_404(Resource, uri=uri)
+    if resource.content_resource:
+        resource = resource.parent.first().for_resource
+    return HttpResponseRedirect(reverse('resource', args=(resource.id,)))
 
 
 def resource_list(request):
@@ -317,6 +335,9 @@ def create_resource_bulk(request):
             safe_data = {k: v for k, v in form.cleaned_data.iteritems()
                          if k != 'upload_file'}
             safe_data.update({'created_by': request.user})
+            # result = handle_bulk(uploaded_file.temporary_file_path(),
+            #                            safe_data)
+            # 
             result = handle_bulk.delay(uploaded_file.temporary_file_path(),
                                        safe_data)
 
@@ -360,10 +381,15 @@ def job_status(request, result_id):
         'async_result': async_result,
     })
 
-    if async_result.status == 'SUCCESS' or async_result.status == 'FAILURE':
-        result = async_result.get()
-        job.result = jsonpickle.encode(result)
-        job.save()
+    print job.result
+    if job.result or async_result.status == 'SUCCESS' or async_result.status == 'FAILURE':
+        if async_result.status == 'SUCCESS':
+            result = async_result.get()
+            job.result = jsonpickle.encode(result)
+            job.save()
+        else:
+            result = jsonpickle.decode(job.result)
+
         return HttpResponseRedirect(reverse(result['view'], args=(result['id'], )))
 
     template = loader.get_template('job_status.html')
@@ -408,10 +434,17 @@ def process_giles_upload(request, session_id):
 
 
 @login_required
-def edit_resource_giles(request, resource_id):
+def edit_resource_details(request, resource_id):
     resource = get_object_or_404(Resource, pk=resource_id)
     context = RequestContext(request, {'resource': resource,})
-    template = loader.get_template('edit_resource_details_giles.html')
+    template = loader.get_template('edit_resource_details.html')
+    on_valid = request.GET.get('next', None)
+
+    MetadataFormSet = formset_factory(MetadatumForm)
+
+    if on_valid:
+        context.update({'next': on_valid})
+
     if request.method == 'GET':
         form = UserEditResourceForm(initial={
             'name': resource.name,
@@ -421,17 +454,37 @@ def edit_resource_giles(request, resource_id):
             'namespace': resource.namespace,
         })
 
+        formset = MetadataFormSet(initial=[{
+            'field': relation.predicate,
+            'value': relation.target.name,
+            'value_id': relation.target.id,
+        } for relation in resource.relations_from.all()], prefix='metadata')
+
+
     elif request.method == 'POST':
         form = UserEditResourceForm(request.POST)
         if form.is_valid():
-            resource.update(**{
-                'name': form.cleaned_data['name'],
-                'entity_type': form.cleaned_data['resource_type'],
-                'public': form.cleaned_data['public'],
-                'uri': form.cleaned_data['uri'],
-                'namespace': form.cleaned_data['namespace'],
-            })
+            data = [
+                ('name',  form.cleaned_data['name']),
+                ('entity_type', form.cleaned_data['resource_type']),
+                ('public', form.cleaned_data['public']),
+                ('uri', form.cleaned_data['uri']),
+                ('namespace', form.cleaned_data['namespace']),
+            ]
+            for field, value in data:
+                setattr(resource, field, value)
+            resource.save()
 
-    context.update({'form': form})
+            if on_valid:
+                return HttpResponseRedirect(on_valid)
+
+    page_field = Field.objects.get(uri='http://xmlns.com/foaf/0.1/page')
+    context.update({
+        'form': form,
+        'formset': formset,
+        'resource': resource,
+        'pages': resource.relations_from.filter(predicate_id=page_field.id),
+    })
+
 
     return HttpResponse(template.render(context))

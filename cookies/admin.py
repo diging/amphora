@@ -243,7 +243,7 @@ class ResourceAdmin(admin.ModelAdmin):
     model = Resource
 
     def get_queryset(self, request):
-        return Resource.objects.filter(content_resource=False)
+        return Resource.objects.all()
 
     def bulk_view(self, request, **kwargs):
         """

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load addcss %}
+{% load preview %}
+{% block content %}
+
+<div class="row">
+    <div class="col-xs-6">
+        <span class="pull-right">
+            <a class="btn fa fa-eye" aria-hidden="true"
+                href="{% url "resource" resource.id %}"
+                data-toggle="tooltip"
+                data-title="View record"></a>
+        </span>
+        <ul class="nav nav-tabs nav-left" role="tablist">
+            <li role="presentation" class="active">
+                <a href="#details" aria-controls="fields" role="tab" data-toggle="tab">Details</a>
+            </li>
+            <li role="presentation" class="">
+                <a href="#metadata" aria-controls="fields" role="tab" data-toggle="tab">Metadata</a>
+            </li>
+        </ul>
+
+        <form class="form" action="{% if next %}?next={{ next }}{% else %}.{% endif %}" method="POST">
+            {% csrf_token %}
+            <div class="tab-content">
+                <div role="tabpanel" class="tab-pane active panel-body" id="details">
+
+                        {% for error in form.non_field_errors %}
+                        <div class="alert alert-warning">{{ error }}</div>
+                        {% endfor %}
+                        {% for field in form %}
+                        <div class="form-group">
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <label>{{ field.label }}</label>
+                            {{ field|addcss:"form-control" }}
+                            <p class="text-muted">{{ field.help_text }}</p>
+                        </div>
+
+                        {% endfor %}
+
+                        <div class="text-center">
+                            <input class="btn btn-success" type="submit" value="Save">
+                        </div>
+
+                </div>
+                <div role="tabpanel" class="tab-pane panel-body" id="metadata">
+                    {% for form in formset %}
+                    <div class="form-inline">
+                        {% for field in form %}
+                        <div class="form-group">
+                            <div class="form-group">
+                                {% for error in field.errors %}
+                                <div class="alert alert-warning">{{ error }}</div>
+                                {% endfor %}
+                                {{ field|addcss:"form-control" }}
+                                <p class="text-muted">{{ field.help_text }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </form>
+
+
+    </div>
+    <div class="col-xs-6">
+        {{ resource|preview:request }}
+    </div>
+</div>
+{% endblock %}

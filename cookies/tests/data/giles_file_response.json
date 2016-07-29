@@ -1,39 +1,46 @@
 [ {
-  "documentId" : "DOCjKcFVF",
-  "uploadId" : "UPTMJd30",
-  "uploadedDate" : "2016-07-22T12:04:53.094null",
+  "documentId" : "DOCDdXVql",
+  "uploadId" : "UPR8QVBL",
+  "uploadedDate" : "2016-07-25T17:17:04.944Z",
   "access" : "PRIVATE",
   "files" : [ {
-    "filename" : "IMG_0156.jpg",
-    "path" : "jdamerow/UPTMJd30/FILE2MWhnS/IMG_0156.jpg",
+    "filename" : "IMG_2832.jpeg",
+    "path" : "http://diging-dev.asu.edu:8081/giles-review/rest/digilib?fn=jdamerow/UPR8QVBL/FILExedxqn/IMG_2832.jpeg",
     "content-type" : "image/jpeg",
-    "size" : 449753
+    "size" : 120830,
+    "id" : "FILE23rtC"
   } ]
-}, {
-  "documentId" : "DOCvVmJUE",
-  "uploadId" : "UPTMJd30",
-  "uploadedDate" : "2016-07-22T12:04:53.094null",
+},
+{
+  "documentId" : "DOCDdXVqm",
+  "uploadId" : "UPR8QVBL",
+  "uploadedDate" : "2016-07-25T17:17:04.944Z",
   "access" : "PRIVATE",
   "files" : [ {
-    "filename" : "IMG_0132.jpg",
-    "path" : "jdamerow/UPTMJd30/FILEsPbdqK/IMG_0132.jpg",
+    "filename" : "IMG_2833.jpeg",
+    "path" : "http://diging-dev.asu.edu:8081/giles-review/rest/digilib?fn=jdamerow/UPR8QVBL/FILExedxqn/IMG_2833.jpeg",
     "content-type" : "image/jpeg",
-    "size" : 418182
+    "size" : 120830,
+    "id" : "FILE23rtD"
   } ]
-}, {
-  "documentId" : "DOCvVmJUF",
-  "uploadId" : "UPTMJd30",
-  "uploadedDate" : "2016-07-22T12:04:53.094null",
-  "access" : "PUBLIC",
+},
+{
+  "documentId" : "DOCDdXVqo",
+  "uploadId" : "UPR8QVBL",
+  "uploadedDate" : "2016-07-25T17:17:04.944Z",
+  "access" : "PRIVATE",
   "files" : [ {
-    "filename" : "IMG_0132.jpg",
-    "path" : "jdamerow/UPTMJd30/FILEsPbdqK/IMG_0132.jpg",
+    "filename" : "IMG_2836.jpeg",
+    "path" : "http://diging-dev.asu.edu:8081/giles-review/rest/digilib?fn=jdamerow/UPR8QVBL/FILExedxqn/IMG_2836.jpeg",
     "content-type" : "image/jpeg",
-    "size" : 418182
-  },{
-    "filename" : "IMG_0133.jpg",
-    "path" : "jdamerow/UPTMJd30/FILEsPbdqK/IMG_0133.jpg",
+    "size" : 120830,
+    "id" : "FILE23rtG"
+  },
+  {
+    "filename" : "IMG_2837.jpeg",
+    "path" : "http://diging-dev.asu.edu:8081/giles-review/rest/digilib?fn=jdamerow/UPR8QVBL/FILExedxqn/IMG_2837.jpeg",
     "content-type" : "image/jpeg",
-    "size" : 418182
+    "size" : 120830,
+    "id" : "FILE23rtH"
   } ]
-} ]
+}]

@@ -79,13 +79,23 @@ class RemoteSchemaForm(forms.Form):
 
 
 class BulkResourceForm(forms.Form):
+    collection = forms.ModelChoiceField(**{
+        'queryset': Collection.objects.all(),
+        'empty_label': u'Create a new collection',
+        'required': False,
+    })
+
     name = forms.CharField(**{
         'max_length': 255,
-        'help_text': u'A new Collection will be created from this bulk ingest.'
+        'help_text': u'Enter a name for your new collection.',
+        'required': False,
     })
+
+
     public = forms.BooleanField(**{
         'help_text': u'By checking this box, you affirm that you have the' \
                    + u' right to upload and distribute this content.',
+        'required': False,
     })
 
     upload_file = forms.FileField(**{
@@ -107,6 +117,13 @@ class BulkResourceForm(forms.Form):
                    + u' Otherwise, its name will be modified slightly so that'\
                    + u' it is unique.'
     })
+
+    def clean(self):
+        cleaned_data = super(BulkResourceForm, self).clean()
+        collection = cleaned_data.get('collection', None)
+        name = cleaned_data.get('name', None)
+        if not collection and not name:
+            raise forms.ValidationError("Please enter a name for your new collection")
 
 
 class RelationForm(autocomplete.FutureModelForm):
@@ -202,6 +219,7 @@ class UserEditResourceForm(forms.Form):
                    + ' appropriate for your resource.',
     })
     public = forms.BooleanField(**{
+        'required': False,
         'help_text': u'If checked, this resource will be available to the' \
                    + u' public. By checking this box you affirm that you have' \
                    + u' the right to upload and distribute this resource.'
@@ -220,7 +238,6 @@ class UserEditResourceForm(forms.Form):
     })
 
 
-
 class UserResourceFileForm(forms.Form):
     upload_file = forms.FileField()
 
@@ -237,3 +254,9 @@ class ChooseCollectionForm(forms.Form):
     collection = forms.ModelChoiceField(**{
         'queryset': Collection.objects.all()
     })
+
+
+class MetadatumForm(forms.Form):
+    field = forms.ModelChoiceField(queryset=Field.objects.all().order_by('-name'))
+    value = forms.CharField()#widget=forms.HiddenInput()
+    value_id = forms.CharField(widget=forms.HiddenInput(), required=False)#

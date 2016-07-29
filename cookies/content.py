@@ -3,13 +3,9 @@ from django.db.models.fields.files import FieldFile
 from django.db import IntegrityError
 from django.db.models import Q
 
-import slate
-import magic
 from bs4 import BeautifulSoup
-import zipfile
 from uuid import uuid4
-import mimetypes
-import os
+import mimetypes, jsonpickle, os, zipfile, magic, slate
 
 from cookies.models import *
 from cookies.ingest import read
@@ -26,6 +22,7 @@ binary_mime_types = [
 pdf_mime_types = [
     'application/pdf',
     ]
+
 
 
 def handle_content(obj, commit=True):
@@ -98,14 +95,7 @@ def _resources_from_zip(file, type_instance):
 
 
 def _get_target(v):
-    valueTypes = {
-        'int': IntegerValue,
-        'str': StringValue,
-        'unicode': StringValue,
-        'float': FloatValue,
-        'datetime': DateTimeValue,
-    }
-    if type(v) is unicode:
+    if type(v) is unicode:    # TODO: what is this for?
         tname = v.split('/')[-1].split('#')[-1]
     else:
         tname = v
@@ -114,19 +104,161 @@ def _get_target(v):
     if qs.count() > 0:
         return qs.first()
     else:
-        type_name = type(v).__name__
-        if type_name in valueTypes:
-            qs = valueTypes[type_name].objects.filter(name=v)
-            if qs.count() > 0:
-                return qs.first()
-            return valueTypes[type_name].objects.create(name=v)
+        value = jsonpickle.encode(v)
+        qs = Value.objects.filter(_value=value)
+        if qs.count() > 0:
+            return qs.first()
+        return Value.objects.create(_value=value)
+
+
+def _process_people(field, data, entity_type):
+    entities = []
+    for surname, forename in data:
+        if surname.startswith('http'):
+            entity = _find_entity(field, surname)
+            if not entity:
+                entity = ConceptEntity.objects.create(name=surname, uri=surname, entity_type=entity_type)
+        else:
+            entity = ConceptEntity.objects.create(name=u', '.join([surname, forename]), entity_type=entity_type)
+        entities.append(entity)
+    return entities
+
+
+def _process_ispartof(field, data):
+    IDENTIFIER = Field.objects.get(uri='http://purl.org/dc/elements/1.1/identifier')
+    TITLE = Field.objects.get(uri='http://purl.org/dc/elements/1.1/title')
+    TYPE = Field.objects.get(uri='http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
+    entity = None
+    name = None
+    uri = None
+    entity_type = None
+    field_data = []
+    for k, v in data:
+        field = _find_field(k)
+        if field == IDENTIFIER:
+            entity = _find_entity(k, v)
+            uri = v
+        elif field == TITLE:
+            name = v
+        elif field == TYPE:
+            entity_type = _find_type(v)
+        else:
+            field_data.append((field, v))
+
+    if entity is None:
+        uu = str(uuid4())
+        entity = ConceptEntity.objects.create(
+            name=name if name else uu,
+            uri=uri if uri else uu,
+            entity_type=entity_type
+        )
+
+    for field, value in field_data:
+        target = _find_entity(field, value)
+        if target is None:
+            target = Value.objects.create(_value=jsonpickle.encode(value))
+        Relation.objects.create(source=entity, predicate=field, target=target)
+
+    return entity
+
+
+def _find_entity(key, value):
+    search_models = [
+        (Type, 'uri'),
+        (ConceptEntity, 'uri'),
+        (Resource, 'uri'),
+        (Resource, 'name'),
+    ]
+    for model, field in search_models:
+        try:
+            return model.objects.get(**{field: value})
+        except model.DoesNotExist:
+            continue
+
+
+def _find_field(key):
+    try:
+        return Field.objects.get(uri=key)
+    except Field.DoesNotExist:
+        return key
+
+
+def _find_type(key):
+    try:
+        return Type.objects.get(uri=key)
+    except Type.DoesNotExist:
+        return key
+
+
+def _process_metdata(resource):
+    """
+    Translate key/value data in ``resource`` into JARS model.
+    """
+    CREATOR = Field.objects.get(uri='http://purl.org/dc/terms/creator')
+    AUTHOR,_ = Field.objects.get_or_create(uri='http://purl.org/net/biblio#authors', defaults={'name': 'authors'})
+    ISPARTOF = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
+    PERSON = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Person')
+    TITLE = Field.objects.get(uri='http://purl.org/dc/elements/1.1/title')
+    IDENTIFIER = Field.objects.get(uri='http://purl.org/dc/elements/1.1/identifier')
+    TYPE = Field.objects.get(uri='http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
+    ZTYPE, _ = Field.objects.get_or_create(uri='http://www.zotero.org/namespaces/export#itemType')
+
+    metadata = []
+    entity_type = None
+
+
+    def _process_keypair(key, value):
+        # If we are on an inner recursion step, ``key`` will already be
+        #  resolved to a Field instance.
+        if type(key) is not Field:
+            if key in ['name', 'uri', 'file', 'entity_type']:
+                return
+
+            key = _find_field(key)
+            if type(key) is not Field:  # Could not find a field; create one!
+                key_name = key.split('/')[-1].split('#')[-1].title()
+                key = Field.objects.create(name=key_name, uri=key)
+
+        if key in [CREATOR, AUTHOR]:
+            for creator in _process_people(key, value, PERSON):
+                metadata.append((AUTHOR, creator))
+        elif key == ISPARTOF:
+            value = _process_ispartof(key, value)
+            metadata.append((key, value))
+        elif key in [TYPE, ZTYPE]:
+            entity_type = _find_type(value)
+            if type(entity_type) is not Type:
+                entity_type = Type.objects.create(**{
+                    'name': value.split('/')[-1].split('#')[-1],
+                    'uri': value
+                })
+            metadata.append((TYPE, entity_type))
+
+        elif type(value) in [str, unicode] and key not in [TITLE]:
+            found = _find_entity(key, value)
+            if found:
+                value = found
+            else:
+                if value.startswith('http'):
+                    value = Resource.objects.create(name=value, uri=value)
+                else:
+                    value = Value.objects.create(_value=jsonpickle.encode(value))
+            metadata.append((key, value))
+        elif type(value) is list:
+            for elem in value:      # Recurse.
+                _process_keypair(key, elem)
+        else:
+            value = Value.objects.create(_value=jsonpickle.encode(value))
+            metadata.append((key, value))
+
+    for key, value in resource.__dict__.iteritems():
+        _process_keypair(key, value)
+
+    return metadata
 
 
 def handle_bulk(file, form_data):
-    # TODO: this could use a bit of refactoring.
-
-    # User can indicate a default Type to assign to each new Resource.
-    default_type = form_data.get('default_type', None)
+    TYPE = Field.objects.get(uri='http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
 
     resources = read(file)
 
@@ -137,39 +269,48 @@ def handle_bulk(file, form_data):
     #  should be ignored.
     bail_on_duplicate = form_data.get('ignore_duplicates', False)
 
-    collection_name = form_data['name']
-    collection = Collection.objects.create(**{
-        'name': collection_name,
-        'created_by': form_data.get('created_by'),
-        'public': form_data.get('public'),
-    })
+    collection = form_data.get('collection', None)
+    if not collection:
+        collection_name = form_data.get('name', None)
+
+        collection = Collection.objects.create(**{
+            'name': collection_name,
+            'created_by': form_data.get('created_by'),
+            'public': form_data.get('public'),
+        })
 
     # Each file will result in a new Resource.
     for resource in resources:
         name = resource.__dict__.get('name', unicode(uuid4()))
-        # First, try to create a Resource using the filename alone.
-        try:
-            localresource = Resource.objects.create(
-                name=name,
-                public=form_data.get('public'),
-                created_by=form_data.get('created_by')
-            )
-            localresource.save()
+        resource_data = {
+            'name': name,
+            'public': form_data.get('public'),
+            'created_by': form_data.get('created_by'),
+        }
 
-        # If that doesn't work, add the partial random UUID to the end
-        #  of the filename.
-        except IntegrityError:
-            # ...unless the user has chosen to ignore duplicates.
-            if bail_on_duplicate:
-                continue
+        metadata = _process_metdata(resource)
+        # User can indicate a default Type to assign to each new Resource.
+        default_type = form_data.get('default_type', None)
 
-            localresource = Resource.objects.create(
-                name=name + u' - ' + unicode(uuid4()),
-                public=form_data.get('public'),
-                created_by=form_data.get('created_by'),
-            )
-            localresource.save()
+        entity_type = None
+        for key, value in metadata:
+            if key == TYPE:
+                entity_type = value
+                break
+        if entity_type:
+            resource_data.update({'entity_type': entity_type})
+        elif default_type:
+            # If the user has selected a default type for these resources,
+            #  load and assign it.
+            resource_data.update({'entity_type': default_type})
 
+        uri = resource.__dict__.get('uri', None)
+        if uri:
+            resource_data.update({'uri': uri})
+
+        localresource = Resource.objects.create(**resource_data)
+
+        # Handle content.
         fpaths = resource.__dict__.get('file', None)
         if fpaths:
             if type(fpaths) is not list:
@@ -195,49 +336,12 @@ def handle_bulk(file, form_data):
                         content_encoding=content_encoding,
                     )
 
-        # If the user has selected a default type for these resources,
-        #  load and assign it.
-        if default_type:
-            localresource.type = default_type
-        localresource.save()
-
         collection.resources.add(localresource)
 
-        for k, v in resource.__dict__.iteritems():
-            if k in ['file', 'name']:
-                continue
-            name = k.split('/')[-1].split('#')[-1]
-            predicate, _ = Field.objects.get_or_create(uri=k,
-                                                       defaults={'name': name})
-            if name.lower == 'abstract' and type(v) in [unicode, str] and len(v) > 0:
-                localresource.indexable_content += v
-
-            if type(v) is list:
-                for subv in v:
-                    if type(subv) is tuple:
-                        pass
-                    else:
-                        try:
-                            name = subv.split('/')[-1].split('#')[-1]
-                            predicate, _ = Field.objects.get_or_create(uri=subv, defaults={'name': name})
-                            target = _get_target(subv)
-                            Relation.objects.create(source=localresource,
-                                                    predicate=predicate,
-                                                    target=target,
-                                                    public=form_data.get('public'),
-                                                    created_by=form_data.get('created_by'),)
-                        # TODO: revisit what is going on here.
-                        except:
-                            pass
-
-            else:
-                target = _get_target(v)
-                if not target:
-                    continue
-
-                relation = Relation.objects.create(source=localresource,
-                                                   predicate=predicate,
-                                                   target=target,
-                                                   public=form_data.get('public'),
-                                                   created_by=form_data.get('created_by'))
+        for field, target in metadata:
+            Relation.objects.create(source=localresource,
+                                    predicate=field,
+                                    target=target,
+                                    public=form_data.get('public'),
+                                    created_by=form_data.get('created_by'),)
     return {'view': 'collection', 'id': collection.id}

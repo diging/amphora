@@ -10,7 +10,7 @@ from django.core.urlresolvers import reverse
 from django.conf import settings
 
 
-import iso8601, json, sys, six, logging, rest_framework
+import iso8601, json, sys, six, logging, rest_framework, jsonpickle
 from uuid import uuid4
 
 logging.basicConfig()
@@ -145,12 +145,8 @@ class ResourceBase(Entity):
 
 
 class Resource(ResourceBase):
-    next_page = models.OneToOneField('Resource',
-                                     related_name='previous_page',
+    next_page = models.OneToOneField('Resource', related_name='previous_page',
                                      blank=True, null=True)
-
-    
-
 
     @property
     def content_location(self):
@@ -223,7 +219,7 @@ class Type(models.Model):
     description = models.TextField(blank=True, null=True)
 
     def __unicode__(self):
-        return self.name
+        return '%s:: %s' % (getattr(self.schema, '__unicode__', lambda: '')(), self.name)
 
 
 class Field(models.Model):
@@ -261,7 +257,7 @@ class Field(models.Model):
         """))
 
     def __unicode__(self):
-        return self.name
+        return '%s:: %s' % (getattr(self.schema, '__unicode__', lambda: '')(), self.name)
 
 
 ### Values ###
@@ -351,6 +347,21 @@ class ValueManager(models.Manager):
 
     def get_queryset(self):
         return ValueQueryset(self.model, using=self._db, hints=self._hints)
+
+
+class Value(models.Model):
+    _value = models.TextField()
+
+    def _get_value(self):
+        return jsonpickle.decode(self._value)
+
+    def _set_value(self, value):
+        self._value = jsonpickle.encode(value)
+
+    name = property(_get_value, _set_value)
+
+    def __unicode__(self):
+        return unicode(self.name)
 
 
 class IntegerValue(models.Model):
@@ -509,7 +520,7 @@ class Authorization(models.Model):
 
 
 class ConceptEntity(Entity):
-    concept = models.ForeignKey('concepts.Concept')
+    concept = models.ForeignKey('concepts.Concept', null=True, blank=True)
 
 
 class ConceptType(Type):

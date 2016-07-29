@@ -279,9 +279,9 @@ class RDFParser(BaseParser):
 
         if handler is not None:
             data = handler(data)
-
-        if tag in self.tags:    # Rename the field.
-            tag = self.tags[tag]
+        #
+        # if tag in self.tags:
+        #     tag_for_handler = self.tags[tag]
 
         if data is not None:
             # Multiline fields are represented as lists of values.
@@ -315,14 +315,7 @@ class ZoteroParser(RDFParser):
                       'bib:Manuscript', 'bib:Image',
                       'bib:ConferenceProceedings', 'bib:Thesis']
 
-    document_type_default = 'AR'
-    document_types = {
-        'journalArticle': 'AR',
-        'book': 'BO',
-        'thesis': 'TH',
-        'bookSection': 'CH',
-        'webpage': 'WE',
-    }
+
     tags = {
         # 'isPartOf': 'journal'
     }
@@ -403,27 +396,25 @@ class ZoteroParser(RDFParser):
                 except ValueError:
                     return value
 
-    # def handle_documentType(self, value):
-    #     """
-    #
-    #     Parameters
-    #     ----------
-    #     value
-    #
-    #     Returns
-    #     -------
-    #     value.toPython()
-    #     Basically, RDF literals are casted to their corresponding Python data types.
-    #     """
-    #     value = value.toPython()
-    #     if value in self.document_types:
-    #         return self.document_types[value]
-    #     return self.document_type_default
+    def handle_documentType(self, value):
+        """
 
-    # def handle_authors_full(self, value):
-    #     authors = [self.handle_author(o) for s, p, o
-    #                in self.graph.triples((value, None, None))]
-    #     return [a for a in authors if a is not None]
+        Parameters
+        ----------
+        value
+
+        Returns
+        -------
+        value.toPython()
+        Basically, RDF literals are casted to their corresponding Python data types.
+        """
+        self.set_value('entity_type', value)
+        return value
+
+    def handle_authors_full(self, value):
+        authors = [self.handle_author(o) for s, p, o
+                   in self.graph.triples((value, None, None))]
+        return [a for a in authors if a is not None]
 
     def handle_abstract(self, value):
         """
@@ -456,37 +447,43 @@ class ZoteroParser(RDFParser):
         return value.toPython()
 
 
-    # def handle_author(self, value):
-    #     forename_iter = self.graph.triples((value, FORENAME_ELEM, None))
-    #     surname_iter = self.graph.triples((value, SURNAME_ELEM, None))
-    #     norm = lambda s: unicode(s).upper().replace('.', '')
-    #
-    #     # TODO: DRY this out.
-    #     try:
-    #         forename = norm([e[2] for e in forename_iter][0])
-    #     except IndexError:
-    #         forename = ''
-    #
-    #     try:
-    #         surname = norm([e[2] for e in surname_iter][0])
-    #     except IndexError:
-    #         surname = ''
-    #
-    #     if surname == '' and forename == '':
-    #         return
-    #     return ', '.join([surname, forename])
+    def handle_author(self, value):
+        forename_iter = self.graph.triples((value, FORENAME_ELEM, None))
+        surname_iter = self.graph.triples((value, SURNAME_ELEM, None))
+        norm = lambda s: unicode(s).upper().replace('.', '')
 
-    # def handle_editors(self, value):
-    #     return self.handle_authors_full(value)
-    #
-    # def handle_seriesEditors(self, value):
-    #     return self.handle_authors_full(value)
-    #
-    # def handle_contributors(self, value):
-    #     return self.handle_authors_full(value)
-    #
-    # def handle_translators(self, value):
-    #     return self.handle_authors_full(value)
+
+
+        # TODO: DRY this out.
+        try:
+            forename = norm([e[2] for e in forename_iter][0])
+        except IndexError:
+            forename = ''
+
+        try:
+
+            surname_data = [e[2] for e in surname_iter][0]
+            if surname_data.startswith('http'):
+                return surname_data, ''
+            surname = norm(surname_data)
+        except IndexError:
+            surname = ''
+
+        if surname == '' and forename == '':
+            return
+        return surname, forename
+
+    def handle_editors(self, value):
+        return self.handle_authors_full(value)
+
+    def handle_seriesEditors(self, value):
+        return self.handle_authors_full(value)
+
+    def handle_contributors(self, value):
+        return self.handle_authors_full(value)
+
+    def handle_translators(self, value):
+        return self.handle_authors_full(value)
 
     def handle_isPartOf(self, value):
         parent_document = []
@@ -526,7 +523,7 @@ class ZoteroParser(RDFParser):
                 return
         setattr(entry, 'pageStart', start)
         setattr(entry, 'pageEnd', end)
-        del entry.pages
+        # del entry.pages
 
 
 def read(path):
@@ -547,147 +544,3 @@ def read(path):
     papers = parser.parse()
 
     return papers
-
-
-def process_authorities(paper, instance):
-    """
-    Create :class:.`DraftAuthority` and :class:`.DraftACRelation` instances from
-    parsed data.
-
-    Parameters
-    ----------
-    paper : :class:`.Paper`
-        Vanilla object representing a single Zotero record, and containing
-        parsed data.
-    instance : :class:`.ImportAccession`
-        The current accession instance.
-
-    Returns
-    -------
-    tuple
-        ``([Authorities], [ACRelations])``
-
-    """
-
-    # The entries below map parsed fields (2nd position) onto values for
-    #  Authority.type_controlled and ACRelation.type_controlled
-    authority_fields = [
-        (Authority.PERSON, ACRelation.AUTHOR, 'authors_full', DraftACRelation, 'citation'),
-        (Authority.PERSON, ACRelation.EDITOR, 'editors', DraftACRelation, 'citation'),
-        (Authority.PERSON, ACRelation.EDITOR, 'seriesEditors', DraftACRelation, 'citation'),
-        (Authority.PERSON, ACRelation.CONTRIBUTOR, 'contributors', DraftACRelation, 'citation'),
-        (Authority.PERSON, ACRelation.TRANSLATOR, 'translators', DraftACRelation, 'citation'),
-        (Authority.SERIAL_PUBLICATION, ACRelation.PERIODICAL, 'partof__title', DraftACRelation, 'citation'),
-
-        # ('DraftACRelation', 'authority', ACRelation.PERIODICAL)),('DraftCCRelation', 'object', CCRelation.INCLUDES_CHAPTER)),
-    ]
-
-    draftAuthorities = []
-    draftACRelations = []
-    for authority_type, acrelation_type, field, relation_model, relation_field in authority_fields:
-        if not hasattr(paper, field):
-            continue
-
-        field_value = getattr(paper, field)
-        # TODO: make this more DRY.
-        if type(field_value) is list and authority_type == 'PE':
-            for last, first in field_value:
-                entity = DraftAuthority(
-                    name = ('%s %s' % (first, last)).title(),
-                    name_last = last.title(),
-                    name_first = first.title(),
-                    type_controlled = authority_type,
-                    part_of = instance,
-                )
-                entity.save()
-                draftAuthorities.append(entity)
-
-                relation = DraftACRelation(
-                    authority = entity,
-                    type_controlled = acrelation_type,
-                    part_of = instance,
-                )
-                draftACRelations.append(relation)
-        else:
-            entity = DraftAuthority(
-                name = field_value.title(),
-                type_controlled = authority_type,
-                part_of = instance,
-            )
-            entity.save()
-            draftAuthorities.append(entity)
-
-            relation = DraftACRelation(
-                authority = entity,
-                type_controlled = acrelation_type,
-                part_of = instance,
-            )
-            draftACRelations.append(relation)
-    return draftAuthorities, draftACRelations
-
-
-def process_linkeddata(paper, instance):
-    linkeddata_fields = [    # Maps LD.type_controlled.name -> Zotero field.
-        (DraftCitationLinkedData, [
-            ('uri', 'uri'),
-            ('doi', 'doi'),
-        ]),
-        (DraftAuthorityLinkedData, [
-            ('isbn', 'isbn'),
-            ('issn', 'issn'),
-        ])
-    ]
-
-    draftLinkedDataEntries = []
-
-    for model, fields in linkeddata_fields:
-        for name, field in fields:
-            if hasattr(paper, field):
-                linkedDataEntry = model(
-                    name = name,
-                    value = getattr(paper, field),
-                    part_of = instance,
-                )
-                draftLinkedDataEntries.append(linkedDataEntry)
-
-
-    return draftLinkedDataEntries
-
-
-def process_attributes(paper, instance):
-    attributeFields = [
-        ('PublicationDate', 'date'),
-    ]
-
-    attributes = []
-    for field, attr in attributeFields:
-        if hasattr(paper, attr):
-            attribute = DraftAttribute(
-                name = field,
-                value = getattr(paper, attr),
-                part_of = instance,
-            )
-            attributes.append(attribute)
-    return attributes
-
-
-def process_paper(paper, instance):
-    modelFields = [
-        ('title', 'title'),
-        ('abstract', 'abstract'),
-        ('publication_date', 'date'),
-        ('type_controlled', 'documentType'),
-        ('page_start', 'pageStart'),
-        ('page_end', 'pageEnd'),
-        ('pages_free_text', 'pagesFreeText'),
-        ('volume', 'volume'),
-        ('issue', 'issue'),
-    ]
-
-
-def process(papers, instance):
-    """
-
-    """
-
-    return [process_paper(paper, instance) for paper in papers]
