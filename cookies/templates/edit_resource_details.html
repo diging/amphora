@@ -1,6 +1,18 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load addcss %}
 {% load preview %}
+
+{% load breadcrumbs %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url resource.name 'resource' resource.id  %}
+    {% breadcrumb_url 'Edit' 'edit-resource-details' resource.id  %}
+</div>
+{% endblock %}
+
 {% block content %}
 
 <div class="row">
@@ -12,10 +24,10 @@
                 data-title="View record"></a>
         </span>
         <ul class="nav nav-tabs nav-left" role="tablist">
-            <li role="presentation" class="active">
+            <li role="presentation" class="{% if tab == 'details' %}active{% endif %}">
                 <a href="#details" aria-controls="fields" role="tab" data-toggle="tab">Details</a>
             </li>
-            <li role="presentation" class="">
+            <li role="presentation" class="{% if tab == 'metadata' %}active{% endif %}">
                 <a href="#metadata" aria-controls="fields" role="tab" data-toggle="tab">Metadata</a>
             </li>
         </ul>
@@ -23,7 +35,7 @@
         <form class="form" action="{% if next %}?next={{ next }}{% else %}.{% endif %}" method="POST">
             {% csrf_token %}
             <div class="tab-content">
-                <div role="tabpanel" class="tab-pane active panel-body" id="details">
+                <div role="tabpanel" class="tab-pane {% if tab == 'details' %}active{% endif %} panel-body" id="details">
 
                         {% for error in form.non_field_errors %}
                         <div class="alert alert-warning">{{ error }}</div>
@@ -45,22 +57,15 @@
                         </div>
 
                 </div>
-                <div role="tabpanel" class="tab-pane panel-body" id="metadata">
-                    {% for form in formset %}
-                    <div class="form-inline">
-                        {% for field in form %}
-                        <div class="form-group">
-                            <div class="form-group">
-                                {% for error in field.errors %}
-                                <div class="alert alert-warning">{{ error }}</div>
-                                {% endfor %}
-                                {{ field|addcss:"form-control" }}
-                                <p class="text-muted">{{ field.help_text }}</p>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
+                <div role="tabpanel" class="tab-pane {% if tab == 'metadata' %}active{% endif %} panel-body" id="metadata">
+                    <ul class="list-group">
+                    {% for metadatum in metadata %}
+                        <a class="list-group-item"
+                            href="{% url "edit-resource-metadatum" resource.id metadatum.id %}?next={{ request.path }}&tab=metadata">
+                            <span class="label label-primary">{{ metadatum.predicate }}</span> {{ metadatum.target.name }}</a>
                     {% endfor %}
+                    </ul>
+
                 </div>
             </div>
         </form>

@@ -10,6 +10,7 @@ import mimetypes, jsonpickle, os, zipfile, magic, slate
 from cookies.models import *
 from cookies.ingest import read
 
+
 xml_mime_types = [
     'application/xml', 'text/xml', 'text/html', 'text/x-server-parsed-html',
     'text/webviewhtml'
@@ -190,6 +191,18 @@ def _find_type(key):
         return key
 
 
+def _cast_value(value):
+    if type(value) not in [str, unicode]:
+        return value
+
+    for coercion in [iso8601.parse_date, int, float]:
+        try:
+            return coercion(value)
+        except:
+            continue
+    return value
+
+
 def _process_metdata(resource):
     """
     Translate key/value data in ``resource`` into JARS model.
@@ -208,6 +221,8 @@ def _process_metdata(resource):
 
 
     def _process_keypair(key, value):
+        value = _cast_value(value)
+        
         # If we are on an inner recursion step, ``key`` will already be
         #  resolved to a Field instance.
         if type(key) is not Field:

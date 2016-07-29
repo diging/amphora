@@ -4,6 +4,7 @@ from django.forms import formset_factory
 
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect, Http404
 from django.contrib.auth.decorators import login_required
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import logout
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -22,9 +23,8 @@ from guardian.shortcuts import get_objects_for_user
 
 import iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle
 from hashlib import sha1
-import time, os, json, base64, hmac, urllib
+import time, os, json, base64, hmac, urllib, datetime
 
-from dal import autocomplete
 
 from cookies.forms import *
 from cookies.models import *
@@ -121,6 +121,7 @@ def index(request):
     return render(request, 'index.html', {})
 
 
+@login_required
 def sign_s3(request):
     object_name = urllib.quote_plus(request.GET.get('file_name'))
     mime_type = request.GET.get('file_type')
@@ -337,7 +338,7 @@ def create_resource_bulk(request):
             safe_data.update({'created_by': request.user})
             # result = handle_bulk(uploaded_file.temporary_file_path(),
             #                            safe_data)
-            # 
+            #
             result = handle_bulk.delay(uploaded_file.temporary_file_path(),
                                        safe_data)
 
@@ -434,14 +435,72 @@ def process_giles_upload(request, session_id):
 
 
 @login_required
+def edit_resource_metadatum(request, resource_id, relation_id):
+    resource = get_object_or_404(Resource, pk=resource_id)
+    relation = get_object_or_404(Relation, pk=relation_id)
+
+    context = RequestContext(request, {
+        'resource': resource,
+        'relation': relation,
+    })
+    template = loader.get_template('edit_resource_metadatum.html')
+    on_valid = request.GET.get('next', None)
+    if on_valid:
+        context.update({'next': on_valid})
+
+    target_type = type(relation.target)
+    print target_type
+    if target_type is Value:
+        initial_data = relation.target.name
+        dtype = type(initial_data)
+        if dtype in [str, unicode]:
+            form_class = MetadatumValueTextAreaForm
+        elif type(initial_data) is int:
+            form_class = MetadatumValueIntegerForm
+        elif type(initial_data) is float:
+            form_class = MetadatumValueFloatForm
+        elif type(initial_data) is datetime.datetime:
+            form_class = MetadatumValueDateTimeForm
+        elif type(initial_data) is datetime.date:
+            form_class = MetadatumValueDateForm
+    elif target_type is ConceptEntity:
+        form_class = MetadatumConceptEntityForm
+        initial_data = relation.target.id
+    elif target_type is Resource:
+        form_class = MetadatumResourceForm
+        initial_data = relation.target.id
+    elif target_type is Type:
+        form_class = MetadatumTypeForm
+        initial_data = relation.target.id
+
+    if request.method == 'GET':
+        form = form_class({'value': initial_data})
+
+    elif request.method == 'POST':
+        form = form_class(request.POST)
+        if form.is_valid():
+            if target_type is Value:
+                relation.target.name = form.cleaned_data['value']
+                relation.target.save()
+            elif target_type in [ConceptEntity, Resource, Type]:
+                relation.target = form.cleaned_data['value']
+            relation.target.save()
+
+            if on_valid:
+                return HttpResponseRedirect(on_valid + '?tab=metadata')
+
+    context.update({'form': form})
+    return HttpResponse(template.render(context))
+
+
+@login_required
 def edit_resource_details(request, resource_id):
     resource = get_object_or_404(Resource, pk=resource_id)
     context = RequestContext(request, {'resource': resource,})
     template = loader.get_template('edit_resource_details.html')
+
+    context.update({'tab': request.GET.get('tab', 'details')})
     on_valid = request.GET.get('next', None)
-
-    MetadataFormSet = formset_factory(MetadatumForm)
-
     if on_valid:
         context.update({'next': on_valid})
 
@@ -454,11 +513,13 @@ def edit_resource_details(request, resource_id):
             'namespace': resource.namespace,
         })
 
-        formset = MetadataFormSet(initial=[{
-            'field': relation.predicate,
-            'value': relation.target.name,
-            'value_id': relation.target.id,
-        } for relation in resource.relations_from.all()], prefix='metadata')
+        # formset = MetadataFormSet(initial=[{
+        #     'field': relation.predicate,
+        #     'value': relation.target.name,
+        #     'relation_id': relation.id,
+        #     'value_instance_id': relation.target.id,
+        #     'value_content_type_id': ContentType.objects.get_for_model(relation.target.__class__).id
+        # } for relation in resource.relations_from.all()], prefix='metadata')
 
 
     elif request.method == 'POST':
@@ -481,7 +542,7 @@ def edit_resource_details(request, resource_id):
     page_field = Field.objects.get(uri='http://xmlns.com/foaf/0.1/page')
     context.update({
         'form': form,
-        'formset': formset,
+        'metadata': resource.relations_from.all(),
         'resource': resource,
         'pages': resource.relations_from.filter(predicate_id=page_field.id),
     })

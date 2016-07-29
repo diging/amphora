@@ -1,5 +1,16 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load addcss %}
+
+{% load breadcrumbs %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url 'Create' 'create-resource' %}
+    {% breadcrumb_url 'Remote' 'create-resource-url' %}
+</div>
+{% endblock %}
 
 {% block content %}
 <form class="form" action="." method="POST">

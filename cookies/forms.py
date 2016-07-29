@@ -12,8 +12,7 @@ from dal import autocomplete
 from dal_queryset_sequence.fields import QuerySetSequenceModelField
 from dal_select2_queryset_sequence.widgets import QuerySetSequenceSelect2
 from queryset_sequence import QuerySetSequence
-import inspect
-
+import inspect, jsonpickle
 from .models import *
 from . import models as md
 
@@ -256,7 +255,26 @@ class ChooseCollectionForm(forms.Form):
     })
 
 
-class MetadatumForm(forms.Form):
-    field = forms.ModelChoiceField(queryset=Field.objects.all().order_by('-name'))
-    value = forms.CharField()#widget=forms.HiddenInput()
-    value_id = forms.CharField(widget=forms.HiddenInput(), required=False)#
+class MetadatumValueTextAreaForm(forms.Form):
+    value = forms.CharField(widget=forms.Textarea)
+
+class MetadatumValueIntegerForm(forms.Form):
+    value = forms.IntegerField()
+
+class MetadatumValueFloatForm(forms.Form):
+    value = forms.FloatField()
+
+class MetadatumValueDateTimeForm(forms.Form):
+    value = forms.DateTimeField()
+
+class MetadatumValueDateForm(forms.Form):
+    value = forms.DateField()
+
+class MetadatumConceptEntityForm(forms.Form):
+    value = forms.ModelChoiceField(queryset=ConceptEntity.objects.all().order_by('-name'))
+
+class MetadatumResourceForm(forms.Form):
+    value = forms.ModelChoiceField(queryset=Resource.objects.all().order_by('-name'))
+
+class MetadatumTypeForm(forms.Form):
+    value = forms.ModelChoiceField(queryset=Type.objects.all().order_by('-name'))

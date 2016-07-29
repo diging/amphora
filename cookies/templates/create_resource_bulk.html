@@ -1,5 +1,16 @@
 {% extends "base.html" %}
 {% load addcss %}
+{% load i18n %}
+
+{% load breadcrumbs %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url 'Create' 'create-resource' %}
+    {% breadcrumb_url 'Zotero' 'create-resource-bulk' %}
+</div>
+{% endblock %}
 
 {% block content %}
 <div class="h1">
