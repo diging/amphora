@@ -392,14 +392,20 @@ def handle_bulk(file_path, form_data, file_name):
     # Each file will result in a new Resource.
     for resource in resources:
         name = resource.__dict__.get('name', unicode(uuid4()))
+
+        # These will be used to populate the Resource model itself.
         resource_data = {
             'name': name,
             'public': public,
             'created_by': creator,
         }
 
+        # These are the metadata that will be used to create Relations later on,
+        #  as opposed to the field values on the Resource model itself.
         resource_metadata = _process_metadata([], resource.__dict__.items())
 
+        # These may be remote (i.e. just URLs), local (i.e. with a file), or
+        #  both.
         content_resources = _get_content_resources(resource)
 
         # User can indicate a default Type to assign to each new Resource.
@@ -421,6 +427,8 @@ def handle_bulk(file_path, form_data, file_name):
         if uri:
             resource_data.update({'uri': uri})
 
+        # Here we create the new Resource instance from the current Zotero
+        #  record.
         localresource = Resource.objects.create(**resource_data)
         add_creation_metadata(localresource, form_data.get('created_by'))
 
@@ -428,7 +436,6 @@ def handle_bulk(file_path, form_data, file_name):
         for content_resource_data in content_resources:
             try:
                 fpaths = filter(lambda e: e[0] == 'link', content_resource_data)
-
                 fpaths = [fpath[1] for fpath in fpaths]
                 fnames = [os.path.split(fpath)[1] for fpath in fpaths]
 

@@ -334,8 +334,12 @@ def create_resource_bulk(request):
     context = RequestContext(request, {})
     if request.method == 'GET':
         form = BulkResourceForm()
+        qs = form.fields['collection'].queryset
+        form.fields['collection'].queryset = qs.filter(created_by=request.user)
     elif request.method == 'POST':
         form = BulkResourceForm(request.POST, request.FILES)
+        qs = form.fields['collection'].queryset
+        form.fields['collection'].queryset = qs.filter(created_by=request.user)
         if form.is_valid():
             uploaded_file = request.FILES['upload_file']
             # File pointers aren't easily serializable; we need to farm this
