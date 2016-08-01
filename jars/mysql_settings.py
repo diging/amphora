@@ -117,11 +117,14 @@ WSGI_APPLICATION = 'jars.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'OPTIONS': {
-            'read_default_file': '/etc/jars/mysql.cnf',
-        },
+        'NAME': os.environ.get('DJANGO_DB_NAME', 'jars'),
+        'USER': os.environ.get('DJANGO_DB_USER', 'jars'),
+        'PASSWORD': os.environ.get('DJANGO_DB_PASSWORD', 'jars'),
+        'HOST': os.environ.get('DJANGO_DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DJANGO_DB_PORT', '3306'),
     }
 }
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.6/topics/i18n/

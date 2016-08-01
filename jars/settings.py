@@ -161,11 +161,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.6/howto/static-files/
 
-STATIC_URL = '/amphora/static/'
-STATIC_ROOT = 'static/'
+BASE_URL = os.environ.get('BASE_URL', '/amphora/')
+STATIC_URL = BASE_URL + 'static/'
+STATIC_ROOT = os.environ.get('STATIC_ROOT')
 
-MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/diging/applications/media')
-MEDIA_URL = '/media/'#MEDIA_ROOT + '/amphora/'
+MEDIA_ROOT = os.environ.get('MEDIA_ROOT')
+MEDIA_URL = BASE_URL + 'media/'
 
 URI_NAMESPACE = 'http://diging.asu.edu/amphora'
 
