@@ -6,6 +6,8 @@ register = template.Library()
 
 icons = {
     'SUCCESS': mark_safe(u'<span class="glyphicon glyphicon-ok"></span>'),
+    'FAILURE': mark_safe(u'<span class="glyphicon glyphicon-exclamation-sign" style="color: red;"></span>'),
+    'PENDING': mark_safe(u'<span class="glyphicon glyphicon glyphicon-hourglass" style="color: orange;"></span>'),
 }
 
 

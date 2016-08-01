@@ -9,6 +9,7 @@ import mimetypes, jsonpickle, os, zipfile, magic, slate
 
 from cookies.models import *
 from cookies.ingest import read
+from cookies.operations import add_creation_metadata
 
 
 xml_mime_types = [
@@ -203,7 +204,7 @@ def _cast_value(value):
     return value
 
 
-def _process_metdata(resource):
+def _process_metadata(metadata, resource):
     """
     Translate key/value data in ``resource`` into JARS model.
     """
@@ -216,23 +217,29 @@ def _process_metdata(resource):
     TYPE = Field.objects.get(uri='http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
     ZTYPE, _ = Field.objects.get_or_create(uri='http://www.zotero.org/namespaces/export#itemType')
 
-    metadata = []
+
     entity_type = None
 
 
     def _process_keypair(key, value):
         value = _cast_value(value)
-        
+
         # If we are on an inner recursion step, ``key`` will already be
         #  resolved to a Field instance.
         if type(key) is not Field:
-            if key in ['name', 'uri', 'file', 'entity_type']:
+            if key in ['name', 'entity_type', 'file']:
+                return
+            if key in ['uri', 'url']:
+                metadata.append((key, value))
                 return
 
             key = _find_field(key)
             if type(key) is not Field:  # Could not find a field; create one!
-                key_name = key.split('/')[-1].split('#')[-1].title()
-                key = Field.objects.create(name=key_name, uri=key)
+                key_name = key.split('/')[-1].split('#')[-1]
+                if key_name in ['link', 'type']:
+                    metadata.append((key_name, value))
+                    return
+                key = Field.objects.create(name=key_name.title(), uri=key)
 
         if key in [CREATOR, AUTHOR]:
             for creator in _process_people(key, value, PERSON):
@@ -266,49 +273,140 @@ def _process_metdata(resource):
             value = Value.objects.create(_value=jsonpickle.encode(value))
             metadata.append((key, value))
 
-    for key, value in resource.__dict__.iteritems():
+    for key, value in resource:
         _process_keypair(key, value)
 
     return metadata
 
 
-def handle_bulk(file, form_data):
+def _create_content_resource(localresource, form_data, content_resource_data,
+                             loc, fpath, fname):
+    contentResource = Resource.objects.create(
+        name=fname,
+        content_resource=True,
+        processed=True,
+        public=form_data.get('public'),
+        created_by=form_data.get('created_by'),
+    )
+
+    cr_data = {
+        'for_resource': localresource,
+        'content_resource': contentResource,
+    }
+    if loc == 'local':
+        with open(fpath, 'r') as f:
+            contentResource.file.save(fname, File(f), True)
+            content_type, content_encoding = mimetypes.guess_type(contentResource.file.name)
+        cr_data.update({
+            'content_type': content_type,
+            'content_encoding': content_encoding,
+        })
+    elif loc == 'remote':
+        contentResource.location = fpath
+
+    contentRelation = ContentRelation.objects.create(**cr_data)
+    for field, target in content_resource_data:
+        if type(field) is not Field:
+            continue
+        Relation.objects.create(**{
+            'source': contentResource,
+            'predicate': field,
+            'target': target,
+            'public': form_data.get('public'),
+            'created_by': form_data.get('created_by'),
+        })
+    add_creation_metadata(contentResource, form_data.get('created_by'))
+    contentResource.save()
+    return contentResource
+
+
+def _create_resource_for_upload(file_name, public, creator):
+    """
+    """
+    upload_resource_data = {
+        'name': file_name,
+        'public': public,
+        'created_by': creator,
+        'content_resource': True,
+    }
+    if file_name.endswith('.zip'):
+        upload_resource_data.update({'content_type': 'application/zip'})
+    elif file_name.endswith('.rdf'):
+        upload_resource_data.update({'content_type': 'application/rdf+xml'})
+    return Resource.objects.create(**upload_resource_data)
+
+
+def _get_or_create_collection(form_data, public, creator):
+    collection = form_data.get('collection', None)
+    collection_name = form_data.get('name', None)
+    if not collection:
+        collection = Collection.objects.create(**{
+            'name': collection_name,
+            'created_by': creator,
+            'public': public
+        })
+        add_creation_metadata(collection, creator)
+    return collection
+
+
+def _get_content_resources(resource):
+    file_data = getattr(resource, 'file', [])
+    content_resources = []
+    if len(file_data) > 0:
+        if type(file_data[0]) is list:
+            for fdata in file_data:
+                content_metadata = []
+                content_resources.append(_process_metadata(content_metadata, fdata))
+        else:
+            content_metadata = []
+            content_resources.append(_process_metadata(content_metadata, file_data))
+    return content_resources
+
+
+def handle_bulk(file_path, form_data, file_name):
     TYPE = Field.objects.get(uri='http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
+    SOURCE = Field.objects.get(uri='http://purl.org/dc/terms/source')
 
-    resources = read(file)
+    public = form_data.get('public')
+    creator = form_data.get('created_by')
 
+    # The uploaded file itself should be stored.
+    upload = _create_resource_for_upload(file_name, public, creator)
+
+    resources = read(file_path)
     if not resources:
-        resources = _resources_from_zip(file, default_type_instance)
+        resources = _resources_from_zip(file_path, default_type_instance)
 
     # User can indicate that files that share names with existing resources
     #  should be ignored.
     bail_on_duplicate = form_data.get('ignore_duplicates', False)
 
-    collection = form_data.get('collection', None)
-    if not collection:
-        collection_name = form_data.get('name', None)
+    # The user can either add these new records to an existing collection, or
+    #  create a new one.
+    collection = _get_or_create_collection(form_data, public, creator)
 
-        collection = Collection.objects.create(**{
-            'name': collection_name,
-            'created_by': form_data.get('created_by'),
-            'public': form_data.get('public'),
-        })
+    # We want to be able to recall that this bulk upload was a/the source for
+    #  this collection.
+    Relation.objects.create(source=collection, predicate=SOURCE, target=upload)
 
     # Each file will result in a new Resource.
     for resource in resources:
         name = resource.__dict__.get('name', unicode(uuid4()))
         resource_data = {
             'name': name,
-            'public': form_data.get('public'),
-            'created_by': form_data.get('created_by'),
+            'public': public,
+            'created_by': creator,
         }
 
-        metadata = _process_metdata(resource)
+        resource_metadata = _process_metadata([], resource.__dict__.items())
+
+        content_resources = _get_content_resources(resource)
+
         # User can indicate a default Type to assign to each new Resource.
         default_type = form_data.get('default_type', None)
 
         entity_type = None
-        for key, value in metadata:
+        for key, value in resource_metadata:
             if key == TYPE:
                 entity_type = value
                 break
@@ -324,36 +422,41 @@ def handle_bulk(file, form_data):
             resource_data.update({'uri': uri})
 
         localresource = Resource.objects.create(**resource_data)
+        add_creation_metadata(localresource, form_data.get('created_by'))
 
         # Handle content.
-        fpaths = resource.__dict__.get('file', None)
-        if fpaths:
-            if type(fpaths) is not list:
-                fpaths = [fpaths]
-            for fpath in fpaths:
-                _, fname = os.path.split(fpath)
+        for content_resource_data in content_resources:
+            try:
+                fpaths = filter(lambda e: e[0] == 'link', content_resource_data)
 
-                with open(fpath, 'r') as f:
-                    # Now we associate the file, and save the Resource again.
-                    contentResource = Resource.objects.create(
-                        name=fname,
-                        content_resource=True,
-                        processed=True,
-                        public=form_data.get('public'),
-                        created_by=form_data.get('created_by'),
-                    )
-                    contentResource.file.save(fname, File(f), True)
-                    content_type, content_encoding = mimetypes.guess_type(contentResource.file.name)
-                    contentRelation = ContentRelation.objects.create(
-                        for_resource=localresource,
-                        content_resource=contentResource,
-                        content_type=content_type,
-                        content_encoding=content_encoding,
-                    )
+                fpaths = [fpath[1] for fpath in fpaths]
+                fnames = [os.path.split(fpath)[1] for fpath in fpaths]
+
+            except IndexError:
+                fpaths = []
+
+            try:
+                urls = filter(lambda e: e[0] == 'url', content_resource_data)
+                urls = [url[1] for url in urls]
+                fnames = [url.split('/')[-1].split('?')[0] for url in urls]
+            except IndexError:
+                urls = []
+
+            if len(fpaths) == 0 and len(urls) == 0:
+                continue
+
+            for fpath, fname in zip(fpaths, fnames):
+                # Now we associate the file, and save the Resource again.
+                _create_content_resource(localresource, form_data, content_resource_data, 'local', fpath, fname)
+            for url, fname in zip(urls, fnames):
+                fname = fname if fname else url
+                _create_content_resource(localresource, form_data, content_resource_data, 'remote', url, fname)
 
         collection.resources.add(localresource)
 
-        for field, target in metadata:
+        for field, target in resource_metadata:
+            if type(field) is not Field:
+                continue
             Relation.objects.create(source=localresource,
                                     predicate=field,
                                     target=target,

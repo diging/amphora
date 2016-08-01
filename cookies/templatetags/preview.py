@@ -31,6 +31,12 @@ image_preview_template = """
         <script>
 """
 
+external_link_template = """
+        <a class="btn" href="{href}" target="_blank">
+            <span class="glyphicon glyphicon-new-window"></span> View resource in a new window (leaving JARS).
+        </a>
+"""
+
 pdf_preview_template = """
 <canvas id="pdf-preview"></canvas>
 <script>
@@ -82,19 +88,25 @@ def preview(resource, request):
         tabs = []
         tabpanes = []
         for i, relation in enumerate(content_relations.all()):
+            print relation.content_resource.location, relation.content_resource.local
             preview_elem = relation.content_resource.content_location
-            if relation.content_resource.content_type in images:
+            if relation.content_resource.content_type in images and not relation.content_resource.local:
                 image_location = relation.content_resource.content_location
                 if not relation.content_resource.public:
                     social = request.user.social_auth.get(provider='github')
                     image_location += '&accessToken=' + social.extra_data['access_token']
                     image_location += '&dw=400'    # We can let page scripts change this after rendering.
                 preview_elem = image_preview_template.format(src=image_location)
-            elif resource.content_type == 'application/xpdf' or relation.content_resource.content_location.lower().endswith('.pdf'):
+            elif resource.content_type == 'application/xpdf' or relation.content_resource.content_location.lower().endswith('.pdf') and relation.content_resource.local:
                 preview_elem = pdf_preview_template.format(**{
                     'src': relation.content_resource.content_location,
                     "page_id": str(relation.content_resource.id),
                 }) + pdf_preview_fragment
+            elif not relation.content_resource.local:
+                preview_elem = external_link_template.format(**{
+                    'href': relation.content_resource.location
+                })
+
             tabpanes.append(tabpane_template.format(**{
                 "class": "active" if i == 0 else "",
                 "page_id": str(relation.content_resource.id),

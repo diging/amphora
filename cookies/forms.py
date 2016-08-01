@@ -251,7 +251,15 @@ class UserResourceURLForm(forms.Form):
 
 class ChooseCollectionForm(forms.Form):
     collection = forms.ModelChoiceField(**{
-        'queryset': Collection.objects.all()
+        'queryset': Collection.objects.all(),
+        'empty_label': u'Create a new collection',
+        'required': False,
+    })
+
+    name = forms.CharField(**{
+        'max_length': 255,
+        'help_text': u'Enter a name for your new collection.',
+        'required': False,
     })
 
 

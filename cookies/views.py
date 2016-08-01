@@ -31,6 +31,7 @@ from cookies.models import *
 from cookies.filters import *
 from cookies.tasks import *
 from cookies.giles import *
+from cookies.operations import add_creation_metadata
 
 
 def _ping_resource(path):
@@ -78,7 +79,7 @@ def resource_list(request):
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
     })
-    print filtered_objects.data
+
     template = loader.get_template('resources.html')
 
 
@@ -149,6 +150,7 @@ def sign_s3(request):
     }
     return JsonResponse(content)
 
+
 def test_upload(request):
     return render(request, 'testupload.html', {})
 
@@ -185,7 +187,9 @@ class ResourceSearchView(SearchView):
 
 @login_required
 def create_resource(request):
-    context = RequestContext(request, {})
+    context = RequestContext(request, {
+        'giles_upload_location': '/'.join([settings.GILES, 'files', 'upload'])
+    })
 
     template = loader.get_template('create_resource.html')
 
@@ -202,7 +206,7 @@ def create_resource_file(request):
         form = UserResourceFileForm()
 
     elif request.method == 'POST':
-        print request.FILES
+
         form = UserResourceFileForm(request.POST, request.FILES)
         if form.is_valid():
             uploaded_file = request.FILES['upload_file']
@@ -212,6 +216,7 @@ def create_resource_file(request):
                 'name': uploaded_file._name,
                 'created_by': request.user,
             })
+            add_creation_metadata(content, request.user)
             # The file upload handler needs the Resource to have an ID first,
             #  so we add the file after creation.
             content.file = uploaded_file
@@ -238,7 +243,7 @@ def create_resource_url(request):
             url = form.cleaned_data.get('url')
             exists, headers = _ping_resource(url)
             if exists:
-                content, _ = Resource.objects.get_or_create(**{
+                content, created = Resource.objects.get_or_create(**{
                     'location': url,
                     'content_resource': True,
                     'defaults': {
@@ -247,6 +252,8 @@ def create_resource_url(request):
                         'created_by': request.user,
                     }
                 })
+                if created:
+                    add_creation_metadata(content, request.user)
                 return HttpResponseRedirect(reverse('create-resource-details',
                                                     args=(content.id,)))
             else:
@@ -281,6 +288,7 @@ def create_resource_details(request, content_id):
             collection = resource_data.pop('collection', None)
             resource_data['created_by'] = request.user
             resource = Resource.objects.create(**resource_data)
+            add_creation_metadata(resource, request.user)
             content_relation = ContentRelation.objects.create(**{
                 'for_resource': resource,
                 'content_resource': content_resource,
@@ -330,25 +338,30 @@ def create_resource_bulk(request):
         form = BulkResourceForm(request.POST, request.FILES)
         if form.is_valid():
             uploaded_file = request.FILES['upload_file']
-            # TODO: validate file type.
-
-            # Pickle can't handle file pointers.
+            # File pointers aren't easily serializable; we need to farm this
+            #  out to Celery.
             safe_data = {k: v for k, v in form.cleaned_data.iteritems()
                          if k != 'upload_file'}
             safe_data.update({'created_by': request.user})
             # result = handle_bulk(uploaded_file.temporary_file_path(),
             #                            safe_data)
             #
-            result = handle_bulk.delay(uploaded_file.temporary_file_path(),
-                                       safe_data)
 
-            job = UserJob.objects.create(**{
-                'created_by': request.user,
-                'result_id': result.id,
-            })
-            # result = handle_bulk.delay(uploaded_file, form.cleaned_data)
+            # Currently we only support RDF here. This can be a naked RDF/XML
+            #  document (from Zotero), or a zip archive containing RDF/XML and
+            #  attachments.
+            file_path = uploaded_file.temporary_file_path()
+            file_name = request.FILES['upload_file'].name
+            if not (file_name.endswith('.rdf') or file_name.endswith('.zip')):
+                form.add_error('upload_file', 'Not a valid RDF document or ZIP archive.')
+            else:
+                result = handle_bulk.delay(file_path, safe_data, file_name)
+                job = UserJob.objects.create(**{
+                    'created_by': request.user,
+                    'result_id': result.id,
+                })
 
-            return HttpResponseRedirect(reverse('job-status', args=(result.id,)))
+                return HttpResponseRedirect(reverse('job-status', args=(result.id,)))
 
 
     template = loader.get_template('create_resource_bulk.html')
@@ -381,19 +394,22 @@ def job_status(request, result_id):
         'job': job,
         'async_result': async_result,
     })
+    template = loader.get_template('job_status.html')
 
-    print job.result
     if job.result or async_result.status == 'SUCCESS' or async_result.status == 'FAILURE':
         if async_result.status == 'SUCCESS':
             result = async_result.get()
             job.result = jsonpickle.encode(result)
             job.save()
         else:
-            result = jsonpickle.decode(job.result)
+            try:
+                result = jsonpickle.decode(job.result)
+            except:
+                return HttpResponse(template.render(context))
 
         return HttpResponseRedirect(reverse(result['view'], args=(result['id'], )))
 
-    template = loader.get_template('job_status.html')
+
     return HttpResponse(template.render(context))
 
 
@@ -409,6 +425,8 @@ def handle_giles_upload(request):
 
 @login_required
 def process_giles_upload(request, session_id):
+    """
+    """
     session = get_object_or_404(GilesSession, pk=session_id)
     context = RequestContext(request, {'session': session,})
 
@@ -427,8 +445,18 @@ def process_giles_upload(request, session_id):
         form = ChooseCollectionForm(request.POST)
         form.fields['collection'].queryset = form.fields['collection'].queryset.filter(created_by_id=request.user.id)
         if form.is_valid():
-            session.collection = form.cleaned_data['collection']
+            collection = form.cleaned_data.get('collection', None)
+            name = form.cleaned_data.get('name', None)
+            if not collection and name:
+                collection = Collection.objects.create(**{
+                    'created_by_id': request.user.id,
+                    'name': name,
+                })
+                add_creation_metadata(collection, request.user)
+            session.collection = collection
             session.save()
+            form.fields['collection'].initial = collection.id
+            form.fields['name'].widget.attrs['disabled'] = True
     context.update({'form': form})
     template = loader.get_template('create_process_giles_upload.html')
     return HttpResponse(template.render(context))
@@ -449,7 +477,7 @@ def edit_resource_metadatum(request, resource_id, relation_id):
         context.update({'next': on_valid})
 
     target_type = type(relation.target)
-    print target_type
+
     if target_type is Value:
         initial_data = relation.target.name
         dtype = type(initial_data)

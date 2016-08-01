@@ -135,7 +135,12 @@ class ResourceBase(Entity):
     def get_absolute_url(self):
         return reverse("cookies.views.resource", args=(self.id,))
 
-
+    @property
+    def local(self):
+        if self.file:
+            return True
+        elif self.location:
+            return False
 
     class Meta:
         permissions = (

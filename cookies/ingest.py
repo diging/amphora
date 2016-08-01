@@ -44,6 +44,7 @@ VOL = rdflib.term.URIRef(PRISM + u'volume')
 ISSUE = rdflib.term.URIRef(PRISM + u'number')
 IDENT = rdflib.URIRef(DC + u"identifier")
 TITLE = rdflib.term.URIRef(DC + u'title')
+IDENTIFIER = rdflib.term.URIRef(DC + u'identifier')
 
 
 BOOK = rdflib.term.URIRef(BIBLIO + 'Book')
@@ -364,23 +365,35 @@ class ZoteroParser(RDFParser):
 
         super(ZoteroParser, self).open()
 
-    def handle_identifier(self, value):
+    def handle_identifier(self, value, commit=True):
         """
 
         """
 
         identifier = unicode(self.graph.value(subject=value, predicate=VALUE_ELEM))
         ident_type = self.graph.value(subject=value, predicate=TYPE_ELEM)
-        if ident_type == URI_ELEM:
+        if ident_type == URI_ELEM and commit:
             self.set_value('uri', identifier)
+            return
+        return (ident_type, identifier)
 
     def handle_link(self, value):
         """
         rdf:link rdf:resource points to the resource described by a record.
         """
+        link_data = []
         for s, p, o in self.graph.triples((value, None, None)):
-            if p == LINK_ELEM:
-                self.set_value('file', unicode(o).replace('file://', ''))
+            if p == IDENTIFIER:
+                identifier_type, identifier_value = self.handle_identifier(o, commit=False)
+                print identifier_type, identifier_value
+                if identifier_type == URI_ELEM:
+                    print 'YES'
+                    link_data.append(('url', identifier_value))
+            elif p == LINK_ELEM:
+                link_data.append(('link', unicode(o).replace('file://', '')))
+            else:
+                link_data.append((p, o))
+        self.set_value('file', link_data)
 
     def handle_date(self, value):
         """

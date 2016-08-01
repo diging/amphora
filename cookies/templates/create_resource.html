@@ -14,17 +14,7 @@
 
 {% block content %}
 <div class="row" style="margin-top: 50px;">
-    <div class="col-sm-4 text-center">
-        <a class="btn btn-lg" href="{% url "create-resource-choose-giles" %}">
-            <span class="glyphicon glyphicon-picture"></span> Upload an image
-        </a>
-        <p class="text-muted">
-            Upload an image to our linked image server, <strong>Giles</strong>.
-            You'll be able to take advantage of image-specific research
-            functionality, like image annotation in VogonWeb.
-        </p>
-    </div>
-    <div class="col-sm-4 text-center">
+    <div class="col-sm-4 col-sm-offset-2 text-center">
         <a class="btn btn-lg" href="{% url "create-resource-file" %}">
             <span class="glyphicon glyphicon-open-file"></span> Upload a file
         </a>
@@ -54,14 +44,14 @@
             to Zotero RDF.
         </p>
     </div>
-    <div class="col-sm-4  text-center">
-        <a class="btn btn-lg" href="{% url "create-resource-choose-giles" %}">
-            <img class="img" src="{% static "cookies/img/zotero_z.png" %}" style="height: 20px;"></img>&nbsp;
-            Upload from Zotero: images
+    <div class="col-sm-4 text-center">
+        <a class="btn btn-lg" href="{{ giles_upload_location }}">
+            <span class="glyphicon glyphicon-picture"></span> Upload an image
         </a>
         <p class="text-muted">
-            If you wish to take advantage of our image server, upload your Zotero collection
-            via Giles (recommended).
+            Upload an image to our linked image server, <strong>Giles</strong>.
+            You'll be able to take advantage of image-specific research
+            functionality, like image annotation in VogonWeb.
         </p>
     </div>
 </div>

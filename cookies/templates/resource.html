@@ -45,9 +45,11 @@
                     <a href="{{ content_relation.content_resource.content_location }}">
                         {{ content_relation.content_resource.content_location|truncatechars:50 }}
                     </a>&nbsp;
+                    {% if content_relation.content_type %}
                     <label class="label label-primary">
                         {{ content_relation.content_type }}
                     </label>
+                    {% endif %}
                 </dd>
                 {% endfor %}
                 {% endif %}

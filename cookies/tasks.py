@@ -11,5 +11,5 @@ def handle_content(obj, commit=True):
 
 
 @shared_task
-def handle_bulk(file, form_data):
-    return content.handle_bulk(file, form_data)
+def handle_bulk(file_path, form_data, file_name):
+    return content.handle_bulk(file_path, form_data, file_name)

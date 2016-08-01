@@ -28,7 +28,7 @@
         <div class="panel-heading" style="">
             <div class="row" style="margin-top: 15px;">
                 {% block nav-global %}{% endblock %}
-                {% if user.is_active and user.is_staff %}
+                {% if user.is_active %}
                 <span id="user-tools" class="pull-right">
                     {% trans 'Welcome,' %}
                     <strong>{% firstof user.get_short_name user.get_username %}</strong>.

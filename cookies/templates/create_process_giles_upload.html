@@ -27,9 +27,18 @@
 
     <div class="text-center">
         <input class="btn btn-success" type="submit" value="Submit">
-        <a class="btn btn-primary">Create new</a>
     </div>
 </form>
+<script>
+$('#id_collection').change(function(e) {
+    var val = $(this).val();
+    if (val == "") {
+        $('#id_name').removeAttr('disabled');
+    } else {
+        $('#id_name').attr('disabled', true);
+    }
+})
+</script>
 
 <ul class="list-group" style="margin-top: 25px;">
     {% for resource in session.resources.all %}

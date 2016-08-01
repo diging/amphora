@@ -1,5 +1,30 @@
 {% extends "base.html" %}
+{% load i18n %}
+{% load addcss %}
+
+
+{% load breadcrumbs %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url 'Create' 'create-resource' %}
+    {% breadcrumb_url 'Zotero' 'create-resource-bulk' %}
+</div>
+{% endblock %}
 
 {% block content %}
-{{ async_result.status }}
+
+<div class="h2">Status: <span class="label label-primary">{{ async_result.status }}</span> <span class="text-warning">{{ async_result.id }}</span></div>
+{% if async_result.status == 'FAILURE' %}
+<p class="text-danger">
+    Whoops! Something went wrong. Please notify <a href="mailto:erick.peirson@asu.edu">the administrator</a>
+    (and be sure to mention the job ID, above).
+</p>
+{% else %}
+<p class="text-info">
+    Your upload is currently being processed. Depending on the size of your upload, this
+    may take a little while. Please check back in a little while.
+</p>
+{% endif %}
 {% endblock %}
