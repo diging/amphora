@@ -23,10 +23,10 @@ LOCAL_PATH = '/'
 # See https://docs.djangoproject.com/en/1.6/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '#_8=6+i296891#wg9(04o18y2(%6u6*&+fds5wri@tafmni2em'
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = eval(os.environ.get('DEBUG', 'False'))
 TEMPLATE_DIRS = [os.path.join(BASE_DIR, 'templates')]
 TEMPLATE_DEBUG = True
 TEMPLATE_CONTEXT_PROCESSORS = (
@@ -43,7 +43,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
 #    "audit_log.middleware.UserLoggingMiddleware",
 )
 
-ALLOWED_HOSTS = ['diging.asu.edu']
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -58,7 +58,6 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'pagination',
-    'haystack',
     'django_extensions',
     'djcelery',
     'cookies',
@@ -69,7 +68,6 @@ INSTALLED_APPS = (
     'rest_framework.authtoken',
     'guardian',
      'social.apps.django_app.default',
-
 )
 
 MIDDLEWARE_CLASSES = (
@@ -83,21 +81,6 @@ MIDDLEWARE_CLASSES = (
     'pagination.middleware.PaginationMiddleware',
 )
 
-es = urlparse(os.environ.get('SEARCHBOX_URL') or 'http://127.0.0.1:9200/')
-port = es.port or 80
-
-HAYSTACK_CONNECTIONS = {
-    'default': {
-        'ENGINE': 'jars.elasticsearch_backend.JARSElasticsearchSearchEngine',
-        'URL': es.scheme + '://' + es.hostname + ':' + str(port),
-        'INDEX_NAME': 'amphora',
-    },
-}
-
-if es.username:
-    HAYSTACK_CONNECTIONS['default']['KWARGS'] = {"http_auth": es.username + ':' + es.password}
-
-# HAYSTACK_SIGNAL_PROCESSOR = 'cookies.signals.ResourceSignalProcessor'
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend', # default

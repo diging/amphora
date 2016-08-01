@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/1.6/ref/settings/
 import os
 import socket
 import sys
+from urlparse import urlparse
+import requests
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
@@ -19,10 +21,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 # See https://docs.djangoproject.com/en/1.6/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '#_8=6+i296891#wg9(04o18y2(%6u6*&+fds5wri@tafmni2em'
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = eval(os.environ.get('DEBUG', 'False'))
 TEMPLATE_DIRS = [os.path.join(BASE_DIR, 'templates')]
 TEMPLATE_DEBUG = True
 TEMPLATE_CONTEXT_PROCESSORS = (
@@ -33,15 +35,20 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     "django.core.context_processors.static",
     "django.core.context_processors.tz",
     "django.contrib.messages.context_processors.messages",
+    "django.core.context_processors.request",
+    'social.apps.django_app.context_processors.backends',
+    'social.apps.django_app.context_processors.login_redirect',
 #    "audit_log.middleware.UserLoggingMiddleware",
 )
 
-ALLOWED_HOSTS = ['diging.asu.edu']
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
 
 INSTALLED_APPS = (
+    'dal',
+    'dal_select2',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -49,14 +56,16 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'pagination',
-    'haystack',
     'django_extensions',
-    'autocomplete_light',
+    'djcelery',
     'cookies',
     'concepts',
+    'oauth2_provider',
+    'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
-
+    'guardian',
+     'social.apps.django_app.default',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -66,15 +75,17 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'pagination.middleware.PaginationMiddleware',
 )
 
-HAYSTACK_CONNECTIONS = {
-    'default': {
-        'ENGINE': 'haystack.backends.whoosh_backend.WhooshEngine',
-        'PATH': os.path.join(os.path.dirname(__file__), 'whoosh_index'),
-    },
-}
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend', # default
+    'guardian.backends.ObjectPermissionBackend',
+    'social.backends.github.GithubOAuth2',
+)
+ANONYMOUS_USER_ID = -1
+
 
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
@@ -87,10 +98,12 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         # 'rest_framework.authentication.BasicAuthentication',
-        # 'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
-    )
-
+        'oauth2_provider.ext.rest_framework.OAuth2Authentication',
+    ),
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
+    'PAGE_SIZE': 10,
 }
 
 ROOT_URLCONF = 'jars.urls'
@@ -105,7 +118,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'OPTIONS': {
-            'read_default_file': '/diging/wwwnginx/jars/mysql.cnf',
+            'read_default_file': '/etc/jars/mysql.cnf',
         },
     }
 }
@@ -127,10 +140,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.6/howto/static-files/
 
-STATIC_URL = '/jarsstatic/'
-STATIC_ROOT = '/diging/wwwnginx/jars/static/'
-MEDIA_ROOT = './jars/'
-MEDIA_URL = '/'
+BASE_URL = os.environ.get('BASE_URL', '/amphora/')
+STATIC_URL = BASE_URL + 'static/'
+STATIC_ROOT = os.environ.get('STATIC_ROOT')
+
+MEDIA_ROOT = os.environ.get('MEDIA_ROOT')
+MEDIA_URL = BASE_URL + 'media/'
 
 URI_NAMESPACE = 'http://jars'
 
@@ -138,3 +153,22 @@ RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
 
 HOSTNAME = socket.gethostname()
+
+CORS_ORIGIN_ALLOW_ALL = True
+CELERY_IMPORTS = ('cookies.tasks',)
+
+
+FILE_UPLOAD_HANDLERS = ["cookies.uploadhandler.PersistentTemporaryFileUploadHandler",]
+FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'uploads')
+
+
+SOCIAL_AUTH_GITHUB_KEY = os.environ.get('SOCIAL_AUTH_GITHUB_KEY', None)
+SOCIAL_AUTH_GITHUB_SECRET = os.environ.get('SOCIAL_AUTH_GITHUB_SECRET', None)
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
+
+LOGIN_URL = LOCAL_PATH + 'login/github/'
+LOGIN_REDIRECT_URL = 'index'
+
+
+GILES = 'http://diging-dev.asu.edu:8081/giles-review'
+GET = requests.get
