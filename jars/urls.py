@@ -46,7 +46,7 @@ urlpatterns = patterns('',
     url(r'^rest/', include(router.urls)),
     url(r'^rest/auth/$', include('rest_framework.urls', namespace='rest_framework')),
 
-    url(r'^search/$', views.ResourceSearchView.as_view(), name='search'),
+    # url(r'^search/$', views.ResourceSearchView.as_view(), name='search'),
     url(r'^o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^s3/', views.sign_s3, name='sign_s3'),
     url(r'^testupload/', views.test_upload, name='test_upload'),
