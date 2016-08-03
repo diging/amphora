@@ -27,8 +27,7 @@ tabpane_template = """
 """
 
 image_preview_template = """
-        <img class="img img-responsive" src="{src}">
-        <script>
+        <img class="img img-responsive" src="{src}" />
 """
 
 external_link_template = """
