@@ -1,0 +1,56 @@
+[ {
+  "documentId" : "DOC1GTCyy",
+  "uploadId" : "UPxMkSnm",
+  "uploadedDate" : "2016-08-03T17:31:07.482Z",
+  "access" : "PRIVATE",
+  "files" : [ {
+    "filename" : "Current Bio Mixed Analysis Variance Between Within Jays.pdf",
+    "id" : "FILE1PEX8J",
+    "path" : "http://diging-dev.asu.edu:8081/giles-review/rest/files/FILE1PEX8J/content",
+    "content-type" : "application/pdf",
+    "size" : 129082,
+    "success" : 0
+  }, {
+    "filename" : "Current Bio Mixed Analysis Variance Between Within Jays.pdf.0.tiff",
+    "id" : "FILEoa6EwQ",
+    "path" : "http://diging-dev.asu.edu:8081/giles-review/rest/digilib?fn=jdamerow/UPxMkSnm/DOC1GTCyy/Current Bio Mixed Analysis Variance Between Within Jays.pdf.0.tiff",
+    "content-type" : "image/tiff",
+    "size" : 2321942,
+    "success" : 0
+  }, {
+    "filename" : "Current Bio Mixed Analysis Variance Between Within Jays.pdf.1.tiff",
+    "id" : "FILETCnnI8",
+    "path" : "http://diging-dev.asu.edu:8081/giles-review/rest/digilib?fn=jdamerow/UPxMkSnm/DOC1GTCyy/Current Bio Mixed Analysis Variance Between Within Jays.pdf.1.tiff",
+    "content-type" : "image/tiff",
+    "size" : 2766369,
+    "success" : 0
+  }, {
+    "filename" : "Current Bio Mixed Analysis Variance Between Within Jays.pdf.2.tiff",
+    "id" : "FILElEskm9",
+    "path" : "http://diging-dev.asu.edu:8081/giles-review/rest/digilib?fn=jdamerow/UPxMkSnm/DOC1GTCyy/Current Bio Mixed Analysis Variance Between Within Jays.pdf.2.tiff",
+    "content-type" : "image/tiff",
+    "size" : 1777604,
+    "success" : 0
+  }, {
+    "filename" : "Current Bio Mixed Analysis Variance Between Within Jays.pdf.3.tiff",
+    "id" : "FILEGbdgkm",
+    "path" : "http://diging-dev.asu.edu:8081/giles-review/rest/digilib?fn=jdamerow/UPxMkSnm/DOC1GTCyy/Current Bio Mixed Analysis Variance Between Within Jays.pdf.3.tiff",
+    "content-type" : "image/tiff",
+    "size" : 2792949,
+    "success" : 0
+  }, {
+    "filename" : "Current Bio Mixed Analysis Variance Between Within Jays.pdf.4.tiff",
+    "id" : "FILEm7V9Jc",
+    "path" : "http://diging-dev.asu.edu:8081/giles-review/rest/digilib?fn=jdamerow/UPxMkSnm/DOC1GTCyy/Current Bio Mixed Analysis Variance Between Within Jays.pdf.4.tiff",
+    "content-type" : "image/tiff",
+    "size" : 2678228,
+    "success" : 0
+  }, {
+    "filename" : "Current Bio Mixed Analysis Variance Between Within Jays.pdf.5.tiff",
+    "id" : "FILE5gC30i",
+    "path" : "http://diging-dev.asu.edu:8081/giles-review/rest/digilib?fn=jdamerow/UPxMkSnm/DOC1GTCyy/Current Bio Mixed Analysis Variance Between Within Jays.pdf.5.tiff",
+    "content-type" : "image/tiff",
+    "size" : 663609,
+    "success" : 0
+  } ]
+} ]

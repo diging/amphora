@@ -105,19 +105,24 @@ def process_resources(request, session, giles=settings.GILES):
             })
             session.resources.add(master_resource)
 
+            # Giles returns the original uploaded file (e.g. a PDF) as the first
+            #  file in the batch.
+            original_file = files.pop(0)
             content_resource = Resource.objects.create(**{
-                'name': document_id + ' content',
+                'name': original_file['filename'],
+                'location': original_file['path'],
                 'public': public,
                 'created_by_id': request.user.id,
                 'content_resource': True,
                 'entity_type': document_type,
-                'uri': document_uri,
+                'uri': '/'.join([giles, 'rest', 'files', original_file['id'], 'content']),
             })
+            session.content_resources.add(content_resource)
 
             ContentRelation.objects.create(**{
                 'for_resource': master_resource,
                 'content_resource': content_resource,
-                'content_type': 'multipart/mixed',
+                'content_type': original_file['content-type'],
             })
 
             resources_set = {}
