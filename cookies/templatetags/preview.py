@@ -120,7 +120,7 @@ def preview(resource, request):
         return mark_safe(tablist_template.format(tabs="\n".join(tabs)) + tabcontent_template.format(panes="\n".join(tabpanes)))
 
 
-    elif page_relations > 0:    # There are several pages in this resource.
+    if page_relations > 0:    # There are several pages in this resource.
         tabs = []
         tabpanes = []
         for i, relation in enumerate(page_relations.all()):
