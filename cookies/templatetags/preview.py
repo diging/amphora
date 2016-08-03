@@ -96,7 +96,7 @@ def preview(resource, request):
                     image_location += '&accessToken=' + social.extra_data['access_token']
                     image_location += '&dw=400'    # We can let page scripts change this after rendering.
                 preview_elem = image_preview_template.format(src=image_location)
-            elif resource.content_type == 'application/xpdf' or relation.content_resource.content_location.lower().endswith('.pdf') and relation.content_resource.local:
+            elif (resource.content_type == 'application/xpdf' or (relation.content_resource.content_location and relation.content_resource.content_location.lower().endswith('.pdf'))) and relation.content_resource.local:
                 preview_elem = pdf_preview_template.format(**{
                     'src': relation.content_resource.content_location,
                     "page_id": str(relation.content_resource.id),
