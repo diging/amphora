@@ -204,7 +204,7 @@ LOGIN_URL = LOCAL_PATH + 'login/github/'
 LOGIN_REDIRECT_URL = 'index'
 
 
-GILES = 'http://diging-dev.asu.edu:8081/giles-review'
+GILES = 'http://diging-dev.asu.edu/giles-review'
 GET = requests.get
 
 import json
