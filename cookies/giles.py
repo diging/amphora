@@ -117,7 +117,7 @@ def process_resources(request, session, giles=settings.GILES):
             ContentRelation.objects.create(**{
                 'for_resource': master_resource,
                 'content_resource': content_resource,
-                'content_type': file_part['content-type'],
+                'content_type': 'multipart/mixed',
             })
 
             resources_set = {}
