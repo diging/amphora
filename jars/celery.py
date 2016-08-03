@@ -3,9 +3,17 @@ from __future__ import absolute_import
 import os
 from django.conf import settings
 from celery import Celery
+import os, sys
+sys.path.append('/etc/jars')
+try:
+    from jars_config import env_settings
+    for key, value in env_settings:
+        os.environ[key] = value
+except ImportError:
+    pass
 
 # set the default Django settings module for the 'celery' program.
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'jars.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'jars.mysql_settings')
 
 app = Celery('jars')
 
