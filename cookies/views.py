@@ -16,7 +16,6 @@ from django.conf import settings
 
 from celery.result import AsyncResult
 
-
 from guardian.shortcuts import get_objects_for_user
 
 import iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle
@@ -576,6 +575,4 @@ def edit_resource_details(request, resource_id):
         'resource': resource,
         'pages': resource.relations_from.filter(predicate_id=page_field.id),
     })
-
-
     return HttpResponse(template.render(context))

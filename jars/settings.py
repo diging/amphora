@@ -199,6 +199,7 @@ FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'uploads')
 SOCIAL_AUTH_GITHUB_KEY = os.environ.get('SOCIAL_AUTH_GITHUB_KEY', None)
 SOCIAL_AUTH_GITHUB_SECRET = os.environ.get('SOCIAL_AUTH_GITHUB_SECRET', None)
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = BASE_URL
+SOCIAL_AUTH_GITHUB_SCOPE = ['user']
 
 LOGIN_URL = LOCAL_PATH + 'login/github/'
 LOGIN_REDIRECT_URL = 'index'
@@ -206,6 +207,8 @@ LOGIN_REDIRECT_URL = 'index'
 
 GILES = 'http://diging-dev.asu.edu/giles-review'
 GET = requests.get
+POST = requests.post
+IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 
 import json
 # def GET_METHOD(path, params={}, headers={}):

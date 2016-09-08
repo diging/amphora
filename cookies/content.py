@@ -450,11 +450,17 @@ def handle_bulk(file_path, form_data, file_name):
                 urls = []
 
             if len(fpaths) == 0 and len(urls) == 0:
-                continue
+                continue    # No content is available for this Resource.
 
             for fpath, fname in zip(fpaths, fnames):
-                # Now we associate the file, and save the Resource again.
-                _create_content_resource(localresource, form_data, content_resource_data, 'local', fpath, fname)
+                # PDFs and images should be stored in Digilib via Giles, rather
+                #  than locally.
+                if fname.lower().endswith('.pdf') or fname.lower() in settings.IMAGE_AFFIXES:
+                    with open(fpath, 'r') as f:
+                        giles.send_document_to_giles(creator, f, resource=localresource, public=public)
+                else:
+                    # Now we associate the file, and save the Resource again.
+                    _create_content_resource(localresource, form_data, content_resource_data, 'local', fpath, fname)
             for url, fname in zip(urls, fnames):
                 fname = fname if fname else url
                 _create_content_resource(localresource, form_data, content_resource_data, 'remote', url, fname)

@@ -15,8 +15,30 @@
 {% block content %}
 <div class="row" style="margin-top: 50px;">
     <div class="col-sm-4 col-sm-offset-2 text-center">
+        <a class="btn btn-lg" href="{% url "create-resource-bulk" %}">
+            <img class="img" src="{% static "cookies/img/zotero_z.png" %}" style="height: 20px;"></img>&nbsp;
+            Upload from Zotero
+        </a>
+        <p class="text-muted">
+            JARS supports the Zotero RDF format. Export your collection (including files)
+            to Zotero RDF.
+        </p>
+    </div>
+    <div class="col-sm-4 text-center">
+        <a class="btn btn-lg" href="{{ giles_upload_location }}">
+            <span class="glyphicon glyphicon-picture"></span> Upload an image or PDF document
+        </a>
+        <p class="text-muted">
+            Upload an image to our linked image server, <strong>Giles</strong>.
+            You'll be able to take advantage of image-specific research
+            functionality, like image annotation in VogonWeb.
+        </p>
+    </div>
+</div>
+<div class="row" style="margin-top: 50px;">
+    <div class="col-sm-4 col-sm-offset-2 text-center">
         <a class="btn btn-lg" href="{% url "create-resource-file" %}">
-            <span class="glyphicon glyphicon-open-file"></span> Upload a file
+            <span class="glyphicon glyphicon-open-file"></span> Upload other file
         </a>
         <p class="text-muted">
             Most mainstream file formats are supported. For large files, be sure
@@ -30,28 +52,6 @@
         <p class="text-muted">
             Add a resource that's already online! Just enter the URL, and you'll
             be able to add descriptive metadata and incorporate it into your collections.
-        </p>
-    </div>
-</div>
-<div class="row" style="margin-top: 50px;">
-    <div class="col-sm-4 col-sm-offset-2 text-center">
-        <a class="btn btn-lg" href="{% url "create-resource-bulk" %}">
-            <img class="img" src="{% static "cookies/img/zotero_z.png" %}" style="height: 20px;"></img>&nbsp;
-            Upload from Zotero
-        </a>
-        <p class="text-muted">
-            JARS supports the Zotero RDF format. Export your collection (including files)
-            to Zotero RDF.
-        </p>
-    </div>
-    <div class="col-sm-4 text-center">
-        <a class="btn btn-lg" href="{{ giles_upload_location }}">
-            <span class="glyphicon glyphicon-picture"></span> Upload an image
-        </a>
-        <p class="text-muted">
-            Upload an image to our linked image server, <strong>Giles</strong>.
-            You'll be able to take advantage of image-specific research
-            functionality, like image annotation in VogonWeb.
         </p>
     </div>
 </div>

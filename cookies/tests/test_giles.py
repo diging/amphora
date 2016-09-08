@@ -66,7 +66,6 @@ class TestGiles(unittest.TestCase):
         self.assertEqual(get.call_count, 1)
         self.assertIsInstance(session, GilesSession)
         self.assertEqual(len(session.file_details), 3)
-
         self.assertEqual(session.content_resources.count(), 5)
         self.assertEqual(session.resources.count(), 3)
 

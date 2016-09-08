@@ -5,7 +5,216 @@ from cookies.models import *
 import requests
 
 
-def process_resources(request, session, giles=settings.GILES):
+page_field = Field.objects.get(uri='http://xmlns.com/foaf/0.1/page')
+part_type = Type.objects.get(uri='http://purl.org/net/biblio#Part')
+image_type = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Image')
+document_type = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
+
+
+def _get_file_data(response):
+    files = {}
+    for obj in response.json():
+        key = obj.pop('documentId')
+
+        files[key] = obj
+        files[key]['files'] = [{
+            'filename': o['filename'],
+            'path': o['path'],
+            'content-type': o['content-type'],
+            'id': o['id'],
+        } for o in files[key]['files']]
+        files[key]['textFiles'] = [{
+            'filename': o['filename'],
+            'path': o['path'],
+            'content-type': o['content-type'],
+            'id': o['id'],
+        } for o in files[key]['textFiles']]
+    return files
+
+
+def send_document_to_giles(user, file, session=None, giles=settings.GILES, post=settings.POST, resource=None, public=True):
+    """
+
+    Parameters
+    ----------
+    user : :class:`.User`
+    file : file-like object
+    session : :class:`.GilesSession`
+    giles : str
+        Giles endpoint.
+    post : callable
+        POST method should return an object with properties ``status_code``
+        (int) and ``content`` (unicode-like), and a method called ``json()``
+        that returns a dict.
+    resource : :class:`.Resource`
+        If a :class:`.Resource` already exists for this document, then the
+        file(s) sent to Giles will be linked to that :class:`.Resource` as
+        content resources. Otherwise a new :class:`.Resource` will be created.
+
+    Returns
+    -------
+    :class:`.Resource`
+
+    """
+    social = user.social_auth.get(provider='github')
+
+    path = '/'.join([giles, 'rest', 'files', 'upload', upload_id])
+    headers = {
+        'content-type': 'multipart/form-data',
+    }
+
+    data = {    # Maybe someday we will send several files at once.
+        'accessToken': social.extra_data['access_token'],
+        'access': 'PUBLIC' if public else 'PRIVATE',
+        'files': [file_obj,]
+    }
+
+    if session is None:
+        session = GilesSession.objects.create(created_by_id=user.id)
+
+    # POST request.
+    response = post(path, data=data, headers=headers)
+
+    if response.status_code != requests.codes.ok:
+        raise RuntimeError('Call to giles failed with %i: %s' % \
+                           (response.status_code, response.content))
+
+
+    file_details = _get_file_data(response)
+    session.file_ids = [o['uploadId'] for o in file_details]
+    session.file_details = file_details
+    session.save()
+    for document_id, file_data in session.file_details.iteritems():
+        process_resource(user, session, document_id, file_data, master_resource=resource, giles=giles)
+
+
+def _process_file_part(document_id, file_part, resource_type, user, session, public=True, resource=None, giles=settings.GILES):
+    """
+    Creates appropriate :class:`.Resource`\s and :class:`.ContentRelation` for
+    a single image file.
+
+    A :class:`.Resource` with ``content_resource == True`` is created for the
+    (remote) image file itself, and a "master" :class:`.Resource` for the
+    document that the image represents (e.g. a page, photograph, etc) is also
+    created. It is the "master" resource that is returned.
+
+    Parameters
+    ----------
+    file_part : dict
+    resource_type : :class:`.Type`
+
+    Returns
+    -------
+    :class:`.Resource`
+    """
+
+    uri = '/'.join([giles, 'rest', 'files', file_part['id'], 'content'])
+
+    # This is the page image.
+    content_resource = Resource.objects.create(**{
+        'name': file_part['filename'],
+        'location': file_part['path'],
+        'public': public,
+        'content_resource': True,
+        'created_by_id': user.id,
+        'entity_type': resource_type,
+        'content_type': file_part['content-type'],
+        'uri': uri
+    })
+    session.content_resources.add(content_resource)
+
+    # This is the page resource.
+    if resource is None:    # Perhaps we already have a Resource for this page.
+        resource = Resource.objects.create(**{
+            'name': document_id,
+            'created_by_id': user.id,
+            'entity_type': resource_type,
+            'public': public,
+            'content_resource': False,
+        })
+
+    # The page image is the content for the page resource.
+    ContentRelation.objects.create(**{
+        'for_resource': resource,
+        'content_resource': content_resource,
+        'content_type': file_part['content-type'],
+    })
+    return resource
+
+
+def process_resource(user, session, document_id, file_data, master_resource=None, giles=settings.GILES):
+    """
+    Each uploaded document will be processed separately. Each document may
+    contain one or several images.
+    """
+    document_uri = '/'.join([giles, 'rest', 'files', document_id, 'content'])
+
+    # If we have already added this particular uploaded file from Giles, just
+    #  bail.
+    if Resource.objects.filter(uri=document_uri).count() > 0:
+        return
+
+    files = file_data['files']
+    textFiles = file_data['textFiles']
+    public = file_data['access'] != "PRIVATE"
+
+    if len(files) == 1:    # There is only one image in this document.
+        master_resource = _process_file_part(document_id, files[0], image_type, user, session, resource=master_resource, giles=giles)
+        session.resources.add(master_resource)
+
+    elif len(files) > 1:    # There are several pages in this document.
+        # This ``master_resource`` represents the document itself.
+        if master_resource is None:   # Perhaps it already exists.
+            master_resource = Resource.objects.create(**{
+                'name': document_id,
+                'public': public,
+                'created_by_id': user.id,
+                'content_resource': False,
+                'entity_type': document_type
+            })
+        session.resources.add(master_resource)
+
+        # Giles returns the original uploaded file (e.g. a PDF) as the first
+        #  file in the batch.
+        original_file = files.pop(0)
+        content_resource = Resource.objects.create(**{
+            'name': original_file['filename'],
+            'location': original_file['path'],
+            'public': public,
+            'created_by_id': user.id,
+            'content_resource': True,
+            'entity_type': document_type,
+            'uri': '/'.join([giles, 'rest', 'files', original_file['id'], 'content']),
+        })
+        session.content_resources.add(content_resource)
+
+        ContentRelation.objects.create(**{
+            'for_resource': master_resource,
+            'content_resource': content_resource,
+            'content_type': original_file['content-type'],
+        })
+
+        resources_set = {}
+        for i, file_part in enumerate(files):
+            # This resource is a page in the master resource.
+            resource = _process_file_part('%s page %i' % (document_id, i + 1), file_part, part_type, user, session, public=public)
+            resource = _process_file_part('%s page %i' % (document_id, i + 1), textFiles[i], part_type, user, session, public=public, resource=resource)
+
+            Relation.objects.create(**{
+                'source': master_resource,
+                'target': resource,
+                'predicate': page_field,
+            })
+
+        # Interlink page resources using the ``next_page`` (and
+        #  ``previous_page``) relations.
+        for i, resource in resources_set.items():
+            if i < len(resources_set):
+                resource.next_page = resources_set[i + 1]
+                resource.save()
+
+
+def process_resources(user, session, giles=settings.GILES):
     """
     Once details have been retrieved concerning images uploaded to Giles, we
     need to create the appropriate metadata records (Resources). This function
@@ -15,7 +224,7 @@ def process_resources(request, session, giles=settings.GILES):
 
     Parameters
     ----------
-    request
+    user : :class:`.User`
     session : :class:`.GilesSession`
 
     Returns
@@ -24,124 +233,7 @@ def process_resources(request, session, giles=settings.GILES):
     """
 
     for document_id, file_data in session.file_details.iteritems():
-        document_uri = '/'.join([giles, 'rest', 'files', document_id, 'content'])
-
-        if Resource.objects.filter(uri=document_uri).count() > 0:
-            continue
-
-        files = file_data['files']
-        page_field = Field.objects.get(uri='http://xmlns.com/foaf/0.1/page')
-        part_type = Type.objects.get(uri='http://purl.org/net/biblio#Part')
-        image_type = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Image')
-        document_type = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
-        public = file_data['access'] != "PRIVATE"
-
-        def _process_file_part(file_part, resource_type):
-            """
-            Creates appropriate :class:`.Resource`\s and
-            :class:`.ContentRelation` for a single image file.
-
-            A :class:`.Resource` with ``content_resource == True`` is created
-            for the (remote) image file itself, and a "master"
-            :class:`.Resource` for the document that the image represents (e.g.
-            a page, photograph, etc) is also created. It is the "master"
-            resource that is returned.
-
-            Parameters
-            ----------
-            file_part : dict
-            resource_type : :class:`.Type`
-
-            Returns
-            -------
-            :class:`.Resource`
-            """
-
-            uri = '/'.join([giles, 'rest', 'files', file_part['id'], 'content'])
-
-            # This is the page image.
-            content_resource = Resource.objects.create(**{
-                'name': file_part['filename'],
-                'location': file_part['path'],
-                'public': public,
-                'content_resource': True,
-                'created_by_id': request.user.id,
-                'entity_type': resource_type,
-                'content_type': file_part['content-type'],
-                'uri': uri
-            })
-            session.content_resources.add(content_resource)
-
-            # This is the page resource.
-            resource = Resource.objects.create(**{
-                'name': document_id,
-                'created_by_id': request.user.id,
-                'entity_type': resource_type,
-                'public': public,
-                'content_resource': False,
-            })
-            # The page image is the content for the page resource.
-            ContentRelation.objects.create(**{
-                'for_resource': resource,
-                'content_resource': content_resource,
-                'content_type': file_part['content-type'],
-            })
-            return resource
-
-        # There is only one image in this document.
-        if len(files) == 1:
-            resource = _process_file_part(files[0], image_type)
-            session.resources.add(resource)
-
-        # There are several pages in this document.
-        elif len(files) > 1:
-            # This ``master_resource`` represents the document itself.
-            master_resource = Resource.objects.create(**{
-                'name': document_id,
-                'public': public,
-                'created_by_id': request.user.id,
-                'content_resource': False,
-                'entity_type': document_type
-            })
-            session.resources.add(master_resource)
-
-            # Giles returns the original uploaded file (e.g. a PDF) as the first
-            #  file in the batch.
-            original_file = files.pop(0)
-            content_resource = Resource.objects.create(**{
-                'name': original_file['filename'],
-                'location': original_file['path'],
-                'public': public,
-                'created_by_id': request.user.id,
-                'content_resource': True,
-                'entity_type': document_type,
-                'uri': '/'.join([giles, 'rest', 'files', original_file['id'], 'content']),
-            })
-            session.content_resources.add(content_resource)
-
-            ContentRelation.objects.create(**{
-                'for_resource': master_resource,
-                'content_resource': content_resource,
-                'content_type': original_file['content-type'],
-            })
-
-            resources_set = {}
-            for i, file_part in enumerate(files):
-                # This resource is a page in the master resource.
-                resource = _process_file_part(file_part, part_type)
-
-                Relation.objects.create(**{
-                    'source': master_resource,
-                    'target': resource,
-                    'predicate': page_field,
-                })
-
-            # Interlink page resources using the ``next_page`` (and
-            #  ``previous_page``) relations.
-            for i, resource in resources_set.items():
-                if i < len(resources_set):
-                    resource.next_page = resources_set[i + 1]
-                    resource.save()
+        process_resource(user, session, document_id, file_data, giles=giles)
 
 
 def handle_giles_callback(request, giles=settings.GILES, get=settings.GET):
@@ -174,17 +266,17 @@ def handle_giles_callback(request, giles=settings.GILES, get=settings.GET):
 
     file_details = {}
     for uid in upload_ids:
-        file_details.update(get_file_details(request, uid, giles=giles, get=get))
+        file_details.update(get_file_details(request.user, uid, giles=giles, get=get))
 
     session.file_ids = upload_ids
     session.file_details = file_details
     session.save()
 
-    process_resources(request, session)
+    process_resources(request.user, session)
     return session
 
 
-def get_file_details(request, upload_id, giles=settings.GILES, get=settings.GET):
+def get_file_details(user, upload_id, giles=settings.GILES, get=settings.GET):
     """
     Calls Giles back with ``uploadIds`` observed in
     :func:`.handle_giles_callback`\, and retrieves details about images that
@@ -192,7 +284,7 @@ def get_file_details(request, upload_id, giles=settings.GILES, get=settings.GET)
 
     Parameters
     ----------
-    request
+    user : :class:`.User`
     upload_id : str
         A unique ID generated by Giles that refers to a single uploaded.
         It is possible that the upload contained several images (e.g. pages
@@ -210,7 +302,7 @@ def get_file_details(request, upload_id, giles=settings.GILES, get=settings.GET)
         values are lists of dicts, each containing details about an image
         file in that document.
     """
-    social = request.user.social_auth.get(provider='github')
+    social = user.social_auth.get(provider='github')
     path = '/'.join([giles, 'rest', 'files', 'upload', upload_id])
     path += '?accessToken=' + social.extra_data['access_token']
     response = get(path)
@@ -218,16 +310,4 @@ def get_file_details(request, upload_id, giles=settings.GILES, get=settings.GET)
         raise RuntimeError('Call to giles failed with %i: %s' % \
                            (response.status_code, response.content))
 
-    files = {}
-    for obj in response.json():
-        key = obj.pop('documentId')
-
-        files[key] = obj
-        files[key]['files'] = [{
-            'filename': o['filename'],
-            'path': o['path'],
-            'content-type': o['content-type'],
-            'id': o['id'],
-        } for o in files[key]['files']]
-
-    return files
+    return _get_file_data(response)
