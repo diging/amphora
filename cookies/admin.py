@@ -29,7 +29,7 @@ logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel('ERROR')
 
-def import_schema(schema_url, schema_title, default_domain=None):
+def import_schema(schema_url, schema_title, default_domain=None, namespace=None, prefix=None):
     """
     'http://dublincore.org/2012/06/14/dcterms.rdf'
     """
@@ -53,7 +53,8 @@ def import_schema(schema_url, schema_title, default_domain=None):
 #    # Get the title of the schema.
 #    titled = [ p for p in g.subjects(predicate=title) ][0]
 #    namespace = unicode(titled)
-    namespace = schema_url
+    if namespace is None:
+        namespace = schema_url
 
     # Get all of the properties.
     properties = [ _handle_rdf_property(p,g) for p in g.subjects(type_element, property) ]
@@ -67,8 +68,7 @@ def import_schema(schema_url, schema_title, default_domain=None):
             len(properties), len(classes), len(owl_classes)))
 
     # Create a new Schema.
-    schema = Schema(name=schema_title, uri=namespace)#, namespace=namespace)
-    schema.save()
+    schema = Schema.objects.create(name=schema_title, uri=namespace, prefix=prefix)#, namespace=namespace)
 
     # Get the default domain Type, if specified.
     if default_domain is not None and default_domain != '':

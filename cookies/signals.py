@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.exceptions import ObjectDoesNotExist
@@ -13,6 +14,15 @@ logger = logging.getLogger(__name__)
 logger.setLevel('DEBUG')
 
 
+@receiver(post_save, sender=User)
+def new_users_are_inactive_by_default(sender, **kwargs):
+    instance = kwargs.get('instance', None)
+    if instance and kwargs.get('created', False):
+        logger.debug('%s is a new user; setting inactive by default' % instance.username)
+        # instance.is_active = False
+        # instance.save()
+
+
 @receiver(post_save, sender=ConceptEntity)
 def conceptentity_post_save(sender, **kwargs):
     """
@@ -22,8 +32,8 @@ def conceptentity_post_save(sender, **kwargs):
 
     instance = kwargs.get('instance', None)
 
-    logger.debug(
-        'post_save signal for ConceptEntity, instance: {0}'.format(instance))
+    # logger.debug(
+    #     'post_save signal for ConceptEntity, instance: {0}'.format(instance))
 
     # If this ConceptEntity already has an entity_type, there is nothing to do.
     if instance.entity_type is None:
@@ -56,8 +66,8 @@ def resource_post_save(sender, **kwargs):
     """
 
     instance = kwargs.get('instance', None)
-    logger.debug(
-        'post_save signal for Resource, instance: {0}'.format(instance))
+    # logger.debug(
+    #     'post_save signal for Resource, instance: {0}'.format(instance))
 
     if instance.processed:
         return

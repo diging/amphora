@@ -97,6 +97,10 @@ REST_FRAMEWORK = {
     # ],
     'DEFAULT_PARSER_CLASSES': (
         'rest_framework.parsers.JSONParser',
+        'rest_framework_xml.parsers.XMLParser',
+    ),
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework_xml.renderers.XMLRenderer',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         # 'rest_framework.authentication.BasicAuthentication',
@@ -107,6 +111,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 10,
 }
+
 
 ROOT_URLCONF = 'jars.urls'
 
@@ -205,7 +210,7 @@ LOGIN_URL = LOCAL_PATH + 'login/github/'
 LOGIN_REDIRECT_URL = 'index'
 
 
-GILES = 'http://diging-dev.asu.edu/giles-review'
+GILES = 'https://diging-dev.asu.edu/giles-review'
 GET = requests.get
 POST = requests.post
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']

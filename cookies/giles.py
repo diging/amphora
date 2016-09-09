@@ -5,12 +5,6 @@ from cookies.models import *
 import requests
 
 
-page_field = Field.objects.get(uri='http://xmlns.com/foaf/0.1/page')
-part_type = Type.objects.get(uri='http://purl.org/net/biblio#Part')
-image_type = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Image')
-document_type = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
-
-
 def _get_file_data(response):
     files = {}
     for obj in response.json():
@@ -32,13 +26,13 @@ def _get_file_data(response):
     return files
 
 
-def send_document_to_giles(user, file, session=None, giles=settings.GILES, post=settings.POST, resource=None, public=True):
+def send_document_to_giles(user, file_obj, session=None, giles=settings.GILES, post=settings.POST, resource=None, public=True):
     """
 
     Parameters
     ----------
     user : :class:`.User`
-    file : file-like object
+    file_obj : file-like object
     session : :class:`.GilesSession`
     giles : str
         Giles endpoint.
@@ -58,7 +52,7 @@ def send_document_to_giles(user, file, session=None, giles=settings.GILES, post=
     """
     social = user.social_auth.get(provider='github')
 
-    path = '/'.join([giles, 'rest', 'files', 'upload', upload_id])
+    path = '/'.join([giles, 'rest', 'files', 'upload'])
     headers = {
         'content-type': 'multipart/form-data',
     }
@@ -66,14 +60,18 @@ def send_document_to_giles(user, file, session=None, giles=settings.GILES, post=
     data = {    # Maybe someday we will send several files at once.
         'accessToken': social.extra_data['access_token'],
         'access': 'PUBLIC' if public else 'PRIVATE',
-        'files': [file_obj,]
     }
 
     if session is None:
         session = GilesSession.objects.create(created_by_id=user.id)
 
+    # TODO: Giles should respond with a token for each upload, which we should
+    #  check periodically for completion (OCR takes longer than the Apache
+    #  timeout).
+    return
     # POST request.
-    response = post(path, data=data, headers=headers)
+    files = {'files': (file_obj.name, file_obj, 'application/pdf')}
+    response = post(path, files=files, data=data)
 
     if response.status_code != requests.codes.ok:
         raise RuntimeError('Call to giles failed with %i: %s' % \
@@ -81,9 +79,10 @@ def send_document_to_giles(user, file, session=None, giles=settings.GILES, post=
 
 
     file_details = _get_file_data(response)
-    session.file_ids = [o['uploadId'] for o in file_details]
+    session.file_ids = [o['uploadId'] for o in response.json()]
     session.file_details = file_details
     session.save()
+
     for document_id, file_data in session.file_details.iteritems():
         process_resource(user, session, document_id, file_data, master_resource=resource, giles=giles)
 
@@ -108,7 +107,7 @@ def _process_file_part(document_id, file_part, resource_type, user, session, pub
     :class:`.Resource`
     """
 
-    uri = '/'.join([giles, 'rest', 'files', file_part['id'], 'content'])
+    uri = '/'.join([giles, 'files', file_part['id']])
 
     # This is the page image.
     content_resource = Resource.objects.create(**{
@@ -147,7 +146,13 @@ def process_resource(user, session, document_id, file_data, master_resource=None
     Each uploaded document will be processed separately. Each document may
     contain one or several images.
     """
-    document_uri = '/'.join([giles, 'rest', 'files', document_id, 'content'])
+
+    page_field = Field.objects.get(uri='http://xmlns.com/foaf/0.1/page')
+    part_type = Type.objects.get(uri='http://purl.org/net/biblio#Part')
+    image_type = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Image')
+    document_type = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
+
+    document_uri = '/'.join([giles, 'documents', document_id])
 
     # If we have already added this particular uploaded file from Giles, just
     #  bail.
@@ -170,7 +175,7 @@ def process_resource(user, session, document_id, file_data, master_resource=None
                 'public': public,
                 'created_by_id': user.id,
                 'content_resource': False,
-                'entity_type': document_type
+                'entity_type': document_type,
             })
         session.resources.add(master_resource)
 

@@ -9,6 +9,7 @@ import mimetypes, jsonpickle, os, zipfile, magic, slate
 
 from cookies.models import *
 from cookies.ingest import read
+from cookies import giles
 from cookies.operations import add_creation_metadata
 
 
@@ -24,6 +25,7 @@ binary_mime_types = [
 pdf_mime_types = [
     'application/pdf',
     ]
+
 
 
 
@@ -135,6 +137,9 @@ def _process_ispartof(field, data):
     uri = None
     entity_type = None
     field_data = []
+
+    if type(data) is list and len(data) > 1 and type(data[0]) is not tuple:
+        data = data[1]
     for k, v in data:
         field = _find_field(k)
         if field == IDENTIFIER:
@@ -239,11 +244,21 @@ def _process_metadata(metadata, resource):
                 if key_name in ['link', 'type']:
                     metadata.append((key_name, value))
                     return
-                key = Field.objects.create(name=key_name.title(), uri=key)
+
+                if '#' in key:
+                    schema_uri = key.split('#')[0] + '#'
+                else:
+                    schema_uri = u'/'.join(key.split('/')[:-1]) + u'#'
+
+                # This is kind of hacky, but we need a prefix.
+                prefix = ''.join([c for c in schema_uri.replace('http://', '').replace('www.', '').split('.')[0] if c not in 'aeiouy'])
+                schema, _ = Schema.objects.get_or_create(uri=schema_uri, defaults={'prefix': prefix, 'name': schema_uri})
+                key = Field.objects.create(name=key_name.title(), uri=key, schema=schema, namespace=schema_uri)
+
 
         if key in [CREATOR, AUTHOR]:
             for creator in _process_people(key, value, PERSON):
-                metadata.append((AUTHOR, creator))
+                metadata.append((CREATOR, creator))
         elif key == ISPARTOF:
             value = _process_ispartof(key, value)
             metadata.append((key, value))
@@ -458,9 +473,8 @@ def handle_bulk(file_path, form_data, file_name):
                 if fname.lower().endswith('.pdf') or fname.lower() in settings.IMAGE_AFFIXES:
                     with open(fpath, 'r') as f:
                         giles.send_document_to_giles(creator, f, resource=localresource, public=public)
-                else:
-                    # Now we associate the file, and save the Resource again.
-                    _create_content_resource(localresource, form_data, content_resource_data, 'local', fpath, fname)
+
+                _create_content_resource(localresource, form_data, content_resource_data, 'local', fpath, fname)
             for url, fname in zip(urls, fnames):
                 fname = fname if fname else url
                 _create_content_resource(localresource, form_data, content_resource_data, 'remote', url, fname)

@@ -7,7 +7,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 admin.autodiscover()
 
-from cookies import views, views_rest
+from cookies import views, views_rest, views_oaipmh
 from cookies.autocomplete import EntityAutocomplete
 
 
@@ -45,6 +45,8 @@ urlpatterns = patterns('',
 
     url(r'^rest/', include(router.urls)),
     url(r'^rest/auth/$', include('rest_framework.urls', namespace='rest_framework')),
+
+    url(r'^oaipmh/', views_oaipmh.oaipmh, name='oaipmh'),
 
     # url(r'^search/$', views.ResourceSearchView.as_view(), name='search'),
     url(r'^o/', include('oauth2_provider.urls', namespace='oauth2_provider')),

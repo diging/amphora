@@ -199,6 +199,7 @@ class Schema(models.Model):
                            verbose_name='URI')
 
     active = models.BooleanField(default=True)
+    prefix = models.CharField(max_length=10, blank=True, null=True)
 
     def __unicode__(self):
         return unicode(self.name)
