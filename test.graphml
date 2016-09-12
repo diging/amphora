@@ -1,0 +1,159 @@
+<?xml version='1.0' encoding='utf-8'?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+  <key attr.name="label" attr.type="string" for="edge" id="d0" />
+  <graph edgedefault="directed">
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEHO1Kk6" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEsmj8Mz" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEfMKhAR" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEwyx5yL" />
+    <node id="http://diging.asu.edu/amphora/resource/34" />
+    <node id="http://diging.asu.edu/amphora/resource/37" />
+    <node id="http://diging.asu.edu/amphora/resource/31" />
+    <node id="http://diging.asu.edu/amphora/resource/19" />
+    <node id="http://diging.asu.edu/amphora/resource/16" />
+    <node id="http://diging.asu.edu/amphora/resource/13" />
+    <node id="http://diging.asu.edu/amphora/resource/10" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEMnVfHs" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEjGnEMm" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEHJh5Ks" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEI0rEur" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEjXWK20" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEIY2YWl" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEtxgjFr" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEhWtDpI" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEBcPMk5" />
+    <node id="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" />
+    <node id="http://diging.asu.edu/amphora/resource/4" />
+    <node id="http://diging.asu.edu/amphora/resource/7" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEbmLFib" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEgTpEqs" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEtZXfnv" />
+    <node id="http://diging.asu.edu/amphora/resource/22" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEhffaR8" />
+    <node id="http://diging.asu.edu/amphora/resource/25" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILElfbB2X" />
+    <node id="http://diging.asu.edu/amphora/resource/28" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILED6BP2g" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEd9qJXp" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILERPdN0G" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILES0ntg0" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEOoz5tR" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEJWCYa0" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILEDn1qUA" />
+    <node id="https://diging-dev.asu.edu/giles-review/files/FILECJb8Bx" />
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEHO1Kk6" target="http://diging.asu.edu/amphora/resource/4">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEsmj8Mz" target="http://diging.asu.edu/amphora/resource/13">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEfMKhAR" target="http://diging.asu.edu/amphora/resource/10">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEwyx5yL" target="http://diging.asu.edu/amphora/resource/34">
+      <data key="d0">image/tiff</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEMnVfHs" target="http://diging.asu.edu/amphora/resource/22">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEjGnEMm" target="http://diging.asu.edu/amphora/resource/19">
+      <data key="d0">image/tiff</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEHJh5Ks" target="http://diging.asu.edu/amphora/resource/25">
+      <data key="d0">image/tiff</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEI0rEur" target="http://diging.asu.edu/amphora/resource/16">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEjXWK20" target="http://diging.asu.edu/amphora/resource/28">
+      <data key="d0">image/tiff</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEIY2YWl" target="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd">
+      <data key="d0">application/pdf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEtxgjFr" target="http://diging.asu.edu/amphora/resource/19">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEhWtDpI" target="http://diging.asu.edu/amphora/resource/16">
+      <data key="d0">image/tiff</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEBcPMk5" target="http://diging.asu.edu/amphora/resource/31">
+      <data key="d0">image/tiff</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" target="http://diging.asu.edu/amphora/resource/4">
+      <data key="d0">http://purl.org/dc/terms/isPartOf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" target="http://diging.asu.edu/amphora/resource/7">
+      <data key="d0">http://purl.org/dc/terms/isPartOf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" target="http://diging.asu.edu/amphora/resource/34">
+      <data key="d0">http://purl.org/dc/terms/isPartOf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" target="http://diging.asu.edu/amphora/resource/22">
+      <data key="d0">http://purl.org/dc/terms/isPartOf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" target="http://diging.asu.edu/amphora/resource/37">
+      <data key="d0">http://purl.org/dc/terms/isPartOf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" target="http://diging.asu.edu/amphora/resource/31">
+      <data key="d0">http://purl.org/dc/terms/isPartOf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" target="http://diging.asu.edu/amphora/resource/25">
+      <data key="d0">http://purl.org/dc/terms/isPartOf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" target="http://diging.asu.edu/amphora/resource/19">
+      <data key="d0">http://purl.org/dc/terms/isPartOf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" target="http://diging.asu.edu/amphora/resource/16">
+      <data key="d0">http://purl.org/dc/terms/isPartOf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" target="http://diging.asu.edu/amphora/resource/28">
+      <data key="d0">http://purl.org/dc/terms/isPartOf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" target="http://diging.asu.edu/amphora/resource/13">
+      <data key="d0">http://purl.org/dc/terms/isPartOf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd" target="http://diging.asu.edu/amphora/resource/10">
+      <data key="d0">http://purl.org/dc/terms/isPartOf</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEbmLFib" target="http://diging.asu.edu/amphora/resource/34">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEgTpEqs" target="http://diging.asu.edu/amphora/resource/13">
+      <data key="d0">image/tiff</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEtZXfnv" target="http://diging.asu.edu/amphora/resource/22">
+      <data key="d0">image/tiff</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEhffaR8" target="http://diging.asu.edu/amphora/resource/28">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILElfbB2X" target="http://diging.asu.edu/amphora/resource/37">
+      <data key="d0">image/tiff</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILED6BP2g" target="http://diging.asu.edu/amphora/resource/7">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEd9qJXp" target="https://diging-dev.asu.edu/giles-review/documents/DOCH68yyd">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILERPdN0G" target="http://diging.asu.edu/amphora/resource/4">
+      <data key="d0">image/tiff</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILES0ntg0" target="http://diging.asu.edu/amphora/resource/31">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEOoz5tR" target="http://diging.asu.edu/amphora/resource/25">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEJWCYa0" target="http://diging.asu.edu/amphora/resource/7">
+      <data key="d0">image/tiff</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILEDn1qUA" target="http://diging.asu.edu/amphora/resource/37">
+      <data key="d0">text/plain</data>
+    </edge>
+    <edge source="https://diging-dev.asu.edu/giles-review/files/FILECJb8Bx" target="http://diging.asu.edu/amphora/resource/10">
+      <data key="d0">image/tiff</data>
+    </edge>
+  </graph>
+</graphml>

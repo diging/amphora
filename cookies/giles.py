@@ -3,26 +3,15 @@ from django.conf import settings
 from cookies.models import *
 
 import requests
+from collections import defaultdict
 
 
 def _get_file_data(response):
     files = {}
     for obj in response.json():
-        key = obj.pop('documentId')
+        key = obj.get('documentId')
 
         files[key] = obj
-        files[key]['files'] = [{
-            'filename': o['filename'],
-            'path': o['path'],
-            'content-type': o['content-type'],
-            'id': o['id'],
-        } for o in files[key]['files']]
-        files[key]['textFiles'] = [{
-            'filename': o['filename'],
-            'path': o['path'],
-            'content-type': o['content-type'],
-            'id': o['id'],
-        } for o in files[key]['textFiles']]
     return files
 
 
@@ -87,136 +76,190 @@ def send_document_to_giles(user, file_obj, session=None, giles=settings.GILES, p
         process_resource(user, session, document_id, file_data, master_resource=resource, giles=giles)
 
 
-def _process_file_part(document_id, file_part, resource_type, user, session, public=True, resource=None, giles=settings.GILES):
-    """
-    Creates appropriate :class:`.Resource`\s and :class:`.ContentRelation` for
-    a single image file.
 
-    A :class:`.Resource` with ``content_resource == True`` is created for the
-    (remote) image file itself, and a "master" :class:`.Resource` for the
-    document that the image represents (e.g. a page, photograph, etc) is also
-    created. It is the "master" resource that is returned.
+def _create_content_resource(parent_resource, resource_type, creator, uri, url, public=True, **meta):
+    """
 
     Parameters
     ----------
-    file_part : dict
-    resource_type : :class:`.Type`
+    parent_resource : :class:`.Resource` instance
+        Represents the document/object of which the content resource (to be
+        created) is a digital surrogate.
+    resource_type : :class:`.Type` instance
+    creator : :class:`.User`
+        The person responsible for adding the content to Giles.
+    uri : str
+        Identifier for the content resource. Should usually be
+        ``{giles}/files/{file_id}``.
+    url : str
+        Location of the content.
+    public : bool
+        Whether or not this record should be public in JARS. This should match
+        the setting for this resource in Giles, otherwise things might get
+        weird.
+    meta : kwargs
+        Can provide any of the following:
+          - ``name`` : Human-readable name (for display).
+          - ``file_id`` : Giles identifier.
+          - ``path`` : Digilib-style image path.
+          - ``size`` : (int) Dimensionless.
+          - ``content_type`` : Should be a valid MIME-type (but not enforced).
 
     Returns
     -------
     :class:`.Resource`
+        The content resource.
     """
-
-    uri = '/'.join([giles, 'files', file_part['id']])
 
     # This is the page image.
     content_resource = Resource.objects.create(**{
-        'name': file_part['filename'],
-        'location': file_part['path'],
+        'name': meta.get('name', url),
+        'location': url,
         'public': public,
         'content_resource': True,
-        'created_by_id': user.id,
+        'created_by_id': creator.id,
         'entity_type': resource_type,
-        'content_type': file_part['content-type'],
+        'content_type': meta.get('content_type', None),
         'uri': uri
     })
-    session.content_resources.add(content_resource)
 
-    # This is the page resource.
-    if resource is None:    # Perhaps we already have a Resource for this page.
-        resource = Resource.objects.create(**{
-            'name': document_id,
-            'created_by_id': user.id,
-            'entity_type': resource_type,
-            'public': public,
-            'content_resource': False,
-        })
-
-    # The page image is the content for the page resource.
     ContentRelation.objects.create(**{
-        'for_resource': resource,
+        'for_resource': parent_resource,
         'content_resource': content_resource,
-        'content_type': file_part['content-type'],
+        'content_type': meta.get('content_type', None)
+    })
+
+    return content_resource
+
+
+def _create_page_resource(parent_resource, page_nr, resource_type, creator, uri,
+                          url, public=True, **meta):
+    """
+
+    Parameters
+    ----------
+    parent_resource : :class:`.Resource` instance
+    page_nr : int
+    resource_type : :class:`.Type` instance
+    creator : :class:`.User`
+        The person responsible for adding the content to Giles.
+    uri : str
+        Identifier for the content resource. Should usually be
+        ``{giles}/files/{file_id}``.
+    url : str
+        Location of the content.
+    public : bool
+        Whether or not this record should be public in JARS. This should match
+        the setting for this resource in Giles, otherwise things might get
+        weird.
+    meta : kwargs
+    """
+    __part__ = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
+
+    resource = Resource.objects.create(**{
+        'name': '%s, page %i' % (parent_resource.name, page_nr),
+        'created_by_id': creator.id,
+        'entity_type': resource_type,
+        'public': public,
+        'content_resource': False,
+    })
+
+    Relation.objects.create(**{
+        'source': parent_resource,
+        'target': resource,
+        'predicate': __part__,
     })
     return resource
 
 
-def process_resource(user, session, document_id, file_data, master_resource=None, giles=settings.GILES):
-    """
-    Each uploaded document will be processed separately. Each document may
-    contain one or several images.
-    """
+def _process_document_data(session, data, creator, giles=settings.GILES):
 
-    page_field = Field.objects.get(uri='http://xmlns.com/foaf/0.1/page')
-    part_type = Type.objects.get(uri='http://purl.org/net/biblio#Part')
-    image_type = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Image')
-    document_type = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
+    __text__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Text')
+    __image__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Image')
+    __document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
 
-    document_uri = '/'.join([giles, 'documents', document_id])
+    # Everything attached to this document will receive the same access
+    #  value.
+    public = data.get('access', 'PUBLIC') == 'PUBLIC'
 
-    # If we have already added this particular uploaded file from Giles, just
-    #  bail.
-    if Resource.objects.filter(uri=document_uri).count() > 0:
-        return
+    document_id = data.get('documentId')
 
-    files = file_data['files']
-    textFiles = file_data['textFiles']
-    public = file_data['access'] != "PRIVATE"
-
-    if len(files) == 1:    # There is only one image in this document.
-        master_resource = _process_file_part(document_id, files[0], image_type, user, session, resource=master_resource, giles=giles)
-        session.resources.add(master_resource)
-
-    elif len(files) > 1:    # There are several pages in this document.
-        # This ``master_resource`` represents the document itself.
-        if master_resource is None:   # Perhaps it already exists.
-            master_resource = Resource.objects.create(**{
-                'name': document_id,
-                'public': public,
-                'created_by_id': user.id,
-                'content_resource': False,
-                'entity_type': document_type,
-            })
-        session.resources.add(master_resource)
-
-        # Giles returns the original uploaded file (e.g. a PDF) as the first
-        #  file in the batch.
-        original_file = files.pop(0)
-        content_resource = Resource.objects.create(**{
-            'name': original_file['filename'],
-            'location': original_file['path'],
-            'public': public,
-            'created_by_id': user.id,
-            'content_resource': True,
-            'entity_type': document_type,
-            'uri': '/'.join([giles, 'rest', 'files', original_file['id'], 'content']),
-        })
-        session.content_resources.add(content_resource)
-
-        ContentRelation.objects.create(**{
-            'for_resource': master_resource,
-            'content_resource': content_resource,
-            'content_type': original_file['content-type'],
+    # We may already have a master Resource, e.g. if we POSTed a file from a
+    #  Zotero batch-ingest and have been awaiting processing by Giles.
+    resource, created = Resource.objects.get_or_create(
+        name = document_id,
+        defaults = {
+            'created_by_id': creator.id,
+            'entity_type': __document__,
+            'uri': '%s/documents/%s' % (giles, document_id),
+            'content_resource': False,
         })
 
-        resources_set = {}
-        for i, file_part in enumerate(files):
-            # This resource is a page in the master resource.
-            resource = _process_file_part('%s page %i' % (document_id, i + 1), file_part, part_type, user, session, public=public)
-            resource = _process_file_part('%s page %i' % (document_id, i + 1), textFiles[i], part_type, user, session, public=public, resource=resource)
+    session.resources.add(resource)
 
-            Relation.objects.create(**{
-                'source': master_resource,
-                'target': resource,
-                'predicate': page_field,
-            })
+    # Content resource for uploaded file.
+    upload_data = data.get('uploadedFile')
+    content_type = upload_data.get('content-type')
+    resource_type = __text__ if content_type == 'application/pdf' else __image__
+    resource_uri = '%s/files/%s' % (giles, upload_data.get('id'))
+    session.content_resources.add(
+        _create_content_resource(resource, resource_type, creator, resource_uri,
+                                 upload_data.get('url'), public=public,
+                                 content_type=content_type)
+    )
 
-        # Interlink page resources using the ``next_page`` (and
-        #  ``previous_page``) relations.
-        for i, resource in resources_set.items():
-            if i < len(resources_set):
-                resource.next_page = resources_set[i + 1]
-                resource.save()
+    # Content resoruce for extracted text, if available.
+    text_data = data.get('extractedText', None)
+    if text_data is not None:
+        text_content_type = text_data.get('content-type')
+        text_uri = '%s/files/%s' % (giles, text_data.get('id'))
+        session.content_resources.add(
+            _create_content_resource(resource, __text__, creator, text_uri,
+                                     upload_data.get('url'), public=public,
+                                     content_type=text_content_type)
+        )
+
+    # Keep track of page resources so that we can populate ``next_page``.
+    pages = defaultdict(dict)
+
+    # Each page is represented by a Resource.
+    for page_data in data.get('pages'):
+        page_nr = int(page_data.get('nr'))
+        page_uri = '%s/documents/%s/%i' % (giles, document_id, page_nr)
+        page_resource = _create_page_resource(resource, page_nr, __document__,
+                                              creator, page_uri,
+                                              page_data.get('url'),
+                                              public=public)
+
+        pages[page_nr]['resource'] = page_resource
+
+
+        # Each page resource can have several content resources.
+        for fmt in ['image', 'text']:
+            # We may not have both formats for each page.
+            fmt_data = page_data.get(fmt, None)
+            if fmt_data is None:
+                continue
+
+            page_fmt_uri = '%s/files/%s' % (giles, fmt_data.get('id'))
+            pages[page_nr][fmt] = _create_content_resource(page_resource,
+                                     __image__ if fmt == 'image' else __text__,
+                                     creator, page_fmt_uri, fmt_data.get('url'),
+                                     public=public,
+                                     content_type=fmt_data.get('content-type'),
+                                     name='%s (%s)' % (page_resource.name, fmt))
+
+        # Populate the ``next_page`` field for pages, and for their content
+        #  resources.
+        for i in sorted(pages.keys())[:-1]:
+            for fmt in ['resource', 'image', 'text']:
+                if fmt not in pages[i]:
+                    continue
+                pages[i][fmt].next_page = pages[i + 1][fmt]
+                pages[i][fmt].save()
+
+    return resource
+
 
 
 def process_resources(user, session, giles=settings.GILES):
@@ -238,7 +281,7 @@ def process_resources(user, session, giles=settings.GILES):
     """
 
     for document_id, file_data in session.file_details.iteritems():
-        process_resource(user, session, document_id, file_data, giles=giles)
+        _process_document_data(session, file_data, user, giles=giles)
 
 
 def handle_giles_callback(request, giles=settings.GILES, get=settings.GET):

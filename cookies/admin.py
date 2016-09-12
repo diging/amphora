@@ -29,6 +29,7 @@ logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel('ERROR')
 
+
 def import_schema(schema_url, schema_title, default_domain=None, namespace=None, prefix=None):
     """
     'http://dublincore.org/2012/06/14/dcterms.rdf'
@@ -45,7 +46,7 @@ def import_schema(schema_url, schema_title, default_domain=None, namespace=None,
 
     # Define some elements.
     title = rdflib.term.URIRef('http://purl.org/dc/terms/title')
-    property = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#Property')
+    prop = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#prop')
     type_element = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
     class_element = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#Class')
     owl_class_element = rdflib.term.URIRef('http://www.w3.org/2002/07/owl#Class')
@@ -57,11 +58,11 @@ def import_schema(schema_url, schema_title, default_domain=None, namespace=None,
         namespace = schema_url
 
     # Get all of the properties.
-    properties = [ _handle_rdf_property(p,g) for p in g.subjects(type_element, property) ]
+    properties = [ _handle_rdf_prop(p,g) for p in g.subjects(type_element, prop) ]
 
     # Get all of the Classes.
-    classes = [ _handle_rdf_property(p,g) for p in g.subjects(type_element, class_element) ]
-    owl_classes = [ _handle_rdf_property(p,g) for p in g.subjects(type_element, owl_class_element) ]
+    classes = [ _handle_rdf_prop(p,g) for p in g.subjects(type_element, class_element) ]
+    owl_classes = [ _handle_rdf_prop(p,g) for p in g.subjects(type_element, owl_class_element) ]
 
     logger.debug(
         '{0} properties, {1} classes, {2} OWL classes'.format(
@@ -78,12 +79,12 @@ def import_schema(schema_url, schema_title, default_domain=None, namespace=None,
 
     # Generate new Fields from properties.
     fields = {}
-    for property in properties:
+    for prop in properties:
         f, created = Field.objects.get_or_create(
-                        uri=property['uri'],
+                        uri=prop['uri'],
                         defaults = {
-                            'name': property['label'],
-                            'description': property['description'],
+                            'name': prop['label'],
+                            'description': prop['description'],
                             'namespace': namespace,
                             'schema': schema,
                         })
@@ -98,14 +99,14 @@ def import_schema(schema_url, schema_title, default_domain=None, namespace=None,
 
         # Index the Field so that we can find it when handling parent-child
         #  relationships.
-        fields[property['uri']] = f
+        fields[prop['uri']] = f
 
     # Now go back and assign parenthood to each Field, where appropriate.
-    for property in properties:
+    for prop in properties:
 
         # Not all properties have parents.
-        if len(property['parents']) > 0:
-            for parent in property['parents']:
+        if len(prop['parents']) > 0:
+            for parent in prop['parents']:
                 # Only consider parents that we already know about. If we can't
                 #  find the parent Field, then we will simply skip it.
                 try:
@@ -113,8 +114,8 @@ def import_schema(schema_url, schema_title, default_domain=None, namespace=None,
                 except ObjectDoesNotExist:
                     continue
 
-                fields[property['uri']].parent = parent_field
-                fields[property['uri']].save()
+                fields[prop['uri']].parent = parent_field
+                fields[prop['uri']].save()
 
                 # Each Type (=> Field) can have only one parent. So we'll
                 #  take the first valid parent and quit.
@@ -156,14 +157,14 @@ def import_schema(schema_url, schema_title, default_domain=None, namespace=None,
                 #  take the first valid parent and quit.
                 break
 
-def _handle_rdf_property(p, g):
+def _handle_rdf_prop(p, g):
     description = rdflib.term.URIRef('http://purl.org/dc/terms/description')
     comment = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#comment')
 
     label = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#label')
     range = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#range')
-    subPropertyOf = rdflib.term.URIRef(
-                        'http://www.w3.org/2000/01/rdf-schema#subPropertyOf')
+    subpropOf = rdflib.term.URIRef(
+                        'http://www.w3.org/2000/01/rdf-schema#subpropOf')
     subClassOf = rdflib.term.URIRef(
                         'http://www.w3.org/2000/01/rdf-schema#subClassOf')
 
@@ -202,7 +203,7 @@ def _handle_rdf_property(p, g):
         'label': this_label,
         'description': this_description,
         'range': this_range,
-        'parents': [s for s in g.objects(p, subPropertyOf)] +\
+        'parents': [s for s in g.objects(p, subpropOf)] +\
                     [s for s in g.objects(p, subClassOf)],
         }
 

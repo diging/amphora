@@ -1,0 +1,239 @@
+[ {
+"documentId" : "DOCH68yyd",
+"uploadId" : "UPduLYGW",
+"uploadedDate" : "2016-09-09T14:58:50.720Z",
+"access" : "PRIVATE",
+"uploadedFile" : {
+   "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf",
+   "id" : "FILEIY2YWl",
+   "url" : "http://localhost:8080/giles/rest/files/FILEIY2YWl/content",
+   "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf",
+   "content-type" : "application/pdf",
+   "size" : 3852180
+},
+"extractedText" : {
+   "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.txt",
+   "id" : "FILEd9qJXp",
+   "url" : "http://localhost:8080/giles/rest/files/FILEd9qJXp/content",
+   "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.txt",
+   "content-type" : "text/plain",
+   "size" : 39773
+},
+"pages" : [ {
+   "nr" : 0,
+   "image" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.0.tiff",
+     "id" : "FILERPdN0G",
+     "url" : "http://localhost:8080/giles/rest/digilib?fn=jdamerow%2FUPduLYGW%2FDOCH68yyd%2FWatanabe+et+al.+-+2010+-+In+vivo+imaging+of+zebrafish+retinal+cells+using+f.pdf.0.tiff",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.0.tiff",
+     "content-type" : "image/tiff",
+     "size" : 2032405
+   },
+   "text" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.0.tiff.txt",
+     "id" : "FILEHO1Kk6",
+     "url" : "http://localhost:8080/giles/rest/files/FILEHO1Kk6/content",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.0.tiff.txt",
+     "content-type" : "text/plain",
+     "size" : 4658
+   }
+}, {
+   "nr" : 1,
+   "image" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.1.tiff",
+     "id" : "FILEJWCYa0",
+     "url" : "http://localhost:8080/giles/rest/digilib?fn=jdamerow%2FUPduLYGW%2FDOCH68yyd%2FWatanabe+et+al.+-+2010+-+In+vivo+imaging+of+zebrafish+retinal+cells+using+f.pdf.1.tiff",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.1.tiff",
+     "content-type" : "image/tiff",
+     "size" : 2512354
+   },
+   "text" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.1.tiff.txt",
+     "id" : "FILED6BP2g",
+     "url" : "http://localhost:8080/giles/rest/files/FILED6BP2g/content",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.1.tiff.txt",
+     "content-type" : "text/plain",
+     "size" : 5799
+   }
+}, {
+   "nr" : 2,
+   "image" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.2.tiff",
+     "id" : "FILECJb8Bx",
+     "url" : "http://localhost:8080/giles/rest/digilib?fn=jdamerow%2FUPduLYGW%2FDOCH68yyd%2FWatanabe+et+al.+-+2010+-+In+vivo+imaging+of+zebrafish+retinal+cells+using+f.pdf.2.tiff",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.2.tiff",
+     "content-type" : "image/tiff",
+     "size" : 2119628
+   },
+   "text" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.2.tiff.txt",
+     "id" : "FILEfMKhAR",
+     "url" : "http://localhost:8080/giles/rest/files/FILEfMKhAR/content",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.2.tiff.txt",
+     "content-type" : "text/plain",
+     "size" : 5080
+   }
+}, {
+   "nr" : 3,
+   "image" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.3.tiff",
+     "id" : "FILEgTpEqs",
+     "url" : "http://localhost:8080/giles/rest/digilib?fn=jdamerow%2FUPduLYGW%2FDOCH68yyd%2FWatanabe+et+al.+-+2010+-+In+vivo+imaging+of+zebrafish+retinal+cells+using+f.pdf.3.tiff",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.3.tiff",
+     "content-type" : "image/tiff",
+     "size" : 11321807
+   },
+   "text" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.3.tiff.txt",
+     "id" : "FILEsmj8Mz",
+     "url" : "http://localhost:8080/giles/rest/files/FILEsmj8Mz/content",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.3.tiff.txt",
+     "content-type" : "text/plain",
+     "size" : 892
+   }
+}, {
+   "nr" : 4,
+   "image" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.4.tiff",
+     "id" : "FILEhWtDpI",
+     "url" : "http://localhost:8080/giles/rest/digilib?fn=jdamerow%2FUPduLYGW%2FDOCH68yyd%2FWatanabe+et+al.+-+2010+-+In+vivo+imaging+of+zebrafish+retinal+cells+using+f.pdf.4.tiff",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.4.tiff",
+     "content-type" : "image/tiff",
+     "size" : 7266020
+   },
+   "text" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.4.tiff.txt",
+     "id" : "FILEI0rEur",
+     "url" : "http://localhost:8080/giles/rest/files/FILEI0rEur/content",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.4.tiff.txt",
+     "content-type" : "text/plain",
+     "size" : 3994
+   }
+}, {
+   "nr" : 5,
+   "image" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.5.tiff",
+     "id" : "FILEjGnEMm",
+     "url" : "http://localhost:8080/giles/rest/digilib?fn=jdamerow%2FUPduLYGW%2FDOCH68yyd%2FWatanabe+et+al.+-+2010+-+In+vivo+imaging+of+zebrafish+retinal+cells+using+f.pdf.5.tiff",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.5.tiff",
+     "content-type" : "image/tiff",
+     "size" : 21136873
+   },
+   "text" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.5.tiff.txt",
+     "id" : "FILEtxgjFr",
+     "url" : "http://localhost:8080/giles/rest/files/FILEtxgjFr/content",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.5.tiff.txt",
+     "content-type" : "text/plain",
+     "size" : 1478
+   }
+}, {
+   "nr" : 6,
+   "image" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.6.tiff",
+     "id" : "FILEtZXfnv",
+     "url" : "http://localhost:8080/giles/rest/digilib?fn=jdamerow%2FUPduLYGW%2FDOCH68yyd%2FWatanabe+et+al.+-+2010+-+In+vivo+imaging+of+zebrafish+retinal+cells+using+f.pdf.6.tiff",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.6.tiff",
+     "content-type" : "image/tiff",
+     "size" : 18011466
+   },
+   "text" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.6.tiff.txt",
+     "id" : "FILEMnVfHs",
+     "url" : "http://localhost:8080/giles/rest/files/FILEMnVfHs/content",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.6.tiff.txt",
+     "content-type" : "text/plain",
+     "size" : 1665
+   }
+}, {
+   "nr" : 7,
+   "image" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.7.tiff",
+     "id" : "FILEHJh5Ks",
+     "url" : "http://localhost:8080/giles/rest/digilib?fn=jdamerow%2FUPduLYGW%2FDOCH68yyd%2FWatanabe+et+al.+-+2010+-+In+vivo+imaging+of+zebrafish+retinal+cells+using+f.pdf.7.tiff",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.7.tiff",
+     "content-type" : "image/tiff",
+     "size" : 18983172
+   },
+   "text" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.7.tiff.txt",
+     "id" : "FILEOoz5tR",
+     "url" : "http://localhost:8080/giles/rest/files/FILEOoz5tR/content",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.7.tiff.txt",
+     "content-type" : "text/plain",
+     "size" : 631
+   }
+}, {
+   "nr" : 8,
+   "image" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.8.tiff",
+     "id" : "FILEjXWK20",
+     "url" : "http://localhost:8080/giles/rest/digilib?fn=jdamerow%2FUPduLYGW%2FDOCH68yyd%2FWatanabe+et+al.+-+2010+-+In+vivo+imaging+of+zebrafish+retinal+cells+using+f.pdf.8.tiff",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.8.tiff",
+     "content-type" : "image/tiff",
+     "size" : 9780210
+   },
+   "text" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.8.tiff.txt",
+     "id" : "FILEhffaR8",
+     "url" : "http://localhost:8080/giles/rest/files/FILEhffaR8/content",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.8.tiff.txt",
+     "content-type" : "text/plain",
+     "size" : 1642
+   }
+}, {
+   "nr" : 9,
+   "image" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.9.tiff",
+     "id" : "FILEBcPMk5",
+     "url" : "http://localhost:8080/giles/rest/digilib?fn=jdamerow%2FUPduLYGW%2FDOCH68yyd%2FWatanabe+et+al.+-+2010+-+In+vivo+imaging+of+zebrafish+retinal+cells+using+f.pdf.9.tiff",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.9.tiff",
+     "content-type" : "image/tiff",
+     "size" : 2283402
+   },
+   "text" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.9.tiff.txt",
+     "id" : "FILES0ntg0",
+     "url" : "http://localhost:8080/giles/rest/files/FILES0ntg0/content",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.9.tiff.txt",
+     "content-type" : "text/plain",
+     "size" : 5058
+   }
+}, {
+   "nr" : 10,
+   "image" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.10.tiff",
+     "id" : "FILEwyx5yL",
+     "url" : "http://localhost:8080/giles/rest/digilib?fn=jdamerow%2FUPduLYGW%2FDOCH68yyd%2FWatanabe+et+al.+-+2010+-+In+vivo+imaging+of+zebrafish+retinal+cells+using+f.pdf.10.tiff",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.10.tiff",
+     "content-type" : "image/tiff",
+     "size" : 2619612
+   },
+   "text" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.10.tiff.txt",
+     "id" : "FILEbmLFib",
+     "url" : "http://localhost:8080/giles/rest/files/FILEbmLFib/content",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.10.tiff.txt",
+     "content-type" : "text/plain",
+     "size" : 8189
+   }
+}, {
+   "nr" : 11,
+   "image" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.11.tiff",
+     "id" : "FILElfbB2X",
+     "url" : "http://localhost:8080/giles/rest/digilib?fn=jdamerow%2FUPduLYGW%2FDOCH68yyd%2FWatanabe+et+al.+-+2010+-+In+vivo+imaging+of+zebrafish+retinal+cells+using+f.pdf.11.tiff",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.11.tiff",
+     "content-type" : "image/tiff",
+     "size" : 829553
+   },
+   "text" : {
+     "filename" : "Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.11.tiff.txt",
+     "id" : "FILEDn1qUA",
+     "url" : "http://localhost:8080/giles/rest/files/FILEDn1qUA/content",
+     "path" : "jdamerow/UPduLYGW/DOCH68yyd/Watanabe et al. - 2010 - In vivo imaging of zebrafish retinal cells using f.pdf.11.tiff.txt",
+     "content-type" : "text/plain",
+     "size" : 2182
+   }
+} ]
+}]
