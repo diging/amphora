@@ -6,9 +6,19 @@ from cookies.models import *
 
 
 class ResourceFilter(django_filters.FilterSet):
-    name = django_filters.CharFilter(name='name', lookup_type='icontains')
+    def __init__(self, *args, **kwargs):
+        super(ResourceFilter, self).__init__(*args, **kwargs)
+
+    name = django_filters.MethodFilter(action='lookup_name_in_parts')
     content = django_filters.CharFilter(name='indexable_content',
                                         lookup_type='icontains')
+
+
+    def lookup_name_in_parts(self, queryset, value):
+        q = Q()
+        for part in value.split():
+            q &= Q(name__icontains=part)
+        return queryset.filter(q)
 
     class Meta:
         model = Resource

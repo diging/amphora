@@ -27,8 +27,6 @@ pdf_mime_types = [
     ]
 
 
-
-
 def handle_content(obj, commit=True):
     """
     Attempt to extract text content that can be indexed.
@@ -468,12 +466,6 @@ def handle_bulk(file_path, form_data, file_name):
                 continue    # No content is available for this Resource.
 
             for fpath, fname in zip(fpaths, fnames):
-                # PDFs and images should be stored in Digilib via Giles, rather
-                #  than locally.
-                if fname.lower().endswith('.pdf') or fname.lower() in settings.IMAGE_AFFIXES:
-                    with open(fpath, 'r') as f:
-                        giles.send_document_to_giles(creator, f, resource=localresource, public=public)
-
                 _create_content_resource(localresource, form_data, content_resource_data, 'local', fpath, fname)
             for url, fname in zip(urls, fnames):
                 fname = fname if fname else url

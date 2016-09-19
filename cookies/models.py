@@ -571,3 +571,11 @@ class GilesSession(models.Model):
 
     file_ids = property(_get_file_ids, _set_file_ids)
     file_details = property(_get_file_details, _set_file_details)
+
+
+class GilesUpload(models.Model):
+    """
+    Tracks files that have been uploaded via the REST API.
+    """
+    created_by = models.ForeignKey(User, related_name='giles_uploads')
+    created = models.DateTimeField(auto_now_add=True)

@@ -46,7 +46,7 @@ def import_schema(schema_url, schema_title, default_domain=None, namespace=None,
 
     # Define some elements.
     title = rdflib.term.URIRef('http://purl.org/dc/terms/title')
-    prop = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#prop')
+    prop = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#Property')
     type_element = rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
     class_element = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#Class')
     owl_class_element = rdflib.term.URIRef('http://www.w3.org/2002/07/owl#Class')
@@ -158,13 +158,14 @@ def import_schema(schema_url, schema_title, default_domain=None, namespace=None,
                 break
 
 def _handle_rdf_prop(p, g):
+    # print 'handle_rdf_prop', p, g
     description = rdflib.term.URIRef('http://purl.org/dc/terms/description')
     comment = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#comment')
 
     label = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#label')
     range = rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#range')
     subpropOf = rdflib.term.URIRef(
-                        'http://www.w3.org/2000/01/rdf-schema#subpropOf')
+                        'http://www.w3.org/2000/01/rdf-schema#subPropertyOf')
     subClassOf = rdflib.term.URIRef(
                         'http://www.w3.org/2000/01/rdf-schema#subClassOf')
 

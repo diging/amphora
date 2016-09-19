@@ -22,6 +22,24 @@ def new_users_are_inactive_by_default(sender, **kwargs):
         # instance.is_active = False
         # instance.save()
 
+# TODO: enable this when Giles is ready for asynchronous uploads.
+# @receiver(post_save, sender=Resource)
+def send_pdfs_and_images_to_giles(sender, **kwargs):
+    instance = kwargs.get('instance', None)
+    if not instance.content_resource:
+        return
+
+    if instance and kwargs.get('created', False):
+        # PDFs and images should be stored in Digilib via Giles.
+        if instance.content_type in ['image/png', 'image/tiff', 'image/jpeg', 'application/pdf']:
+            logger.debug('%s is a new ContentResource; sending to Giles' % instance.name)
+            send_to_giles.delay(instance.file, instance.created_by,
+                                resource=instance.parent.for_resource,
+                                public=instance.public, entity_type=entity_type)
+
+
+
+
 
 @receiver(post_save, sender=ConceptEntity)
 def conceptentity_post_save(sender, **kwargs):

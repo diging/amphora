@@ -72,7 +72,11 @@ def resource_list(request):
         Q(content_resource=False)
         & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id)))
 
+    # For now we use filters to achieve search functionality. At some point we
+    #  should use a real search backend.
+    # TODO: implement a real search backend.
     filtered_objects = ResourceFilter(request.GET, queryset=queryset)
+
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
     })
@@ -356,7 +360,7 @@ def create_resource_bulk(request):
             if not (file_name.endswith('.rdf') or file_name.endswith('.zip')):
                 form.add_error('upload_file', 'Not a valid RDF document or ZIP archive.')
             else:
-                result = handle_bulk(file_path, safe_data, file_name)##.delay
+                result = handle_bulk.delay(file_path, safe_data, file_name)##.delay
                 job = UserJob.objects.create(**{
                     'created_by': request.user,
                     'result_id': result.id,

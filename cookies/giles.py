@@ -15,14 +15,14 @@ def _get_file_data(response):
     return files
 
 
-def send_document_to_giles(user, file_obj, session=None, giles=settings.GILES, post=settings.POST, resource=None, public=True):
+def send_to_giles(file_obj, creator, resource=None, public=True,
+                  giles=settings.GILES, post=settings.POST):
     """
 
     Parameters
     ----------
-    user : :class:`.User`
+    creator : :class:`.User`
     file_obj : file-like object
-    session : :class:`.GilesSession`
     giles : str
         Giles endpoint.
     post : callable
@@ -39,7 +39,7 @@ def send_document_to_giles(user, file_obj, session=None, giles=settings.GILES, p
     :class:`.Resource`
 
     """
-    social = user.social_auth.get(provider='github')
+    social = creator.social_auth.get(provider='github')
 
     path = '/'.join([giles, 'rest', 'files', 'upload'])
     headers = {
@@ -51,13 +51,14 @@ def send_document_to_giles(user, file_obj, session=None, giles=settings.GILES, p
         'access': 'PUBLIC' if public else 'PRIVATE',
     }
 
-    if session is None:
-        session = GilesSession.objects.create(created_by_id=user.id)
-
     # TODO: Giles should respond with a token for each upload, which we should
     #  check periodically for completion (OCR takes longer than the Apache
     #  timeout).
     return
+
+    if session is None:
+        session = GilesSession.objects.create(created_by_id=creator.id)
+
     # POST request.
     files = {'files': (file_obj.name, file_obj, 'application/pdf')}
     response = post(path, files=files, data=data)
@@ -66,14 +67,14 @@ def send_document_to_giles(user, file_obj, session=None, giles=settings.GILES, p
         raise RuntimeError('Call to giles failed with %i: %s' % \
                            (response.status_code, response.content))
 
-
+    # This should be in a callback, or something.
     file_details = _get_file_data(response)
     session.file_ids = [o['uploadId'] for o in response.json()]
     session.file_details = file_details
     session.save()
 
     for document_id, file_data in session.file_details.iteritems():
-        process_resource(user, session, document_id, file_data, master_resource=resource, giles=giles)
+        _process_document_data(session, file_data, creator, giles=giles)
 
 
 
@@ -259,7 +260,6 @@ def _process_document_data(session, data, creator, giles=settings.GILES):
                 pages[i][fmt].save()
 
     return resource
-
 
 
 def process_resources(user, session, giles=settings.GILES):
