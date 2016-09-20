@@ -74,6 +74,7 @@ def resource_list(request):
 
     # For now we use filters to achieve search functionality. At some point we
     #  should use a real search backend.
+    #
     # TODO: implement a real search backend.
     filtered_objects = ResourceFilter(request.GET, queryset=queryset)
 
