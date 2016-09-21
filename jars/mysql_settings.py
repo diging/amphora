@@ -175,7 +175,7 @@ LOGIN_URL = BASE_URL + 'login/github/'
 LOGIN_REDIRECT_URL = 'index'
 
 
-GILES = 'https://diging-dev.asu.edu/giles-review'
+GILES = 'https://diging.asu.edu/giles/'
 GET = requests.get
 
 SOCIAL_AUTH_UID_LENGTH = 122
