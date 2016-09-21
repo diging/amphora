@@ -159,6 +159,7 @@ HOSTNAME = socket.gethostname()
 
 CORS_ORIGIN_ALLOW_ALL = True
 CELERY_IMPORTS = ('cookies.tasks',)
+CELERY_DEFAULT_RATE_LIMIT = "100/m"
 
 
 FILE_UPLOAD_HANDLERS = ["cookies.uploadhandler.PersistentTemporaryFileUploadHandler",]

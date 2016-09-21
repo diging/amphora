@@ -4,9 +4,9 @@ from django.dispatch import receiver
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 
-from cookies.models import ConceptType, ConceptEntity, Resource
+from cookies.models import ConceptType, ConceptEntity, Resource, ContentRelation
 from cookies import content
-from tasks import handle_content
+from tasks import handle_content, send_to_giles
 
 import logging
 logging.basicConfig()
@@ -23,22 +23,18 @@ def new_users_are_inactive_by_default(sender, **kwargs):
         # instance.save()
 
 # TODO: enable this when Giles is ready for asynchronous uploads.
-# @receiver(post_save, sender=Resource)
+@receiver(post_save, sender=ContentRelation)
 def send_pdfs_and_images_to_giles(sender, **kwargs):
     instance = kwargs.get('instance', None)
-    if not instance.content_resource:
-        return
+    print 'received post_Save for ContentRelation %i' % instance.id
 
-    if instance and kwargs.get('created', False):
+    if instance and kwargs.get('created', False) and instance.content_resource.file.name is not None:
         # PDFs and images should be stored in Digilib via Giles.
-        if instance.content_type in ['image/png', 'image/tiff', 'image/jpeg', 'application/pdf']:
-            logger.debug('%s is a new ContentResource; sending to Giles' % instance.name)
-            send_to_giles.delay(instance.file, instance.created_by,
-                                resource=instance.parent.for_resource,
-                                public=instance.public, entity_type=entity_type)
-
-
-
+        if instance.content_resource.content_type in ['image/png', 'image/tiff', 'image/jpeg', 'application/pdf']:
+            logger.debug('%s has a ContentResource; sending to Giles' % instance.content_resource.name)
+            send_to_giles.delay(instance.content_resource.file.name,
+                                instance.for_resource.created_by, resource=instance.for_resource,
+                                public=instance.for_resource.public)#delay
 
 
 @receiver(post_save, sender=ConceptEntity)

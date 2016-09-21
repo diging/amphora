@@ -1,21 +1,41 @@
 from django.conf import settings
+from django.core.files import File
 
 from cookies.models import *
 
-import requests
+import requests, os
 from collections import defaultdict
 
+_fix_url = lambda url: url.replace('http://', 'https://') if url is not None else None
 
-def _get_file_data(response):
+
+def _get_file_data(raw_data):
     files = {}
-    for obj in response.json():
+    for obj in raw_data:
         key = obj.get('documentId')
 
         files[key] = obj
     return files
 
 
-def send_to_giles(file_obj, creator, resource=None, public=True,
+def check_upload_status(creator, checkURL, giles=settings.GILES, get=settings.GET):
+    response = get(checkURL + '?accessToken=' + creator.social_auth.get(provider='github').extra_data['access_token'])
+    return response.status_code, response.json()
+
+
+def process_file_upload(resource, creator, raw_data, session_id, giles=settings.GILES):
+    session = GilesSession.objects.get(pk=session_id)
+
+    file_details = _get_file_data(raw_data)
+    session.file_ids = [o['uploadId'] for o in raw_data]
+    session.file_details = file_details
+    session.save()
+
+    for document_id, file_data in session.file_details.iteritems():
+        _process_document_data(session, file_data, creator, resource=resource, giles=giles)
+
+
+def send_to_giles(file_name, creator, resource=None, public=True,
                   giles=settings.GILES, post=settings.POST):
     """
 
@@ -41,7 +61,7 @@ def send_to_giles(file_obj, creator, resource=None, public=True,
     """
     social = creator.social_auth.get(provider='github')
 
-    path = '/'.join([giles, 'rest', 'files', 'upload'])
+    path = '/'.join([giles, 'rest', 'files', 'upload']) + '?accessToken=' + social.extra_data['access_token']
     headers = {
         'content-type': 'multipart/form-data',
     }
@@ -51,31 +71,23 @@ def send_to_giles(file_obj, creator, resource=None, public=True,
         'access': 'PUBLIC' if public else 'PRIVATE',
     }
 
+
     # TODO: Giles should respond with a token for each upload, which we should
     #  check periodically for completion (OCR takes longer than the Apache
     #  timeout).
-    return
+    # return
 
-    if session is None:
-        session = GilesSession.objects.create(created_by_id=creator.id)
+
+    session = GilesSession.objects.create(created_by_id=creator.id)
 
     # POST request.
-    files = {'files': (file_obj.name, file_obj, 'application/pdf')}
+    files = {'files': (file_name, File(open(os.path.join(settings.MEDIA_ROOT, file_name), 'rb')), 'application/pdf')}
     response = post(path, files=files, data=data)
 
     if response.status_code != requests.codes.ok:
         raise RuntimeError('Call to giles failed with %i: %s' % \
                            (response.status_code, response.content))
-
-    # This should be in a callback, or something.
-    file_details = _get_file_data(response)
-    session.file_ids = [o['uploadId'] for o in response.json()]
-    session.file_details = file_details
-    session.save()
-
-    for document_id, file_data in session.file_details.iteritems():
-        _process_document_data(session, file_data, creator, giles=giles)
-
+    return response.status_code, response.json(), session
 
 
 def _create_content_resource(parent_resource, resource_type, creator, uri, url, public=True, **meta):
@@ -111,7 +123,7 @@ def _create_content_resource(parent_resource, resource_type, creator, uri, url, 
     :class:`.Resource`
         The content resource.
     """
-
+    url = _fix_url(url)
     # This is the page image.
     content_resource = Resource.objects.create(**{
         'name': meta.get('name', url),
@@ -163,17 +175,18 @@ def _create_page_resource(parent_resource, page_nr, resource_type, creator, uri,
         'entity_type': resource_type,
         'public': public,
         'content_resource': False,
+        'is_part': True,
     })
 
     Relation.objects.create(**{
-        'source': parent_resource,
-        'target': resource,
+        'source': resource,
+        'target': parent_resource,
         'predicate': __part__,
     })
     return resource
 
 
-def _process_document_data(session, data, creator, giles=settings.GILES):
+def _process_document_data(session, data, creator, resource=None, giles=settings.GILES):
 
     __text__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Text')
     __image__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Image')
@@ -187,14 +200,15 @@ def _process_document_data(session, data, creator, giles=settings.GILES):
 
     # We may already have a master Resource, e.g. if we POSTed a file from a
     #  Zotero batch-ingest and have been awaiting processing by Giles.
-    resource, created = Resource.objects.get_or_create(
-        name = document_id,
-        defaults = {
-            'created_by_id': creator.id,
-            'entity_type': __document__,
-            'uri': '%s/documents/%s' % (giles, document_id),
-            'content_resource': False,
-        })
+    if resource is None:
+        resource, created = Resource.objects.get_or_create(
+            name = document_id,
+            defaults = {
+                'created_by_id': creator.id,
+                'entity_type': __document__,
+                'uri': '%s/documents/%s' % (giles, document_id),
+                'content_resource': False,
+            })
 
     session.resources.add(resource)
 
@@ -205,7 +219,7 @@ def _process_document_data(session, data, creator, giles=settings.GILES):
     resource_uri = '%s/files/%s' % (giles, upload_data.get('id'))
     session.content_resources.add(
         _create_content_resource(resource, resource_type, creator, resource_uri,
-                                 upload_data.get('url'), public=public,
+                                 _fix_url(upload_data.get('url')), public=public,
                                  content_type=content_type)
     )
 
@@ -216,7 +230,7 @@ def _process_document_data(session, data, creator, giles=settings.GILES):
         text_uri = '%s/files/%s' % (giles, text_data.get('id'))
         session.content_resources.add(
             _create_content_resource(resource, __text__, creator, text_uri,
-                                     upload_data.get('url'), public=public,
+                                     _fix_url(text_data.get('url')), public=public,
                                      content_type=text_content_type)
         )
 
@@ -224,12 +238,12 @@ def _process_document_data(session, data, creator, giles=settings.GILES):
     pages = defaultdict(dict)
 
     # Each page is represented by a Resource.
-    for page_data in data.get('pages'):
+    for page_data in data.get('pages', []):
         page_nr = int(page_data.get('nr'))
         page_uri = '%s/documents/%s/%i' % (giles, document_id, page_nr)
         page_resource = _create_page_resource(resource, page_nr, __document__,
                                               creator, page_uri,
-                                              page_data.get('url'),
+                                              _fix_url(page_data.get('url')),
                                               public=public)
 
         pages[page_nr]['resource'] = page_resource
@@ -245,7 +259,7 @@ def _process_document_data(session, data, creator, giles=settings.GILES):
             page_fmt_uri = '%s/files/%s' % (giles, fmt_data.get('id'))
             pages[page_nr][fmt] = _create_content_resource(page_resource,
                                      __image__ if fmt == 'image' else __text__,
-                                     creator, page_fmt_uri, fmt_data.get('url'),
+                                     creator, page_fmt_uri, _fix_url(fmt_data.get('url')),
                                      public=public,
                                      content_type=fmt_data.get('content-type'),
                                      name='%s (%s)' % (page_resource.name, fmt))
@@ -353,9 +367,10 @@ def get_file_details(user, upload_id, giles=settings.GILES, get=settings.GET):
     social = user.social_auth.get(provider='github')
     path = '/'.join([giles, 'rest', 'files', 'upload', upload_id])
     path += '?accessToken=' + social.extra_data['access_token']
+    print path
     response = get(path)
     if response.status_code != requests.codes.ok:
         raise RuntimeError('Call to giles failed with %i: %s' % \
                            (response.status_code, response.content))
 
-    return _get_file_data(response)
+    return _get_file_data(response.json())

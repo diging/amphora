@@ -1,4 +1,7 @@
 from django import template
+from django.conf import settings
+from django.core.urlresolvers import reverse
+
 register = template.Library()
 
 from django.utils.safestring import mark_safe
@@ -34,7 +37,11 @@ external_link_template = """
         <a class="btn" href="{href}" target="_blank">
             <span class="glyphicon glyphicon-new-window"></span> View resource in a new window (leaving JARS).
         </a>
+
 """
+# <div>
+# <iframe src="{href}" height="400" width="300" />
+# </div>
 
 pdf_preview_template = """
 <canvas id="pdf-preview"></canvas>
@@ -63,6 +70,10 @@ pdf_preview_fragment = """.then(function(pdf) {
 </script>
 """
 
+page_link_template = """
+<a href="{href}">View page resource</a>
+"""
+
 images = [
     "image/jpeg",
     "image/jpg",
@@ -78,10 +89,10 @@ import urlparse, urllib
 
 @register.filter(name='preview')
 def preview(resource, request):
-    page_field = Field.objects.get(uri='http://xmlns.com/foaf/0.1/page')
+    page_field = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
 
     content_relations = resource.content.all()
-    page_relations = resource.relations_from.filter(predicate=page_field)
+    page_relations = resource.relations_to.filter(predicate=page_field)
 
     if resource.content_resource:   # This resource is the content resource.
         if resource.content_type in images:
@@ -99,9 +110,10 @@ def preview(resource, request):
                 if relation.content_resource.content_type in images and not relation.content_resource.local:
                     image_location = relation.content_resource.content_location
                     # if not relation.content_resource.public:
-                    social = request.user.social_auth.get(provider='github')
-                    image_location += '&accessToken=' + social.extra_data['access_token']
-                    image_location += '&dw=400'    # We can let page scripts change this after rendering.
+                    if image_location.startswith(settings.GILES):
+                        social = request.user.social_auth.get(provider='github')
+                        image_location += '&accessToken=' + social.extra_data['access_token']
+                        image_location += '&dw=400'    # We can let page scripts change this after rendering.
                     preview_elem = image_preview_template.format(src=image_location)
                 elif (resource.content_type == 'application/xpdf' or (relation.content_resource.content_location and relation.content_resource.content_location.lower().endswith('.pdf'))) and relation.content_resource.local:
                     preview_elem = pdf_preview_template.format(**{
@@ -111,6 +123,10 @@ def preview(resource, request):
                 elif not relation.content_resource.local:
                     preview_elem = external_link_template.format(**{
                         'href': relation.content_resource.location
+                    })
+                else:
+                    preview_elem = image_preview_template.format(**{
+                        'src': relation.content_resource.file.url
                     })
 
                 tabpanes.append(tabpane_template.format(**{
@@ -127,18 +143,18 @@ def preview(resource, request):
 
         if page_relations > 0:    # There are several pages in this resource.
             for i, relation in enumerate(page_relations.all()):
-                print [c.content_resource.id for c in relation.target.content.all()]
-                content_resource = relation.target.content.first().content_resource
+                content_resource = relation.source.content.first().content_resource
 
-                preview_elem = content_resource.content_type
+                preview_elem = page_link_template.format(href=reverse('resource', args=(relation.source.id,)))
                 if content_resource.content_type in images:
                     image_location = content_resource.content_location
+                    if image_location.startswith(settings.GILES):
+                        social = request.user.social_auth.get(provider='github')
+                        image_location += '&accessToken=' + social.extra_data['access_token'] + '&dw=300'
 
-                    social = request.user.social_auth.get(provider='github')
-                    image_location += '&accessToken=' + social.extra_data['access_token'] + '&dw=300'
-                    preview_elem = image_preview_template.format(src=image_location)
+                    preview_elem += image_preview_template.format(src=image_location)
                 elif content_resource.content_type == 'application/xpdf' or content_resource.content_location.lower().endswith('.pdf'):
-                    preview_elem = pdf_preview_template.format(src=content_resource.content_location) + pdf_preview_fragment
+                    preview_elem += pdf_preview_template.format(src=content_resource.content_location, page_id=str(content_resource.id)) + pdf_preview_fragment
 
                 tabpanes.append(tabpane_template.format(**{
                     "class": "active" if i == 0 and len(tabs) == 0 else "",

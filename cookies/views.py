@@ -69,7 +69,7 @@ def resource_by_uri(request):
 def resource_list(request):
     # Either the resource is public, or owned by the requesting user.
     queryset = Resource.objects.filter(
-        Q(content_resource=False)
+        Q(content_resource=False) & Q(is_part=False)
         & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id)))
 
     # For now we use filters to achieve search functionality. At some point we

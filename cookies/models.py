@@ -153,6 +153,8 @@ class Resource(ResourceBase):
     next_page = models.OneToOneField('Resource', related_name='previous_page',
                                      blank=True, null=True)
 
+    is_part = models.BooleanField(default=False)
+
     @property
     def content_location(self):
         if self.content_resource:
