@@ -177,6 +177,8 @@ LOGIN_REDIRECT_URL = 'index'
 
 GILES = 'https://diging.asu.edu/giles/'
 GET = requests.get
+POST = requests.post
+IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 
 SOCIAL_AUTH_UID_LENGTH = 122
 SOCIAL_AUTH_NONCE_SERVER_URL_LENGTH = 100
