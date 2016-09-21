@@ -15,7 +15,7 @@ try:
         os.environ[key] = value
 except ImportError:
     pass
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jars.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jars.mysql_settings")
 os.environ.setdefault("REDIS_URL", "redis://")
 
 from django.core.wsgi import get_wsgi_application
