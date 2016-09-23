@@ -211,7 +211,7 @@ LOGIN_URL = LOCAL_PATH + 'login/github/'
 LOGIN_REDIRECT_URL = 'index'
 
 
-GILES = 'https://diging-dev.asu.edu/giles-review'
+GILES = 'https://diging.asu.edu/giles-review'
 GET = requests.get
 POST = requests.post
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
