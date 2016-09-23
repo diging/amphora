@@ -88,6 +88,8 @@ class Entity(models.Model):
     events = GenericRelation('Event', content_type_field='on_type',
                              object_id_field='on_instance_id')
 
+    is_deleted = models.BooleanField(default=False)
+
     class Meta:
         verbose_name_plural = 'entities'
         abstract = True
@@ -434,8 +436,8 @@ class Relation(Entity):
                                   verbose_name='field')
 
     target_type = models.ForeignKey(ContentType, related_name='relations_to',
-                                    on_delete=models.CASCADE)
-    target_instance_id = models.PositiveIntegerField()
+                                    on_delete=models.CASCADE, blank=True, null=True)
+    target_instance_id = models.PositiveIntegerField(blank=True, null=True)
     target = GenericForeignKey('target_type', 'target_instance_id')
 
 

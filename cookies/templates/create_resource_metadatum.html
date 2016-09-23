@@ -10,7 +10,7 @@
     {% breadcrumb_url 'Resources' 'resources' %}
     {% breadcrumb_url resource.name 'resource' resource.id  %}
     {% breadcrumb_url 'Edit' 'edit-resource-details' resource.id  %}
-    {% breadcrumb_url relation.predicate 'edit-resource-metadatum' resource.id relation.id %}
+    Create metadatum
 </div>
 {% endblock %}
 
@@ -18,7 +18,6 @@
 <form class="form" action="{% if next %}?next={{ next }}{% else %}.{% endif %}" method="POST">
     {% csrf_token %}
     {% for field in form %}
-    {% if field.label != 'Target class' %}
     {% for error in field.errors %}
     <div class="alert alert-warning">{{ error }}</div>
     {% endfor %}
@@ -26,9 +25,7 @@
         <label>{{ field.label }}</label>
         {{ field|addcss:"form-control" }}
     </div>
-    {% endif %}
     {% endfor %}
-
 
     <div class="text-center">
         <input class="btn btn-success" type="submit" value="Save">

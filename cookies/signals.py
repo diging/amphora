@@ -23,7 +23,7 @@ def new_users_are_inactive_by_default(sender, **kwargs):
         # instance.save()
 
 # TODO: enable this when Giles is ready for asynchronous uploads.
-@receiver(post_save, sender=ContentRelation)
+#@receiver(post_save, sender=ContentRelation)
 def send_pdfs_and_images_to_giles(sender, **kwargs):
     instance = kwargs.get('instance', None)
     print 'received post_Save for ContentRelation %i' % instance.id

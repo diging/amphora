@@ -59,11 +59,23 @@
                 </div>
                 <div role="tabpanel" class="tab-pane {% if tab == 'metadata' %}active{% endif %} panel-body" id="metadata">
                     <ul class="list-group">
-                    {% for metadatum in metadata %}
                         <a class="list-group-item"
-                            href="{% url "edit-resource-metadatum" resource.id metadatum.id %}?next={{ request.path }}&tab=metadata">
-                            <span class="label label-primary">{{ metadatum.predicate }}</span> {{ metadatum.target.name }}</a>
-                    {% endfor %}
+                            href="{% url "create-resource-metadatum" resource.id %}">
+                            <i class="fa fa-plus"></i> Create a new relation
+                        </a>
+                        {% for metadatum in metadata %}
+                        <li class="list-group-item">
+                            <a class="btn btn-md pull-right"
+                                href="{% url "delete-resource-metadatum" resource.id metadatum.id %}">
+                                <i class="fa fa-trash-o" style="color: red;"></i> &nbsp;
+                            </a>
+                            <span class="label label-primary">{{ metadatum.predicate }}</span>
+                            <a href="{% url "edit-resource-metadatum" resource.id metadatum.id %}?next={{ request.path }}&tab=metadata">
+                                {{ metadatum.target.name }}
+                            </a>
+
+                        </li>
+                        {% endfor %}
                     </ul>
 
                 </div>

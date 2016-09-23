@@ -265,6 +265,7 @@ class ChooseCollectionForm(forms.Form):
 
 class MetadatumValueTextAreaForm(forms.Form):
     value = forms.CharField(widget=forms.Textarea)
+    # form_class = forms.TextInput(widget=forms.HiddenInput())
 
 class MetadatumValueIntegerForm(forms.Form):
     value = forms.IntegerField()
@@ -274,6 +275,7 @@ class MetadatumValueFloatForm(forms.Form):
 
 class MetadatumValueDateTimeForm(forms.Form):
     value = forms.DateTimeField()
+    target_class = forms.CharField(widget=forms.HiddenInput(), required=False)
 
 class MetadatumValueDateForm(forms.Form):
     value = forms.DateField()
@@ -286,3 +288,17 @@ class MetadatumResourceForm(forms.Form):
 
 class MetadatumTypeForm(forms.Form):
     value = forms.ModelChoiceField(queryset=Type.objects.all().order_by('-name'))
+
+
+class MetadatumForm(forms.Form):
+    predicate = forms.ModelChoiceField(queryset=Field.objects.all().order_by('-name'))
+    value_type = forms.ChoiceField(choices=(
+        ('Int', 'Integer'),
+        ('Float', 'Float'),
+        ('Datetime', 'Date & Time'),
+        ('Date', 'Date'),
+        ('Text', 'Text'),
+        ('ConceptEntity', 'Concept'),
+        ('Resource', 'Resource'),
+        ('Type', 'Type'),
+    ))

@@ -39,14 +39,21 @@ def _ping_resource(path):
     return response.status_code == requests.codes.ok, response.headers
 
 
+def check_authorization(request, instance, permission):
+    authorized = request.user.has_perm('cookies.%s' % permission, instance)
+    # TODO: simplify this.
+    print 'auth_check', authorized, instance.hidden, instance.public, instance.created_by, request.user
+    if instance.hidden or not (instance.public or authorized or instance.created_by == request.user):
+        # TODO: render a real template for the error response.
+        raise RuntimeError('')
+
+
 def resource(request, obj_id):
     resource = get_object_or_404(Resource, pk=obj_id)
-    authorized = request.user.has_perm('cookies.view_resource', resource)
-    # TODO: simplify this.
-    if resource.hidden or not (resource.public or authorized or resource.created_by == request.user):
-        # TODO: render a real template for the error response.
-        return HttpResponse('You do not have permission to view this resource',
-                            status=401)
+    try:
+        check_authorization(request, resource, 'view_resource')
+    except RuntimeError:
+        return HttpResponse('You do not have permission to view this resource', status=401)
     return render(request, 'resource.html', {'resource':resource})
 
 
@@ -468,10 +475,84 @@ def process_giles_upload(request, session_id):
     return HttpResponse(template.render(context))
 
 
+VALUE_FORMS = dict([
+    ('Int', MetadatumValueIntegerForm),
+    ('Float', MetadatumValueFloatForm),
+    ('Datetime', MetadatumValueDateTimeForm),
+    ('Date', MetadatumValueDateForm),
+    ('Text', MetadatumValueTextAreaForm),
+    ('ConceptEntity', MetadatumConceptEntityForm),
+    ('Resource', MetadatumResourceForm),
+    ('Type', MetadatumTypeForm),
+])
+
+
+@login_required
+def delete_resource_metadatum(request, resource_id, relation_id):
+    resource = get_object_or_404(Resource, pk=resource_id)
+
+    try:
+        check_authorization(request, resource, 'edit_resource')
+    except RuntimeError:
+        return HttpResponse('You do not have permission to view this resource', status=401)
+    relation = get_object_or_404(Relation, pk=relation_id)
+    delete = request.GET.get('delete', False)
+    if delete == 'confirm':
+        relation.is_deleted = True
+        relation.save()
+        return HttpResponseRedirect(reverse('edit-resource-details', args=(resource.id,)) + '?tab=metadata')
+
+    context = RequestContext(request, {
+        'resource': resource,
+        'relation': relation,
+    })
+    template = loader.get_template('delete_resource_metadatum.html')
+
+    return HttpResponse(template.render(context))
+
+
+@login_required
+def create_resource_metadatum(request, resource_id):
+    resource = get_object_or_404(Resource, pk=resource_id)
+    try:
+        check_authorization(request, resource, 'edit_resource')
+    except RuntimeError:
+        return HttpResponse('You do not have permission to view this resource', status=401)
+
+    if request.method == 'POST':
+        form = MetadatumForm(request.POST)
+        if form.is_valid():
+            predicate = form.cleaned_data['predicate']
+            target_class = form.cleaned_data['value_type']
+            relation = Relation.objects.create(
+                source=resource,
+                predicate=predicate
+            )
+            return HttpResponseRedirect(reverse('edit-resource-metadatum', args=(resource.id, relation.id)) + '?target_class=' + target_class)
+    else:
+        form = MetadatumForm()
+    context = RequestContext(request, {
+        'resource': resource,
+        'form': form,
+
+    })
+    template = loader.get_template('create_resource_metadatum.html')
+
+    return HttpResponse(template.render(context))
+
+
 @login_required
 def edit_resource_metadatum(request, resource_id, relation_id):
     resource = get_object_or_404(Resource, pk=resource_id)
+    try:
+        check_authorization(request, resource, 'edit_resource')
+    except RuntimeError:
+        return HttpResponse('You do not have permission to view this resource', status=401)
     relation = get_object_or_404(Relation, pk=relation_id)
+    if request.method == 'GET':
+        target_class = request.GET.get('target_class', None)
+    else:
+        target_class = request.POST.get('target_class', None)
 
     context = RequestContext(request, {
         'resource': resource,
@@ -483,8 +564,12 @@ def edit_resource_metadatum(request, resource_id, relation_id):
         context.update({'next': on_valid})
 
     target_type = type(relation.target)
+    initial_data = None
 
-    if target_type is Value:
+    if target_class is not None:
+        form_class = VALUE_FORMS[target_class]
+        print form_class
+    elif target_type is Value:
         initial_data = relation.target.name
         dtype = type(initial_data)
         if dtype in [str, unicode]:
@@ -506,22 +591,42 @@ def edit_resource_metadatum(request, resource_id, relation_id):
     elif target_type is Type:
         form_class = MetadatumTypeForm
         initial_data = relation.target.id
+    else:
+        form_class = MetadatumValueTextAreaForm
 
     if request.method == 'GET':
-        form = form_class({'value': initial_data})
+        form_data = {'value': initial_data}
+        if target_class is not None:
+            form_data.update({'target_class': target_class})
+        form = form_class(form_data)
 
     elif request.method == 'POST':
         form = form_class(request.POST)
         if form.is_valid():
-            if target_type is Value:
+            if target_class is not None:
+                if target_class in ['Int', 'Float', 'Datetime', 'Date', 'Text']:
+                    val = Value.objects.create()
+                    val.name = form.cleaned_data['value']
+                    relation.target = val
+                else:
+                    relation.target = form.cleaned_data['value']
+                relation.save()
+            elif target_type is Value:
                 relation.target.name = form.cleaned_data['value']
                 relation.target.save()
             elif target_type in [ConceptEntity, Resource, Type]:
                 relation.target = form.cleaned_data['value']
+            else:
+                print form.cleaned_data
+                val = Value.objects.create()
+                val.name = form.cleaned_data['value']
+                relation.target = val
+                relation.save()
             relation.target.save()
 
             if on_valid:
                 return HttpResponseRedirect(on_valid + '?tab=metadata')
+            return HttpResponseRedirect(reverse('edit-resource-details', args=(resource.id,)) + '?tab=metadata')
 
     context.update({'form': form})
     return HttpResponse(template.render(context))
@@ -530,6 +635,10 @@ def edit_resource_metadatum(request, resource_id, relation_id):
 @login_required
 def edit_resource_details(request, resource_id):
     resource = get_object_or_404(Resource, pk=resource_id)
+    try:
+        check_authorization(request, resource, 'edit_resource')
+    except RuntimeError:
+        return HttpResponse('You do not have permission to view this resource', status=401)
     context = RequestContext(request, {'resource': resource,})
     template = loader.get_template('edit_resource_details.html')
 
@@ -576,7 +685,7 @@ def edit_resource_details(request, resource_id):
     page_field = Field.objects.get(uri='http://xmlns.com/foaf/0.1/page')
     context.update({
         'form': form,
-        'metadata': resource.relations_from.all(),
+        'metadata': resource.relations_from.filter(is_deleted=False),
         'resource': resource,
         'pages': resource.relations_from.filter(predicate_id=page_field.id),
     })

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load addcss %}
+{% load preview %}
+
+{% load breadcrumbs %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url resource.name 'resource' resource.id  %}
+    {% breadcrumb_url 'Edit' 'edit-resource-details' resource.id  %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="container text-center">
+    <p class="text-warning">
+        Are you sure that you want to delete the metadatum
+        <span class="text-primary">{{relation.predicate}}</span>
+        for this resource?
+    </p>
+    <a class="btn btn-lg" href="?delete=confirm">Delete Forever</a>
+</div>
+{% endblock %}
