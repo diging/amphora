@@ -5,7 +5,7 @@ from django.db.models import Q
 
 from bs4 import BeautifulSoup
 from uuid import uuid4
-import mimetypes, jsonpickle, os, zipfile, magic, slate
+import mimetypes, jsonpickle, os, zipfile, magic, slate, urllib
 
 from cookies.models import *
 from cookies.ingest import read
@@ -308,6 +308,7 @@ def _create_content_resource(localresource, form_data, content_resource_data,
     }
     if loc == 'local':
         with open(fpath, 'r') as f:
+            print fpath, fname
             contentResource.file.save(fname, File(f), True)
             content_type, content_encoding = mimetypes.guess_type(contentResource.file.name)
         cr_data.update({
@@ -458,7 +459,7 @@ def handle_bulk(file_path, form_data, file_name):
             try:
                 urls = filter(lambda e: e[0] == 'url', content_resource_data)
                 urls = [url[1] for url in urls]
-                fnames = [url.split('/')[-1].split('?')[0] for url in urls]
+                ufnames = [url.split('/')[-1].split('?')[0] for url in urls]
             except IndexError:
                 urls = []
 
@@ -466,8 +467,16 @@ def handle_bulk(file_path, form_data, file_name):
                 continue    # No content is available for this Resource.
 
             for fpath, fname in zip(fpaths, fnames):
+                # Zotero escapes local file paths as if they were URLs.
+                fpath = urllib.unquote(fpath)
+                try:
+                    fname_has_extension = fname[-4] == '.' or fname[-5] == '.'
+                except IndexError:
+                    fname_has_extension = False
+                if (fpath[-4] == '.' or fpath[-5] == '.') and not (fname_has_extension):
+                    fname += '.' + fpath.split('.')[-1]
                 _create_content_resource(localresource, form_data, content_resource_data, 'local', fpath, fname)
-            for url, fname in zip(urls, fnames):
+            for url, fname in zip(urls, ufnames):
                 fname = fname if fname else url
                 _create_content_resource(localresource, form_data, content_resource_data, 'remote', url, fname)
 

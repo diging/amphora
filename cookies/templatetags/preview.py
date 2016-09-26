@@ -74,6 +74,10 @@ page_link_template = """
 <a href="{href}">View page resource</a>
 """
 
+iframe_template = """
+<iframe src="{href}" width="100%" height="400"></iframe>
+"""
+
 images = [
     "image/jpeg",
     "image/jpg",
@@ -124,9 +128,13 @@ def preview(resource, request):
                     preview_elem = external_link_template.format(**{
                         'href': relation.content_resource.location
                     })
-                else:
+                elif relation.content_resource.content_type in images:
                     preview_elem = image_preview_template.format(**{
                         'src': relation.content_resource.file.url
+                    })
+                else:
+                    preview_elem =iframe_template.format(**{
+                        'href': relation.content_resource.file.url
                     })
 
                 tabpanes.append(tabpane_template.format(**{

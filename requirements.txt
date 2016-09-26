@@ -53,5 +53,5 @@ urllib3==1.15.1
 wheel==0.24.0
 whitenoise==2.0.4
 jsonpickle
-django-pagination=1.0.7
+django-pagination==1.0.7
 python-social-auth
