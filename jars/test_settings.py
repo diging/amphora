@@ -14,7 +14,7 @@ import socket
 import sys
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
-
+LOCAL_PATH = '/'
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.6/howto/deployment/checklist/
 
