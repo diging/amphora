@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/1.6/ref/settings/
 import os
 import socket
 import sys
+from urlparse import urlparse
+import requests
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 LOCAL_PATH = '/'
