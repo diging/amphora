@@ -729,11 +729,12 @@ def list_metadata(request):
     return HttpResponse(template.render(context))
 
 
-
 def entity_details(request, entity_id):
     entity = get_object_or_404(ConceptEntity, pk=entity_id)
     template = loader.get_template('entity_details.html')
     context = RequestContext(request, {
-    'entity': entity,
+        'user_can_edit': request.user.is_staff,    # TODO: change this!
+        'entity': entity,
+        'similar_entities': ConceptEntity.objects.filter(name__icontains=entity.name).filter(~Q(id=entity.id)),
     })
     return HttpResponse(template.render(context))
