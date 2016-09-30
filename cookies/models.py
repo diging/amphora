@@ -273,93 +273,14 @@ class Field(models.Model):
 ### Values ###
 
 
-class ValueQueryset(models.QuerySet):
-    def get_or_create(self, defaults=None, **kwargs):
-        """
-        Get a :class:`.Value` based on the parameters in **kwargs. If a matching
-        :class:`.Value` can't be found, create a new one.
-
-        This is customized so that queries against the ``name`` field get recast
-        as the appropriate type, depending on which :class:`.Value` subclass
-        is using this :class:`.ValueQueryset`\.
-
-        """
-        lookup, params = self._extract_model_params(defaults, **kwargs)
-
-        # The value of the lookup for ``name`` may not be the right datatype
-        #  for this subclass of Value. E.g. if the request was generated from
-        #  user data entered through a :class:`.TargetField` (which just passes
-        #  the raw input along).
-        if 'name' in lookup:
-
-            # The _convert method will recast the value for the ``name`` lookup.
-            name = self.model()._convert(lookup['name'])
-
-            # Update lookup, kwargs, and params just for good measure.
-            lookup['name'] = name
-            kwargs['name'] = name
-            params['name'] = name
-
-        # The rest of this is straight from the original Django sourcecode.
-        self._for_write = True
-        try:
-            return self.get(**lookup), False
-        except self.model.DoesNotExist:
-            return self._create_object_from_params(lookup, params)
-
-    def _create_object_from_params(self, lookup, params):
-        """
-        Tries to create an object using passed params.
-
-        Used by get_or_create and update_or_create.
-
-        This is identical to the method in the Github sourcecode, it's just nice
-        to have access to it for debugging.
-        """
-        try:
-            with transaction.atomic(using=self.db):
-                obj = self.create(**params)
-            return obj, True
-        except IntegrityError:
-            exc_info = sys.exc_info()
-            try:
-                return self.get(**lookup), False
-            except self.model.DoesNotExist:
-                pass
-            six.reraise(*exc_info)
-
-    def create(self, **kwargs):
-        """
-        Creates a new object with the given kwargs, saving it to the database
-        and returning the created object.
-
-        This is identical to the original method, except that we are explicitly
-        setting the :attr:`.name` attribute. For some reason passing ``name``
-        in kwargs doesn't always work on some models.
-        """
-
-        obj = self.model(**kwargs)
-
-        # Here we set ``name`` explicitly based on kwargs.
-        if 'name' in kwargs:
-            obj.name = kwargs['name']
-
-        # Everything else is the same as the original method.
-        self._for_write = True
-        obj.save(force_insert=True, using=self.db)
-        return obj
-
-
-class ValueManager(models.Manager):
-    """
-    Allows us to use a custom :class:`.QuerySet`\, the :class:`.ValueQueryset`\.
-    """
-
-    def get_queryset(self):
-        return ValueQueryset(self.model, using=self._db, hints=self._hints)
-
 
 class Value(models.Model):
+    """
+    Generic container for freeform data.
+
+    Uses jsonpickle to support Python data types, as well as ``date`` and
+    ``datetime`` objects.
+    """
     _value = models.TextField()
 
     def _get_value(self):
@@ -373,45 +294,6 @@ class Value(models.Model):
     def __unicode__(self):
         return unicode(self.name)
 
-
-class IntegerValue(models.Model):
-    name = models.IntegerField(default=0, unique=True)
-    pytype = staticmethod(int)
-
-    def __unicode__(self):
-        return unicode(self.name)
-
-
-class StringValue(models.Model):
-    name = models.TextField()
-    pytype = staticmethod(unicode)
-
-    def __unicode__(self):
-        return unicode(self.name)
-
-
-class FloatValue(models.Model):
-    name = models.FloatField(unique=True)
-    pytype = staticmethod(float)
-
-    def __unicode__(self):
-        return unicode(self.name)
-
-
-class DateValue(models.Model):
-    name = models.DateField(unique=True, null=True, blank=True)
-    pytype = staticmethod(iso8601.parse_date)
-
-    def __unicode__(self):
-        return unicode(self.name)
-
-
-class DateTimeValue(models.Model):
-    name = models.DateTimeField(unique=True, null=True, blank=True)
-    pytype = staticmethod(iso8601.parse_date)
-
-    def __unicode__(self):
-        return unicode(self.name)
 
 ### Relations ###
 

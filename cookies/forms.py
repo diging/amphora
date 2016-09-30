@@ -125,49 +125,6 @@ class BulkResourceForm(forms.Form):
             raise forms.ValidationError("Please enter a name for your new collection")
 
 
-class RelationForm(autocomplete.FutureModelForm):
-    """
-    Supports the :class:`.RelationInline` by handling heterogeneous input and
-    resolving them into Entities.
-
-    TODO: Handle cases where the range of a Field includes non-Value types.
-    """
-
-    target = QuerySetSequenceModelField(
-        queryset=QuerySetSequence(*[
-            Resource.objects.all(),
-            IntegerValue.objects.all(),
-            StringValue.objects.all(),
-            FloatValue.objects.all(),
-            DateTimeValue.objects.all(),
-            DateValue.objects.all(),
-            ConceptEntity.objects.all(),
-        ]),
-        required=False,
-        widget=QuerySetSequenceSelect2(
-            url='autocomplete',
-            attrs={
-                'data-placeholder': 'Autocomplete ...',
-                'data-minimum-input-length': 3,
-            }
-        )
-    )
-
-    def __init__(self, *args, **kwargs):
-        super(RelationForm, self).__init__(*args, **kwargs)
-
-        self.fields['predicate'].widget.widget.attrs.update({
-                'class': 'autocomplete_filter',
-                'target': 'target',
-            })
-
-        # Sort predicate Fields alphabetically, by name.
-        qs = self.fields['predicate'].queryset.order_by('name')
-        self.fields['predicate'].queryset = qs
-
-    class Meta:
-        model = Relation
-        exclude = ['entity_type', ]
 
 
 class ResourceForm(forms.ModelForm):

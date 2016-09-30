@@ -221,14 +221,6 @@ class ContentInline(admin.TabularInline):
     extra = 1
 
 
-class RelationInline(GenericTabularInline):
-    model = Relation
-    form = RelationForm
-    ct_field = 'source_type'
-    ct_fk_field = 'source_instance_id'
-    exclude = ('name', 'hidden', 'public', 'namespace', 'uri', 'target_type',
-               'target_instance_id', 'entity_type')
-    extra = 0
 
 
 class ResourceAdmin(admin.ModelAdmin):
@@ -240,7 +232,7 @@ class ResourceAdmin(admin.ModelAdmin):
     :class:`.Resource` and NOT :class:`.Resource` itself.
     """
 
-    inlines = (ContentInline, RelationInline,)
+    inlines = (ContentInline,)
     form = ResourceForm
     model = Resource
 

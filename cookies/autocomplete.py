@@ -18,7 +18,8 @@ import json
 
 class EntityAutocomplete(Select2QuerySetSequenceView):
     value_models = [
-        DateTimeValue, DateValue, FloatValue, IntegerValue, StringValue
+        Value
+        # DateTimeValue, DateValue, FloatValue, IntegerValue, StringValue
     ]
 
     def get_queryset(self):
