@@ -16,6 +16,12 @@
 
 
 <div class="h3">Metadata</div>
+<p class="text-info">
+    Search for metadata relations by subject, predicate, and/or object. You can
+    either enter an URI, or perform simple searches (contains phrase,
+    case-insensitive). Entering values for multiple fields will refine, rather
+    than expand, the result set.
+</p>
 
 {% if max_results > 0 %}
 <span class="text-warning">Showing results {{ first_result }} - {{ last_result }} of {{max_results }}</span>
@@ -35,21 +41,21 @@
     <table class="table table-responsive table-striped">
         <tr>
             <td class="col-xs-4">
-                <input class="form-control" name="source" placeholder="Subject" {% if source %}value="{{ source }}"{% endif %}/>
+                <input class="form-control" name="source" placeholder="Subject (text or URI)" {% if source %}value="{{ source }}"{% endif %}/>
             </td>
             <td class="col-xs-4">
-                <input class="form-control" name="predicate" placeholder="Predicate", {% if predicate %}value="{{ predicate }}"{% endif %}/>
+                <input class="form-control" name="predicate" placeholder="Predicate (text or URI)", {% if predicate %}value="{{ predicate }}"{% endif %}/>
             </td>
             <td class="col-xs-4">
-                <input class="form-control" name="target" placeholder="Object", {% if target %}value="{{target}}"{% endif %} />
+                <input class="form-control" name="target" placeholder="Object (text or URI)", {% if target %}value="{{target}}"{% endif %} />
             </td>
         </tr>
 
     {% for relation in relations %}
         <tr style="cursor: default;">
-            <td class="text-center">{{ relation.source }} <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.source.entity_type.schema }}">{{ relation.source.entity_type.name }}</span></td>
+            <td class="text-center">{{ relation.source|truncatechars:100 }} <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.source.entity_type.schema }}">{{ relation.source.entity_type.name }}</span></td>
             <td class="text-center"><span data-toggle="tooltip" data-title="{{ relation.predicate.schema }}">{{ relation.predicate.name }}</span></td>
-            <td class="text-center">{{ relation.target }} <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.target.entity_type.schema }}">{{ relation.target.entity_type.name }}</span></td>
+            <td class="text-center">{{ relation.target|truncatechars:100 }} <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.target.entity_type.schema }}">{{ relation.target.entity_type.name }}</span></td>
         </tr>
     {% endfor %}
     </table>

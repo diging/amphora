@@ -47,6 +47,29 @@ def get_resource_with_name(name, qs=Resource.objects.all(),
     return qs.filter(**filters).filter(name__icontains=name).values_list(*fields)
 
 
+@prepend_to_results('Resource')
+def get_resource_with_uri(uri, qs=Resource.objects.all(),
+                           filters={'content_resource': False},
+                           fields=['id', 'name', 'entity_type'], **kwargs):
+    """
+    Get instances of :class:`.Resource` with ``uri={{uri}}``.
+
+    Parameters
+    ----------
+    name : str or unicode
+    qs : :class:`django.db.models.query.QuerySet`
+    filters : dict
+    fields : list
+    kwargs : kwargs
+
+    Returns
+    -------
+    list
+        A list of field values.
+    """
+    return qs.filter(**filters).filter(uri=uri).values_list(*fields)
+
+
 @prepend_to_results('ConceptEntity')
 def get_conceptentity_with_name(name, qs=ConceptEntity.objects.all(),
                                 filters={},
@@ -70,6 +93,36 @@ def get_conceptentity_with_name(name, qs=ConceptEntity.objects.all(),
     return qs.filter(**filters).filter(name__icontains=name).values_list(*fields)
 
 
+@prepend_to_results('ConceptEntity')
+def get_conceptentity_with_uri(uri, qs=ConceptEntity.objects.all(),
+                                filters={},
+                                fields=['id', 'name', 'entity_type'], **kwargs):
+    """
+    Get instances of :class:`.ConceptEntity` with ``uri={{uri}}``.
+
+    Parameters
+    ----------
+    name : str or unicode
+    qs : :class:`django.db.models.query.QuerySet`
+    filters : dict
+    fields : list
+    kwargs : kwargs
+
+    Returns
+    -------
+    list
+        A list of field values.
+    """
+    q = Q(uri=uri) | Q(concept__uri=uri)
+    return qs.filter(**filters).filter(q).values_list(*fields)
+
+
+def get_instances_with_uri(uri, getters=[get_resource_with_uri,
+                                           get_conceptentity_with_uri],
+                            fields=['id', 'name', 'entity_type']):
+    return list(chain(*[getter(uri, fields=fields) for getter in getters]))
+
+
 def get_instances_with_name(name, getters=[get_resource_with_name,
                                            get_conceptentity_with_name],
                             fields=['id', 'name', 'entity_type']):
@@ -88,6 +141,21 @@ def get_instances_with_name(name, getters=[get_resource_with_name,
     """
 
     return list(chain(*[getter(name, fields=fields) for getter in getters]))
+
+
+def filter_by_generic_with_uri(field, name, qs=Relation.objects.all()):
+    instances = get_instances_with_uri(name, fields=['id'])
+    if len(instances) == 0:
+        return qs.none()
+
+    _key = lambda vtuple: vtuple[0]
+    q = Q()
+    for model, values in groupby(sorted(instances, key=_key), key=_key):
+        ctype = ContentType.objects.get_for_model(eval(model))
+        _, ids = zip(*values)
+        q |= (Q(**{'%s_type' % field: ctype}) & \
+              Q(**{'%s_instance_id__in' % field: ids}))
+    return qs.filter(q)
 
 
 def filter_by_generic_with_name(field, name, qs=Relation.objects.all()):
@@ -141,15 +209,20 @@ def filter_relations(source=None, predicate=None, target=None,
     for field, qfield, value in [('source', 'source_instance_id', source),
                                  ('target', 'target_instance_id', target)]:
         if value is not None:
-
             if type(value) in [str, unicode]:
-                qs = filter_by_generic_with_name(field, value, qs=qs)
+                if value.startswith('http'):    # Treat as a URI.
+                    qs = filter_by_generic_with_uri(field, value, qs=qs)
+                else:
+                    qs = filter_by_generic_with_name(field, value, qs=qs)
             else:
                 qs = qs.filter(qfield=getattr(value, 'id', value))
 
     if predicate is not None:
         if type(predicate) in [str, unicode]:
-            qs = qs.filter(predicate__name__icontains=predicate)
+            if predicate.startswith('http'):    # Treat as a URI.
+                qs = qs.filter(predicate__uri=predicate)
+            else:
+                qs = qs.filter(predicate__name__icontains=predicate)
         else:
             qs = qs.filter(predicate=getattr(predicate, 'id', predicate))
 
