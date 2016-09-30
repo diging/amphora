@@ -33,6 +33,9 @@ def _get_mock_qs():
 
     qs.values_list = mock.MagicMock(name='values_list')
     qs.values_list.return_value = qs.data
+
+    qs.none = mock.MagicMock(name='none')
+    qs.none.return_value = qs.data
     return qs
 
 
