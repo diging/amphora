@@ -139,15 +139,6 @@ DATABASES = {
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'OPTIONS': {
-#             'read_default_file': '/diging/applications/jars/mysql.cnf',
-#         },
-#     }
-# }
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.6/topics/i18n/
@@ -168,9 +159,9 @@ USE_TZ = True
 
 BASE_URL = os.environ.get('BASE_URL', '/amphora/')
 STATIC_URL = BASE_URL + 'static/'
-STATIC_ROOT = os.environ.get('STATIC_ROOT')
+STATIC_ROOT = os.environ.get('STATIC_ROOT', '')
 
-MEDIA_ROOT = os.environ.get('MEDIA_ROOT')
+MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '')
 MEDIA_URL = BASE_URL + 'media/'
 
 URI_NAMESPACE = 'http://diging.asu.edu/amphora'
@@ -179,19 +170,6 @@ RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
 
 HOSTNAME = socket.gethostname()
-
-# STATICFILES_STORAGE = 'whitenoise.django.GzipManifestStaticFilesStorage'
-#
-# DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
-
-# AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY')
-# AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_KEY')
-# AWS_STORAGE_BUCKET_NAME = os.environ.get('S3_BUCKET')
-#
-# AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
-# MEDIAFILES_LOCATION = 'media'
-# MEDIA_URL = "https://%s/%s/" % (AWS_S3_CUSTOM_DOMAIN, MEDIAFILES_LOCATION)
-# DEFAULT_FILE_STORAGE = 'jars.custom_storages.MediaStorage'
 
 CORS_ORIGIN_ALLOW_ALL = True
 CELERY_IMPORTS = ('cookies.tasks',)
@@ -215,17 +193,3 @@ GILES = 'https://diging.asu.edu/giles'
 GET = requests.get
 POST = requests.post
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
-
-import json
-# def GET_METHOD(path, params={}, headers={}):
-#     class MockResponse(object):
-#         def __init__(self, status_code, content):
-#             self.status_code = status_code
-#             self.content = content
-#
-#         def json(self):
-#             return json.loads(self.content)
-#
-#     if path.startswith('/'.join([GILES, 'rest', 'files', 'upload'])):
-#         with open('cookies/tests/data/giles_file_response.json', 'r') as f:
-#             return MockResponse(200, f.read())

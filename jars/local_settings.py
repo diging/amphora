@@ -52,7 +52,6 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'pagination',
-    'haystack',
     'django_extensions',
     'djcelery',
     'cookies',
@@ -78,19 +77,6 @@ MIDDLEWARE_CLASSES = (
 
 es = urlparse(os.environ.get('SEARCHBOX_URL') or 'http://127.0.0.1:9200/')
 port = es.port or 80
-
-HAYSTACK_CONNECTIONS = {
-    'default': {
-        'ENGINE': 'jars.elasticsearch_backend.JARSElasticsearchSearchEngine',
-        'URL': es.scheme + '://' + es.hostname + ':' + str(port),
-        'INDEX_NAME': 'amphora',
-    },
-}
-
-if es.username:
-    HAYSTACK_CONNECTIONS['default']['KWARGS'] = {"http_auth": es.username + ':' + es.password}
-
-# HAYSTACK_SIGNAL_PROCESSOR = 'cookies.signals.ResourceSignalProcessor'
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend', # default
