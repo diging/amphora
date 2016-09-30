@@ -5,7 +5,7 @@ from django.db.models import Q
 
 from bs4 import BeautifulSoup
 from uuid import uuid4
-import mimetypes, jsonpickle, os, zipfile, magic, slate, urllib
+import mimetypes, jsonpickle, os, zipfile, magic, urllib
 
 from cookies.models import *
 from cookies.ingest import read
@@ -53,8 +53,8 @@ def indexable(mime_type):
     return False
 
 
-def pdf_extract(file):
-    return u'\n\n'.join([page.decode('utf-8') for page in slate.PDF(file)])
+# def pdf_extract(file):
+#     return u'\n\n'.join([page.decode('utf-8') for page in slate.PDF(file)])
 
 
 def soup_extract(file):
@@ -308,7 +308,6 @@ def _create_content_resource(localresource, form_data, content_resource_data,
     }
     if loc == 'local':
         with open(fpath, 'r') as f:
-            print fpath, fname
             contentResource.file.save(fname, File(f), True)
             content_type, content_encoding = mimetypes.guess_type(contentResource.file.name)
         cr_data.update({
