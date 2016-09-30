@@ -1,6 +1,7 @@
 import unittest, mock, json
 
 from cookies import metadata
+from cookies.models import *
 
 
 class MockQuerySet(object):
@@ -129,18 +130,23 @@ class TestFilterRelations(unittest.TestCase):
         self.assertEqual(len(result), 4)
 
     def test_filter_relations_with_source_name(self):
+        Resource.objects.get_or_create(name='A Book')
         qs = _get_mock_qs()
         result = metadata.filter_relations(source='A Book', qs=qs)
         self.assertEqual(qs.filter.call_count, 1)
 
     def test_filter_relations_with_source_name_and_target_name(self):
+        Resource.objects.get_or_create(name='A Book')
+        Resource.objects.get_or_create(name='A Value')
         qs = _get_mock_qs()
         result = metadata.filter_relations(source='A Book', target='A Value', qs=qs)
         self.assertEqual(qs.filter.call_count, 2)
 
     def test_filter_relations_with_source_object_and_target_name(self):
         qs = _get_mock_qs()
-        mock_id = 'what'
+        mock_resource,_ = Resource.objects.get_or_create(name='A Book')
+        mock_id = mock_resource.id
+        Resource.objects.get_or_create(name='A Value')
         class MockObject(object):
             def __init__(self):
                 self.id = mock_id

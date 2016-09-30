@@ -730,6 +730,10 @@ def list_metadata(request):
 
 
 
-# def view_entity(request, entity_id):
-#     entity = get_object_or_404(ConceptEntity, pk=entity_id)
-#
+def entity_details(request, entity_id):
+    entity = get_object_or_404(ConceptEntity, pk=entity_id)
+    template = loader.get_template('entity_details.html')
+    context = RequestContext(request, {
+    'entity': entity,
+    })
+    return HttpResponse(template.render(context))

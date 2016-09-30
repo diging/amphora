@@ -43,6 +43,8 @@ urlpatterns = patterns('',
     url(r'^collection/$', views.collection_list, name="collections"),
     url(r'^metadata/$', views.list_metadata, name='list-metadata'),
 
+    url(r'^entity/([0-9]+)/$', views.entity_details, name='entity-details'),
+
     url(r'^task/$', views.jobs, name='jobs'),
     url(r'^task/([0-9a-z\-]+)/$', views.job_status, name='job-status'),
 

@@ -8,7 +8,9 @@
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    <span class="breadcrumbs-arrow">›&nbsp;</span>
     <a href="">Entities</a>
+    <span class="breadcrumbs-arrow">›&nbsp;</span>
     <a href="">{{ entity.name }}</a>
 </div>
 {% endblock %}
