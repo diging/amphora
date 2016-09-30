@@ -5,7 +5,7 @@ from django.db.models import Q
 
 from bs4 import BeautifulSoup
 from uuid import uuid4
-import mimetypes, jsonpickle, os, zipfile, magic, slate, urllib
+import mimetypes, jsonpickle, os, zipfile, magic, urllib
 
 from cookies.models import *
 from cookies.ingest import read
@@ -53,8 +53,8 @@ def indexable(mime_type):
     return False
 
 
-def pdf_extract(file):
-    return u'\n\n'.join([page.decode('utf-8') for page in slate.PDF(file)])
+# def pdf_extract(file):
+#     return u'\n\n'.join([page.decode('utf-8') for page in slate.PDF(file)])
 
 
 def soup_extract(file):
