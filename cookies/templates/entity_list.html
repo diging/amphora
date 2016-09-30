@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+{% load pagination_tags %}
+{% load addcss %}
+
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Entities' 'entity-list' %}
+</div>
+{% endblock %}
+
+{% block content %}
+{% autopaginate filtered_objects.qs 10 as entities %}
+<div class="h2">Entities</div>
+<p class="text-info">
+    Entities records represent references to specific concepts in metadata.
+    For example, they represent references to authors, journals, publishers,
+    or locations.
+</p>
+
+<div class="panel-group">
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h4 class="panel-title">
+                <span class="glyphicon glyphicon-filter"></span>
+                <a data-toggle="collapse" class="accordion-toggle collapsed" href="#filters">Filters</a>
+                <small style="margin-left: 20px;">
+                    {% for key, values in filtered_objects.data.iteritems %}
+                    {% if values|length > 0 %}
+                    <strong>{{ key }}</strong>: {{ values }}
+                    {% endif %}
+                    {% endfor %}
+                </small>
+            </h4>
+        </div>
+        <div id="filters" class="panel-collapse collapse">
+            <div class="panel-body">
+                <form class="form" action="." method="GET">
+                {% for field in filtered_objects.form %}
+                    {% for error in field.errors %}
+                    <div class="alert alert-warning">{{ error }}</div>
+                    {% endfor %}
+                    <div class="form-group">
+                        <label>{{ field.label }}</label>
+                        {{ field|addcss:"form-control" }}
+                    </div>
+
+                {% endfor %}
+                <input type="submit" class="pull-right btn btn-success" value="Apply">
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="collection_resources">
+    <div class="pagination container text-center">
+        {% paginate %}
+    </div>
+    <ul class="list-group">
+        {% for entity in entities %}
+        <a class="list-group-item"
+            href="{{ entity.get_absolute_url }}">
+            {{ entity.name }} <span class="label label-primary">{{ entity.entity_type.name }}</span>
+        </a>
+        {% endfor %}
+    </ul>
+    <div class="pagination container text-center">
+        {% paginate %}
+    </div>
+</div>
+
+
+
+{% endblock %}

@@ -738,3 +738,14 @@ def entity_details(request, entity_id):
         'similar_entities': ConceptEntity.objects.filter(name__icontains=entity.name).filter(~Q(id=entity.id)),
     })
     return HttpResponse(template.render(context))
+
+
+def entity_list(request):
+    template = loader.get_template('entity_list.html')
+    filtered_objects = ConceptEntityFilter(request.GET, queryset=ConceptEntity.objects.all())
+
+    context = RequestContext(request, {
+        'user_can_edit': request.user.is_staff,    # TODO: change this!
+        'filtered_objects': filtered_objects,
+    })
+    return HttpResponse(template.render(context))
