@@ -16,5 +16,12 @@
 {% endblock %}
 
 {% block content %}
-{{ entity.name }}
+
+<div class="h2 clearfix">{{ entity.name.title }}
+    <span class="pull-right">a <span class="text-warning">{{ entity.entity_type.schema }}</span>/{{ entity.entity_type.name }}</span>
+</div>
+
+
+
+
 {% endblock %}
