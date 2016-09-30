@@ -25,11 +25,6 @@ class EntityAutocomplete(Select2QuerySetSequenceView):
     def get_queryset(self):
         querysets = [
             Resource.objects.all(),
-            IntegerValue.objects.all(),
-            StringValue.objects.all(),
-            FloatValue.objects.all(),
-            DateTimeValue.objects.all(),
-            DateValue.objects.all(),
             ConceptEntity.objects.all(),
         ]
         qs = QuerySetSequence(*querysets)

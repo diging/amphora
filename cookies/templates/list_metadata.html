@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load pagination_tags %}
+{% load addcss %}
+{% load breadcrumbs %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Metadata' 'list-metadata' %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+
+<div class="h3">Metadata</div>
+<p class="text-info">
+    Search for metadata relations by subject, predicate, and/or object. You can
+    either enter an URI, or perform simple searches (contains phrase,
+    case-insensitive). Entering values for multiple fields will refine, rather
+    than expand, the result set.
+</p>
+
+{% if max_results > 0 %}
+<span class="text-warning">Showing results {{ first_result }} - {{ last_result }} of {{max_results }}</span>
+{% endif %}
+
+<div class="container-fluid">
+{% if previous_url %}
+<a href="{{ previous_url}}" class="pull-left">Previous</a>
+{% endif %}
+{% if next_url %}
+<a href="{{ next_url}}" class="pull-right">Next</a>
+{% endif %}
+</div>
+<form class="form" method="GET" action=".">
+
+<div class="container-fluid">
+    <table class="table table-responsive table-striped">
+        <tr>
+            <td class="col-xs-4">
+                <input class="form-control" name="source" placeholder="Subject (text or URI)" {% if source %}value="{{ source }}"{% endif %}/>
+            </td>
+            <td class="col-xs-4">
+                <input class="form-control" name="predicate" placeholder="Predicate (text or URI)", {% if predicate %}value="{{ predicate }}"{% endif %}/>
+            </td>
+            <td class="col-xs-4">
+                <input class="form-control" name="target" placeholder="Object (text or URI)", {% if target %}value="{{target}}"{% endif %} />
+            </td>
+        </tr>
+
+    {% for relation in relations %}
+        <tr style="cursor: default;">
+            <td class="text-center">
+                <a href="{{relation.source.get_absolute_url}}">
+                    {{ relation.source|truncatechars:100 }} <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.source.entity_type.schema }}">{{ relation.source.entity_type.name }}</span>
+                </a>
+            </td>
+            <td class="text-center"><span data-toggle="tooltip" data-title="{{ relation.predicate.schema }}">{{ relation.predicate.name }}</span></td>
+            <td class="text-center">
+                {% with relation.target.get_absolute_url as resource_url %}
+                {% if resource_url %}<a href="{{resource_url}}">{% endif %}
+                {{ relation.target|truncatechars:100 }} <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.target.entity_type.schema }}">{{ relation.target.entity_type.name }}</span>
+                {% if resource_url %}</a>{% endif %}
+                {% endwith %}
+            </td>
+
+        </tr>
+    {% endfor %}
+    </table>
+</div>
+<div class="text-center">
+    <input class="btn btn-success" type="submit" value="Filter">
+</div>
+</form>
+
+{% endblock %}

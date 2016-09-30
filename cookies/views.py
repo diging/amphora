@@ -29,6 +29,7 @@ from cookies.filters import *
 from cookies.tasks import *
 from cookies.giles import *
 from cookies.operations import add_creation_metadata
+from cookies import metadata
 
 
 def _ping_resource(path):
@@ -42,7 +43,6 @@ def _ping_resource(path):
 def check_authorization(request, instance, permission):
     authorized = request.user.has_perm('cookies.%s' % permission, instance)
     # TODO: simplify this.
-    print 'auth_check', authorized, instance.hidden, instance.public, instance.created_by, request.user
     if instance.hidden or not (instance.public or authorized or instance.created_by == request.user):
         # TODO: render a real template for the error response.
         raise RuntimeError('')
@@ -568,7 +568,6 @@ def edit_resource_metadatum(request, resource_id, relation_id):
 
     if target_class is not None:
         form_class = VALUE_FORMS[target_class]
-        print form_class
     elif target_type is Value:
         initial_data = relation.target.name
         dtype = type(initial_data)
@@ -617,7 +616,6 @@ def edit_resource_metadatum(request, resource_id, relation_id):
             elif target_type in [ConceptEntity, Resource, Type]:
                 relation.target = form.cleaned_data['value']
             else:
-                print form.cleaned_data
                 val = Value.objects.create()
                 val.name = form.cleaned_data['value']
                 relation.target = val
@@ -688,5 +686,54 @@ def edit_resource_details(request, resource_id):
         'metadata': resource.relations_from.filter(is_deleted=False),
         'resource': resource,
         'pages': resource.relations_from.filter(predicate_id=page_field.id),
+    })
+    return HttpResponse(template.render(context))
+
+
+def list_metadata(request):
+    """
+    Users should be able to search/filter for metadata entries by subject,
+    predicate, and/or object.
+    """
+    source = request.GET.get('source', None)
+    predicate = request.GET.get('predicate', None)
+    target = request.GET.get('target', None)
+    offset = int(request.GET.get('offset', 0))
+    size = int(request.GET.get('size', 20))
+    qs = metadata.filter_relations(source=source if source else None,
+                                   predicate=predicate if predicate else None,
+                                   target=target if target else None)
+    max_results = qs.count()
+    current_path = request.get_full_path().split('?')[0]
+    params = request.GET.copy()
+    if 'offset' in params:
+        del params['offset']
+    base_path = current_path + '?' + params.urlencode()
+    previous_offset = offset - size if offset - size >= 0 else -1
+    next_offset = offset + size if offset + size < max_results else None
+
+    context = RequestContext(request, {
+        'relations': qs[offset:offset+size],
+        'source': source,
+        'predicate': predicate,
+        'target': target,
+        'offset': offset,
+        'first_result': offset + 1,
+        'last_result': min(offset + size, max_results),
+        'next_url': base_path + '&offset=%i' % next_offset if next_offset else None,
+        'previous_url': base_path + '&offset=%i' % previous_offset if previous_offset >= 0 else None,
+        'size': size,
+        'max_results': max_results,
+    })
+    template = loader.get_template('list_metadata.html')
+    return HttpResponse(template.render(context))
+
+
+
+def entity_details(request, entity_id):
+    entity = get_object_or_404(ConceptEntity, pk=entity_id)
+    template = loader.get_template('entity_details.html')
+    context = RequestContext(request, {
+    'entity': entity,
     })
     return HttpResponse(template.render(context))

@@ -283,11 +283,13 @@ class Value(models.Model):
     ``datetime`` objects.
     """
     _value = models.TextField()
+    _type = models.CharField(max_length=255, blank=True, null=True)
 
     def _get_value(self):
         return jsonpickle.decode(self._value)
 
     def _set_value(self, value):
+        self._type = type(value).__name__
         self._value = jsonpickle.encode(value)
 
     name = property(_get_value, _set_value)
