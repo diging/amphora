@@ -417,6 +417,9 @@ class Authorization(models.Model):
 class ConceptEntity(Entity):
     concept = models.ForeignKey('concepts.Concept', null=True, blank=True)
 
+    def get_absolute_url(self):
+        return reverse('entity-details', args=(self.id,))
+
 
 class ConceptType(Type):
     type_concept = models.ForeignKey('concepts.Type')

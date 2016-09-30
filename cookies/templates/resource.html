@@ -79,7 +79,10 @@
                 <dd class="target"
                     id="target_{{ relation.target.id }}"
                     uri="{{ relation.target.uri }}">
-                    {{ relation.target.name }}
+                    {% with relation.target.get_absolute_url as resource_url %}
+                    {% if resource_url %}<a href="{{resource_url}}">{% endif %}{{ relation.target }}{% if resource_url %}</a>{% endif %}
+                    <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.target.entity_type.schema }}">{{ relation.target.entity_type.name }}</span>
+                    {% endwith %}
                 </dd>
                 {% endfor %}
             </dl>
