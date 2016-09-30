@@ -35,10 +35,10 @@ def _get_mock_qs():
     qs.values_list.return_value = qs.data
 
     qs.none = mock.MagicMock(name='none')
-    qs.none.return_value = qs.data
+    qs.none.return_value = qs
 
     qs.distinct = mock.MagicMock(name='distinct')
-    qs.distinct.return_value = qs.data
+    qs.distinct.return_value = qs
     return qs
 
 
