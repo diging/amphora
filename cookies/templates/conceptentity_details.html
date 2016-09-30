@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load pagination_tags %}
+{% load addcss %}
+{% load breadcrumbs %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    <a href="">Entities</a>
+    <a href="">{{ entity.name }}</a>
+</div>
+{% endblock %}
+
+{% block content %}
+{{ entity.name }}
+{% endblock %}

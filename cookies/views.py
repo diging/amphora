@@ -727,3 +727,9 @@ def list_metadata(request):
     })
     template = loader.get_template('list_metadata.html')
     return HttpResponse(template.render(context))
+
+
+
+# def view_entity(request, entity_id):
+#     entity = get_object_or_404(ConceptEntity, pk=entity_id)
+#
