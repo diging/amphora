@@ -168,9 +168,9 @@ USE_TZ = True
 
 BASE_URL = os.environ.get('BASE_URL', '/amphora/')
 STATIC_URL = BASE_URL + 'static/'
-STATIC_ROOT = os.environ.get('STATIC_ROOT')
+STATIC_ROOT = os.environ.get('STATIC_ROOT', '')
 
-MEDIA_ROOT = os.environ.get('MEDIA_ROOT')
+MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '')
 MEDIA_URL = BASE_URL + 'media/'
 
 URI_NAMESPACE = 'http://diging.asu.edu/amphora'

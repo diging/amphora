@@ -17,7 +17,7 @@ logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel('ERROR')
 
-from jars import settings
+from django.conf import settings
 import concepts
 
 
