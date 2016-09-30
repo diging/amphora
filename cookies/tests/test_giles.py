@@ -1,3 +1,7 @@
+"""
+TODO: these tests need some serious updating, including new sample responses.
+"""
+
 from django.test import RequestFactory
 from django.contrib.auth.models import AnonymousUser, User
 from django.core.urlresolvers import reverse

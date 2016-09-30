@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load pagination_tags %}
+{% load addcss %}
+{% load breadcrumbs %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Entities' 'entity-list' %}
+    <span class="breadcrumbs-arrow">›&nbsp;</span>
+    <a href="">{{ entity.name }}</a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+
+<div class="row">
+    <div class="col-sm-8">
+        <div class="h2 clearfix">{{ entity.name.title }}
+            <span class="pull-right">a <span class="text-warning">{{ entity.entity_type.schema }}</span>/{{ entity.entity_type.name }}</span>
+        </div>
+        <dl class="dl-horizontal">
+            <dt>Created</dt>
+            <dd>{{ entity.created }}</dd>
+            {% if entity.created_by %}
+            <dt>Created by</dt>
+            <dd>{{ entity.created_by }}</dd>
+            {% endif %}
+            <dt class="resource_uri">Amphora URI</dt>
+            <dd>{{ entity.uri }}</dd>
+            <dt class="resource_uri">Conceptpower URI</dt>
+            {% with entity.concept as concept %}
+            <dd>
+                {% if concept %}
+                <a href=""><i class="fa fa-anchor" aria-hidden="true"></i> {{ entity.concept.uri }}</a>
+                {% else %}
+                <a href=""><i class="fa fa-plus" aria-hidden="true"></i> Link or create record</a>
+                {% endif %}
+            </dd>
+            {% endwith %}
+            <dt class="resource_entity_type">Type</dt>
+            <dd>{{ entity.entity_type }}</dd>
+        </dl>
+
+        {% if entity.relations_from.count > 0 %}
+        <div class="resource_relations">
+            <div class="h4">Relations from this entity</div>
+            <dl class="dl-horizontal">
+                {% for relation in entity.relations_from.all %}
+                <dt class="predicate"
+                    id="predicate_{{ relation.predicate.id }}"
+                    uri="{{ relation.predicate.uri }}">
+                    {{ relation.predicate.name }}
+                </dt>
+                <dd class="target"
+                    id="target_{{ relation.target.id }}"
+                    uri="{{ relation.target.uri }}">
+                    {% with relation.target.get_absolute_url as resource_url %}
+                    {% if resource_url %}<a href="{{resource_url}}">{% endif %}{{ relation.target|truncatechars:100 }}{% if resource_url %}</a>{% endif %}
+                    <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.target.entity_type.schema }}">{{ relation.target.entity_type.name }}</span>
+                    {% endwith %}
+                </dd>
+                {% endfor %}
+            </dl>
+        </div>
+        {% endif %}
+        {% if entity.relations_to.count > 0 %}
+        <div class="resource_relations">
+            <div class="h4">Relations to this entity</div>
+            <dl class="dl-horizontal">
+                {% for relation in entity.relations_to.all %}
+                <dt class="predicate"
+                    id="predicate_{{ relation.predicate.id }}"
+                    uri="{{ relation.predicate.uri }}">
+                    {{ relation.predicate.name }}
+                </dt>
+                <dd class="target"
+                    id="target_{{ relation.target.id }}"
+                    uri="{{ relation.target.uri }}">
+                    {% with relation.source.get_absolute_url as resource_url %}
+                    {% if resource_url %}<a href="{{resource_url}}">{% endif %}{{ relation.source|truncatechars:100 }}{% if resource_url %}</a>{% endif %}
+                    <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.source.entity_type.schema }}">{{ relation.source.entity_type.name }}</span>
+                    {% endwith %}
+                </dd>
+                {% endfor %}
+            </dl>
+        </div>
+        {% endif %}
+    </div>
+    <div class="col-sm-4">
+        {% if similar_entities.count > 0 %}
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <span class="h4">Similar entities</span>
+            </div>
+            <div class="list-group">
+                {% for ent in similar_entities %}
+                <li class="list-group-item">
+                    {% if user_can_edit %}
+                    <span class="btn-group">
+                        <a class="btn btn-xs"
+                            data-toggle="tooltip"
+                            data-title="Merge entities">
+                            <i class="fa fa-compress" aria-hidden="true"></i>
+                        </a>
+                        {% if entity.concept %}
+                        <a class="btn btn-xs"
+                            data-toggle="tooltip"
+                            data-title="View linked concept">
+                            <i class="fa fa-anchor" aria-hidden="true"></i>
+                        </a>
+                        {% endif %}
+
+                    </span>
+                    {% endif %}
+                    <a href="{{ ent.get_absolute_url }}">{{ ent.name.title }}</a>
+                    <span class="text-muted">a {{ ent.entity_type.schema }}/{{ ent.entity_type.name }}</span>
+                    <span class="pull-right">{{ ent.relations_from.count }}/{{ ent.relations_to.count }}</span>
+                </li>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+
+{% endblock %}

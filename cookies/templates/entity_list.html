@@ -9,13 +9,18 @@
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'index' %}">{% trans 'Home' %}</a>
-    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url 'Entities' 'entity-list' %}
 </div>
 {% endblock %}
 
 {% block content %}
-{% autopaginate filtered_objects.qs 10 as resources %}
-<div class="h2">Resources</div>
+{% autopaginate filtered_objects.qs 10 as entities %}
+<div class="h2">Entities</div>
+<p class="text-info">
+    Entities records represent references to specific concepts in metadata.
+    For example, they represent references to authors, journals, publishers,
+    or locations.
+</p>
 
 <div class="panel-group">
     <div class="panel panel-default">
@@ -57,10 +62,10 @@
         {% paginate %}
     </div>
     <ul class="list-group">
-        {% for resource in resources %}
+        {% for entity in entities %}
         <a class="list-group-item"
-            href="{{ resource.get_absolute_url }}">
-            <span class="label label-primary">{{ resource.entity_type }}</span> {{ resource.name }}
+            href="{{ entity.get_absolute_url }}">
+            {{ entity.name }} <span class="label label-primary">{{ entity.entity_type.name }}</span>
         </a>
         {% endfor %}
     </ul>

@@ -109,6 +109,16 @@
                 data-toggle="tooltip"
                 data-title="Resources">
             </a>
+            <a href="{% url "list-metadata" %}"
+                class="btn btn-lg fa fa-share-alt fa-2"
+                data-toggle="tooltip"
+                data-title="Metadata">
+            </a>
+            <a href="{% url "entity-list" %}"
+                class="btn btn-lg fa fa-tags fa-2"
+                data-toggle="tooltip"
+                data-title="Entities">
+            </a>
             {% if user.is_active %}
             <a href="{% url "jobs" %}"
                 class="btn btn-lg glyphicon glyphicon-tasks"

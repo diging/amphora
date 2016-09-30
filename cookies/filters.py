@@ -1,18 +1,38 @@
-from django.db.models import Q
+from django.db.models import Q, Count
 
 import django_filters
 
 from cookies.models import *
 
 
-class ResourceFilter(django_filters.FilterSet):
-    def __init__(self, *args, **kwargs):
-        super(ResourceFilter, self).__init__(*args, **kwargs)
+class ConceptEntityFilter(django_filters.FilterSet):
+    name = django_filters.MethodFilter(action='lookup_name_in_parts')
+    entity_type = django_filters.ModelChoiceFilter(queryset=Type.objects.annotate(num_instances=Count('conceptentity')).filter(num_instances__gt=0))
 
+    def lookup_name_in_parts(self, queryset, value):
+        q = Q()
+        for part in value.split():
+            q &= Q(name__icontains=part)
+        return queryset.filter(q)
+
+    class Meta:
+        model = ConceptEntity
+        fields = ['name', 'uri', 'entity_type', 'created_by']
+        order_by = (
+            ('name', 'Name (ascending)'),
+            ('-name', 'Name (descending)'),
+            ('entity_type', 'Type (ascending)'),
+            ('-entity_type', 'Type (descending)'),
+        )
+
+
+
+class ResourceFilter(django_filters.FilterSet):
     name = django_filters.MethodFilter(action='lookup_name_in_parts')
     content = django_filters.CharFilter(name='indexable_content',
                                         lookup_type='icontains')
 
+    entity_type = django_filters.ModelChoiceFilter(queryset=Type.objects.annotate(num_instances=Count('resource')).filter(num_instances__gt=0))
 
     def lookup_name_in_parts(self, queryset, value):
         q = Q()
@@ -23,6 +43,12 @@ class ResourceFilter(django_filters.FilterSet):
     class Meta:
         model = Resource
         fields = ['name', 'entity_type', 'content', 'created_by']
+        order_by = (
+            ('name', 'Name (ascending)'),
+            ('-name', 'Name (descending)'),
+            ('entity_type', 'Type (ascending)'),
+            ('-entity_type', 'Type (descending)'),
+        )
 
 
 class CollectionFilter(django_filters.FilterSet):
