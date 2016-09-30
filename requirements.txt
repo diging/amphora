@@ -53,3 +53,4 @@ whitenoise==2.0.4
 jsonpickle
 django-pagination==1.0.7
 python-social-auth
+pyoai==2.4.5
