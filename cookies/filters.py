@@ -18,6 +18,12 @@ class ConceptEntityFilter(django_filters.FilterSet):
     class Meta:
         model = ConceptEntity
         fields = ['name', 'uri', 'entity_type', 'created_by']
+        order_by = (
+            ('name', 'Name (ascending)'),
+            ('-name', 'Name (descending)'),
+            ('entity_type', 'Type (ascending)'),
+            ('-entity_type', 'Type (descending)'),
+        )
 
 
 
@@ -37,6 +43,12 @@ class ResourceFilter(django_filters.FilterSet):
     class Meta:
         model = Resource
         fields = ['name', 'entity_type', 'content', 'created_by']
+        order_by = (
+            ('name', 'Name (ascending)'),
+            ('-name', 'Name (descending)'),
+            ('entity_type', 'Type (ascending)'),
+            ('-entity_type', 'Type (descending)'),
+        )
 
 
 class CollectionFilter(django_filters.FilterSet):
