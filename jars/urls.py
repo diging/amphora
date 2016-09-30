@@ -41,6 +41,7 @@ urlpatterns = patterns('',
     url(r'^resource/create/bulk/$', views.create_resource_bulk, name="create-resource-bulk"),
     url(r'^collection/([0-9]+)/$', views.collection, name="collection"),
     url(r'^collection/$', views.collection_list, name="collections"),
+    url(r'^metadata/$', views.list_metadata, name='list-metadata'),
 
     url(r'^task/$', views.jobs, name='jobs'),
     url(r'^task/([0-9a-z\-]+)/$', views.job_status, name='job-status'),
