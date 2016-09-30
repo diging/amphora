@@ -229,7 +229,8 @@ class Type(models.Model):
     description = models.TextField(blank=True, null=True)
 
     def __unicode__(self):
-        return '%s:: %s' % (getattr(self.schema, '__unicode__', lambda: '')(), self.name)
+        return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
+        # return '%s:: %s' % (getattr(self.schema, '__unicode__', lambda: '')(), self.name)
 
 
 class Field(models.Model):
@@ -267,7 +268,7 @@ class Field(models.Model):
         """))
 
     def __unicode__(self):
-        return '%s:: %s' % (getattr(self.schema, '__unicode__', lambda: '')(), self.name)
+        return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
 
 
 ### Values ###

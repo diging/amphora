@@ -308,7 +308,6 @@ def _create_content_resource(localresource, form_data, content_resource_data,
     }
     if loc == 'local':
         with open(fpath, 'r') as f:
-            print fpath, fname
             contentResource.file.save(fname, File(f), True)
             content_type, content_encoding = mimetypes.guess_type(contentResource.file.name)
         cr_data.update({

@@ -42,14 +42,17 @@ ALLOWED_HOSTS = ['diging.asu.edu']
 # Application definition
 
 INSTALLED_APPS = (
+    'dal',
+    'dal_select2',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'pagination',
     'django_extensions',
-    'autocomplete_light',
+    'djcelery',
     'cookies',
     'concepts',
     'oauth2_provider',
@@ -57,7 +60,7 @@ INSTALLED_APPS = (
     'rest_framework',
     'rest_framework.authtoken',
     'guardian',
-
+     'social.apps.django_app.default',
 )
 
 MIDDLEWARE_CLASSES = (
