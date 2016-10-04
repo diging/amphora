@@ -16,6 +16,14 @@ AUTHORIZATIONS = [
     ('view_authorizations', 'View authorizations'),
 ]
 
+COLLECTION_AUTHORIZATIONS = [
+    ('change_collection', 'Change collection'),
+    ('view_resource', 'View collection'),
+    ('delete_collection', 'Delete collection'),
+    ('change_authorizations', 'Change authorizations'),
+    ('view_authorizations', 'View authorizations'),
+]
+
 
 is_owner = lambda user, obj: getattr(obj, 'created_by', None) == user
 
