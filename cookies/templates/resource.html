@@ -18,12 +18,16 @@
         <div class="resource_summary">
             <div class="h2 resource_name">
                 {{ resource.name }}
-                {% if resource.created_by == request.user %}
-                <span class="pull-right">
+                {% if resource.created_by == request.user or request.user.is_admin %}
+                <span class="pull-right btn-group">
                     <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
                         href="{% url "edit-resource-details" resource.id %}?next={{ request.path }}"
                         data-toggle="tooltip"
                         data-title="Edit record"></a>
+                    <a class="btn glyphicon glyphicon-lock" aria-hidden="true"
+                        href="{% url "resource-authorization-list" resource.id %}?next={{ request.path }}"
+                        data-toggle="tooltip"
+                        data-title="Authorizations"></a>
                 </span>
                 {% endif %}
             </div>

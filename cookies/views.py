@@ -29,7 +29,11 @@ from cookies.filters import *
 from cookies.tasks import *
 from cookies.giles import *
 from cookies.operations import add_creation_metadata
-from cookies import metadata
+from cookies import metadata, authorization
+
+
+def _get_resource_by_id(request, resource_id):
+    return get_object_or_404(Resource, pk=resource_id)
 
 
 def _ping_resource(path):
@@ -749,3 +753,27 @@ def entity_list(request):
         'filtered_objects': filtered_objects,
     })
     return HttpResponse(template.render(context))
+
+
+
+@authorization.authorization_required('view_authorizations', _get_resource_by_id)
+def resource_authorization_list(request, resource_id):
+    """
+    Display permissions for a specific resource.
+    """
+
+    resource = get_object_or_404(Resource, pk=resource_id)
+    can_change = authorization.check_authorization('change_authorizations', request.user, resource)
+
+    context = RequestContext(request, {
+        'can_change': can_change,
+        'resource': resource,
+        'authorizations': authorization.list_authorizations(resource),
+    })
+    template = loader.get_template('resource_authorization_list.html')
+    if request.method == 'POST':
+        if not can_change:
+            # TODO: make pretty and informative.
+            return HttpResponseForbidden('Nope.')
+    elif request.method == 'GET':
+        return HttpResponse(template.render(context))
