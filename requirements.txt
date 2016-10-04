@@ -51,6 +51,6 @@ urllib3==1.15.1
 wheel==0.24.0
 whitenoise==2.0.4
 jsonpickle
--e git://github.com/erickpeirson/django-pagination.git
+-e git://github.com/erickpeirson/django-pagination.git#egg=django-pagination
 python-social-auth
 pyoai==2.4.5
