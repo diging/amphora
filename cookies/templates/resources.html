@@ -61,7 +61,7 @@
         <a class="list-group-item"
             href="{{ resource.get_absolute_url }}">
             <span class="label label-primary">{{ resource.entity_type }}</span> {{ resource.name }}
-            <br><small style="color:lightslategray">{{ resource.created_by }}</small>
+            <br><small class="text-info">{{ resource.created_by }}</small>
         </a>
         {% endfor %}
     </ul>
