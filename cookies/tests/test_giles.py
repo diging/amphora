@@ -35,6 +35,7 @@ def mock_get_fileids(url, params={}, headers={}):
 class TestGiles(unittest.TestCase):
     def setUp(self):
         self.factory = RequestFactory()
+        User.objects.all().delete()
         self.user = User.objects.create_user(
             username='test',
             email='test@test.com',
@@ -95,12 +96,12 @@ class TestGiles(unittest.TestCase):
 
     def tearDown(self):
         # Prevent unique constraint violation.
-        self.user.delete()
-        self.__text__.delete()
-        self.__image__.delete()
-        self.__document__.delete()
-        self.__part__.delete()
-        self.auth.delete()
+        for elem in ['user', '__text__', '__image__', '__document__', '__part__', 'auth']:
+            # try:
+            getattr(self, elem).delete()
+            # except AttributeError:
+            #     pass
+
 
 
 def mock_get_fileids2(url, params={}, headers={}):

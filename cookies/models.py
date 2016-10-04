@@ -85,9 +85,6 @@ class Entity(models.Model):
                                    content_type_field='target_type',
                                    object_id_field='target_instance_id')
 
-    events = GenericRelation('Event', content_type_field='on_type',
-                             object_id_field='on_instance_id')
-
     is_deleted = models.BooleanField(default=False)
 
     class Meta:
@@ -176,6 +173,9 @@ class ContentRelation(models.Model):
     content_resource = models.ForeignKey('Resource', related_name='parent')
     content_type = models.CharField(max_length=100, null=True, blank=True)
     content_encoding = models.CharField(max_length=100, null=True, blank=True)
+
+    created_by = models.ForeignKey(User, null=True, blank=True)
+    created = models.DateTimeField(auto_now_add=True)
 
 
 class Collection(ResourceBase):
@@ -337,83 +337,6 @@ class Relation(Entity):
 
 
 ### Actions and Events ###
-
-
-class Event(models.Model):
-    when = models.DateTimeField(auto_now_add=True)
-    by = models.ForeignKey(User, related_name='events')
-    did = models.ForeignKey('Action', related_name='events')
-
-    on_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    on_instance_id = models.PositiveIntegerField()
-    on = GenericForeignKey('on_type', 'on_instance_id')
-
-
-class Action(models.Model):
-    GRANT = 'GR'
-    DELETE = 'DL'
-    CHANGE = 'CH'
-    VIEW = 'VW'
-    ACTIONS = (
-        (GRANT, 'GRANT'),
-        (DELETE, 'DELETE'),
-        (CHANGE, 'CHANGE'),
-        (VIEW, 'VIEW'),
-    )
-
-    type = models.CharField(max_length=2, choices=ACTIONS, unique=True)
-
-    def __unicode__(self):
-        return unicode(self.get_type_display())
-
-    def is_authorized(self, actor, entity):
-        """
-        Checks for a related :class:`.Authorization` matching the specified
-        :class:`.Actor` and :class:`.Entity`\.
-        """
-
-        # Filter first for Authorizations that belong to the User actor...
-        auth = self.authorizations.filter(actor__id=actor.id)
-
-        # ...and then for those that belong on the Entity.
-        auth = auth.filter(on__id=entity.id)
-
-        # If there is a responsive Authorization, then the User actor is
-        #  authorized to perform this :class:`.Action`\.
-        if auth.count() == 0:
-            return False
-        return True
-
-    def log(self, entity, actor, **kwargs):
-        """
-        Log this :class:`.Action` as an :class:`.Event`\.
-
-        Parameters
-        ----------
-        entity : :class:`.Entity`
-        actor : :class:`django.contrib.auth.models.User`
-
-        Returns
-        -------
-        event : :class:`.Event`
-        """
-
-        # Log the action as an Event.
-        event = Event(by=actor, did=self.type, on=entity)
-        event.save()
-
-        return event
-
-
-class Authorization(models.Model):
-    actor = models.ForeignKey(User, related_name='is_authorized_to')
-    to_do = models.ForeignKey('Action', related_name='authorizations')
-    on_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    on_instance_id = models.PositiveIntegerField()
-    on = GenericForeignKey('on_type', 'on_instance_id')
-
-    def __unicode__(self):
-        return u'%s can %s on %s' % (self.actor, self.to_do, self.on)
 
 
 class ConceptEntity(Entity):

@@ -22,6 +22,7 @@ def new_users_are_inactive_by_default(sender, **kwargs):
         # instance.is_active = False
         # instance.save()
 
+
 # TODO: enable this when Giles is ready for asynchronous uploads.
 #@receiver(post_save, sender=ContentRelation)
 def send_pdfs_and_images_to_giles(sender, **kwargs):
@@ -53,7 +54,7 @@ def conceptentity_post_save(sender, **kwargs):
     if instance.entity_type is None:
 
         # Determine the concepts.Type of its associated concepts.Concept.
-        type_instance = instance.concept.typed
+        type_instance = getattr(instance.concept, 'typed', None)
 
         if type_instance is not None:
             # Since Entity.entity_type must point to a cookies.Type rather than

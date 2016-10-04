@@ -3,7 +3,8 @@ from django import forms
 from django.forms.extras.widgets import SelectDateWidget
 from django.forms import formset_factory
 
-from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect, Http404
+from django.http import (JsonResponse, HttpResponse, HttpResponseBadRequest,
+                         HttpResponseRedirect, Http404, HttpResponseForbidden)
 from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import logout
@@ -29,7 +30,7 @@ from cookies.models import *
 from cookies.filters import *
 from cookies.tasks import *
 from cookies.giles import *
-from cookies.operations import add_creation_metadata
+from cookies.operations import add_creation_metadata, merge_conceptentities
 from cookies import metadata, authorization
 
 
@@ -914,4 +915,26 @@ def collection_authorization_create(request, collection_id):
         'collection': collection,
     })
     template = loader.get_template('collection_authorization_create.html')
+    return HttpResponse(template.render(context))
+
+
+def entity_merge(request):
+    entity_ids = request.GET.getlist('entity', [])
+    if len(entity_ids) <= 1:
+        raise ValueError('')
+
+    qs = ConceptEntity.objects.filter(pk__in=entity_ids)
+    q = authorization.get_auth_filter('merge_conceptentities', request.user)
+    if qs.filter(q).count() > 0 and not request.user.is_superuser:
+        # TODO: make this pretty and informative.
+        return HttpResponseForbidden('Only the owner can do that')
+
+    if request.GET.get('confirm', False):
+        master = merge_conceptentities(qs)
+        return HttpResponseRedirect(reverse('entity-details', args=(master.id,)))
+
+    context = RequestContext(request, {
+        'entities': qs,
+    })
+    template = loader.get_template('entity_merge.html')
     return HttpResponse(template.render(context))

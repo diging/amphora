@@ -1,8 +1,11 @@
 from functools import wraps
-from django.utils.decorators import available_attrs
-from django.http import HttpResponseForbidden
-from django.core.exceptions import PermissionDenied
+
 from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
+from django.db.models import Q
+from django.http import HttpResponseForbidden
+from django.utils.decorators import available_attrs
+
 from guardian.shortcuts import get_perms, remove_perm, assign_perm
 
 from collections import defaultdict
@@ -32,9 +35,18 @@ def check_authorization(auth, user, obj):
     """
     Check whether ``user`` is authorized to perform ``auth`` on ``obj``.
     """
+    if auth == 'is_owner':
+        return getattr(obj, 'created_by', None) == user
     if auth == 'view_resource' and getattr(obj, 'public', False):
         return True
     return user.is_superuser or is_owner(user, obj) or user.has_perm(auth, obj)
+
+
+# TODO: build this out.
+def get_auth_filter(auth, user):
+    """
+    """
+    return ~Q(created_by=user)
 
 
 def update_authorizations(auths, user, obj):
