@@ -101,7 +101,8 @@
                 <li class="list-group-item">
                     {% if user_can_edit %}
                     <span class="btn-group">
-                        <a class="btn btn-xs"
+                        <a href="{% url "entity-merge" %}?entity={{entity.id}}&entity={{ent.id}}"
+                            class="btn btn-xs"
                             data-toggle="tooltip"
                             data-title="Merge entities">
                             <i class="fa fa-compress" aria-hidden="true"></i>

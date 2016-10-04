@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+{% load pagination_tags %}
+{% load addcss %}
+
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url resource.name 'resource' resource.id  %}
+    {% breadcrumb_url 'Authorizations' 'resource-authorization-list' resource.id  %}
+</div>
+{% endblock %}
+
+{% block content %}
+<span class="h3 text-warning">{{ resource }}</span>
+<div class="h2">Authorizations</div>
+
+<p>
+    <a href="{% url "resource-authorization-create" resource.id %}" class="btn btn-success"><span class="glyphicon glyphicon-plus"></span> Add user</a>
+</p>
+
+
+<div class="">
+    <ul class="list-group">
+        {% for auth_user, auths in authorizations %}
+        <a class="list-group-item" href="{% url "resource-authorization-change" resource.id auth_user.id %}">
+            <strong>{{ auth_user.username }}</strong> {% for auth in auths %}<span class="text-muted">{{ auth }}</span>, {% endfor %}
+        </a>
+        {% endfor %}
+    </ul>
+</div>
+
+
+
+{% endblock %}

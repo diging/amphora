@@ -1,8 +1,10 @@
 from django.shortcuts import render, render_to_response, get_object_or_404
+from django import forms
 from django.forms.extras.widgets import SelectDateWidget
 from django.forms import formset_factory
 
-from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect, Http404
+from django.http import (JsonResponse, HttpResponse, HttpResponseBadRequest,
+                         HttpResponseRedirect, Http404, HttpResponseForbidden)
 from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import logout
@@ -28,8 +30,16 @@ from cookies.models import *
 from cookies.filters import *
 from cookies.tasks import *
 from cookies.giles import *
-from cookies.operations import add_creation_metadata
-from cookies import metadata
+from cookies.operations import add_creation_metadata, merge_conceptentities
+from cookies import metadata, authorization
+
+
+def _get_resource_by_id(request, resource_id, *args):
+    return get_object_or_404(Resource, pk=resource_id)
+
+
+def _get_collection_by_id(request, collection_id, *args):
+    return get_object_or_404(Collection, pk=collection_id)
 
 
 def _ping_resource(path):
@@ -748,4 +758,183 @@ def entity_list(request):
         'user_can_edit': request.user.is_staff,    # TODO: change this!
         'filtered_objects': filtered_objects,
     })
+    return HttpResponse(template.render(context))
+
+
+
+@authorization.authorization_required('view_authorizations', _get_resource_by_id)
+def resource_authorization_list(request, resource_id):
+    """
+    Display permissions for a specific resource.
+    """
+
+    resource = get_object_or_404(Resource, pk=resource_id)
+    can_change = authorization.check_authorization('change_authorizations', request.user, resource)
+
+    context = RequestContext(request, {
+        'can_change': can_change,
+        'resource': resource,
+        'authorizations': authorization.list_authorizations(resource),
+    })
+    template = loader.get_template('resource_authorization_list.html')
+    return HttpResponse(template.render(context))
+
+
+@authorization.authorization_required('change_authorizations', _get_resource_by_id)
+def resource_authorization_create(request, resource_id):
+    """
+    Allow the user to add authorizations for a new user.
+
+    This is kind of hacky, but will do for now.
+    """
+
+    resource = get_object_or_404(Resource, pk=resource_id)
+    authorized_users = zip(*authorization.list_authorizations(resource))[0]
+    authorized_users_ids = [user.id for user in authorized_users]
+    unauthorized_users = User.objects.filter(~Q(pk__in=authorized_users_ids)).order_by('username')
+
+    context = RequestContext(request, {
+        'unauthorized_users': unauthorized_users,
+        'resource': resource,
+    })
+    template = loader.get_template('resource_authorization_create.html')
+    return HttpResponse(template.render(context))
+
+
+
+@authorization.authorization_required('change_authorizations', _get_resource_by_id)
+def resource_authorization_change(request, resource_id, user_id):
+    """
+    Change permissions on a resource for a specific user.
+    """
+    resource = get_object_or_404(Resource, pk=resource_id)
+    user = get_object_or_404(User, pk=user_id)
+
+    if request.method == 'GET':
+        form = AuthorizationForm(initial={
+            'for_user': user,
+            'authorizations': authorization.list_authorizations(resource, user)
+        })
+    elif request.method == 'POST':
+        form = AuthorizationForm(request.POST)
+        if form.is_valid():
+            if form.cleaned_data.get('for_user') != user:
+                raise RuntimeError('Whoops, someone f***ed with the user.')
+
+            authorization.update_authorizations(
+                form.cleaned_data.get('authorizations'),
+                form.cleaned_data.get('for_user'),
+                resource,
+            )
+            return HttpResponseRedirect(reverse('resource-authorization-list', args=(resource.id,)))
+
+    form.fields['for_user'].widget = forms.HiddenInput()
+    context = RequestContext(request, {
+        'for_user': user,
+        'resource': resource,
+        'form': form,
+    })
+    template = loader.get_template('resource_authorization_change.html')
+    return HttpResponse(template.render(context))
+
+
+@authorization.authorization_required('view_authorizations', _get_collection_by_id)
+def collection_authorization_list(request, collection_id):
+    """
+    Display permissions for a specific :class:`.Collection` instance.
+    """
+
+    collection = get_object_or_404(Collection, pk=collection_id)
+    can_change = authorization.check_authorization('change_authorizations', request.user, collection)
+
+    context = RequestContext(request, {
+        'can_change': can_change,
+        'collection': collection,
+        'authorizations': authorization.list_authorizations(collection),
+    })
+    template = loader.get_template('collection_authorization_list.html')
+    return HttpResponse(template.render(context))
+
+
+@authorization.authorization_required('change_authorizations', _get_collection_by_id)
+def collection_authorization_change(request, collection_id, user_id):
+    """
+    Change permissions on a resource for a specific user.
+    """
+    collection = get_object_or_404(Collection, pk=collection_id)
+    user = get_object_or_404(User, pk=user_id)
+
+    if request.method == 'GET':
+        form = CollectionAuthorizationForm(initial={
+            'for_user': user,
+            'authorizations': authorization.list_authorizations(collection, user)
+        })
+    elif request.method == 'POST':
+        form = CollectionAuthorizationForm(request.POST)
+        if form.is_valid():
+            if form.cleaned_data.get('for_user') != user:
+                raise RuntimeError('Whoops, someone f***ed with the user.')
+
+            authorizations = form.cleaned_data.get('authorizations')
+            for_user = form.cleaned_data.get('for_user')
+            authorization.update_authorizations(
+                authorizations, for_user, collection,
+            )
+            resource_auths = [auth.replace('collection', 'resource')
+                              for auth in authorizations]
+            for resource in collection.resources.all():
+                authorization.update_authorizations(resource_auths, for_user, resource)
+
+            return HttpResponseRedirect(reverse('collection-authorization-list', args=(collection.id,)))
+
+    form.fields['for_user'].widget = forms.HiddenInput()
+    context = RequestContext(request, {
+        'for_user': user,
+        'collection': collection,
+        'form': form,
+    })
+    template = loader.get_template('collection_authorization_change.html')
+    return HttpResponse(template.render(context))
+
+
+@authorization.authorization_required('change_authorizations', _get_collection_by_id)
+def collection_authorization_create(request, collection_id):
+    """
+    Allow the user to add authorizations for a new user.
+
+    This is kind of hacky, but will do for now.
+    """
+
+    collection = get_object_or_404(Collection, pk=collection_id)
+    authorized_users = zip(*authorization.list_authorizations(collection))[0]
+    authorized_users_ids = [user.id for user in authorized_users]
+    unauthorized_users = User.objects.filter(~Q(pk__in=authorized_users_ids)).order_by('username')
+
+    context = RequestContext(request, {
+        'unauthorized_users': unauthorized_users,
+        'collection': collection,
+    })
+    template = loader.get_template('collection_authorization_create.html')
+    return HttpResponse(template.render(context))
+
+
+def entity_merge(request):
+    entity_ids = request.GET.getlist('entity', [])
+    if len(entity_ids) <= 1:
+        raise ValueError('')
+
+    qs = ConceptEntity.objects.filter(pk__in=entity_ids)
+    q = authorization.get_auth_filter('merge_conceptentities', request.user)
+    if qs.filter(q).count() > 0 and not request.user.is_superuser:
+        # TODO: make this pretty and informative.
+        return HttpResponseForbidden('Only the owner can do that')
+
+    if request.GET.get('confirm', False):
+        master = merge_conceptentities(qs)
+        return HttpResponseRedirect(reverse('entity-details', args=(master.id,)))
+
+    context = RequestContext(request, {
+        'entities': qs,
+    })
+    template = loader.get_template('entity_merge.html')
     return HttpResponse(template.render(context))

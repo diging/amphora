@@ -4,6 +4,7 @@
 {% load pagination_tags %}
 {% load addcss %}
 {% load breadcrumbs %}
+{% load authorization %}
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
@@ -16,6 +17,22 @@
 {% block content %}
 {% autopaginate filtered_objects.qs 10 as resources %}
 <div class="collection_summary">
+    <span class="pull-right btn-group">
+        {% is_authorized "change_resource" user collection as can_edit_resource %}
+        {% if can_edit_resource %}
+        <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
+            href=""
+            data-toggle="tooltip"
+            data-title="Edit collection"></a>
+        {% endif %}
+        {% is_authorized "view_authorizations" user collection as can_view_authorizations %}
+        {% if can_view_authorizations %}
+        <a class="btn glyphicon glyphicon-lock" aria-hidden="true"
+            href="{% url "collection-authorization-list" collection.id %}"
+            data-toggle="tooltip"
+            data-title="Authorizations"></a>
+        {% endif %}
+    </span>
     <h2 class="collection_name">{{ collection.name }}</h1>
     <div class="collection_uri"><strong>URI:</strong> {{ collection.uri }}</div>
 </div>
