@@ -7,18 +7,24 @@ from guardian.shortcuts import get_perms
 
 
 def check_authorization(perm, user, obj):
-    return user.has_perm(perm, obj)
+    return getattr(obj, 'created', None) == user or user.has_perm(perm, obj)
 
 
 def list_authorizations(obj, user=None):
-    if user is None:
-        _p = [{'user': user.username, 'auth': get_perms(user, obj)} for user in User.objects.all() if len(get_perms(user, obj)) > 0]
-        print _p
-        return _p
+    """
+    List authorizations for ``obj``.
+    """
+    if user is None:    # All authorizations for all users.
+        return [{'user': user.username, 'auth': get_perms(user, obj)}
+                for user in User.objects.all() if len(get_perms(user, obj)) > 0]
+    # Authorizations for a specific user.
+    return get_perms(user, obj)
 
 
 def authorization_required(perm, fn=None, login_url=None, raise_exception=False):
     """
+    Decorator for views. Checks ``perm`` on an object ``fn`` for the requesting
+    :class:`.User`\.
     """
     def decorator(view_func):
 
