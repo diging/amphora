@@ -37,6 +37,10 @@ def _get_resource_by_id(request, resource_id, *args):
     return get_object_or_404(Resource, pk=resource_id)
 
 
+def _get_collection_by_id(request, collection_id, *args):
+    return get_object_or_404(Collection, pk=collection_id)
+
+
 def _ping_resource(path):
     try:
         response = requests.head(path)
@@ -830,4 +834,84 @@ def resource_authorization_change(request, resource_id, user_id):
         'form': form,
     })
     template = loader.get_template('resource_authorization_change.html')
+    return HttpResponse(template.render(context))
+
+
+@authorization.authorization_required('view_authorizations', _get_collection_by_id)
+def collection_authorization_list(request, collection_id):
+    """
+    Display permissions for a specific :class:`.Collection` instance.
+    """
+
+    collection = get_object_or_404(Collection, pk=collection_id)
+    can_change = authorization.check_authorization('change_authorizations', request.user, collection)
+
+    context = RequestContext(request, {
+        'can_change': can_change,
+        'collection': collection,
+        'authorizations': authorization.list_authorizations(collection),
+    })
+    template = loader.get_template('collection_authorization_list.html')
+    return HttpResponse(template.render(context))
+
+
+@authorization.authorization_required('change_authorizations', _get_collection_by_id)
+def collection_authorization_change(request, collection_id, user_id):
+    """
+    Change permissions on a resource for a specific user.
+    """
+    collection = get_object_or_404(Collection, pk=collection_id)
+    user = get_object_or_404(User, pk=user_id)
+
+    if request.method == 'GET':
+        form = CollectionAuthorizationForm(initial={
+            'for_user': user,
+            'authorizations': authorization.list_authorizations(collection, user)
+        })
+    elif request.method == 'POST':
+        form = CollectionAuthorizationForm(request.POST)
+        if form.is_valid():
+            if form.cleaned_data.get('for_user') != user:
+                raise RuntimeError('Whoops, someone f***ed with the user.')
+
+            authorizations = form.cleaned_data.get('authorizations')
+            for_user = form.cleaned_data.get('for_user')
+            authorization.update_authorizations(
+                authorizations, for_user, collection,
+            )
+            resource_auths = [auth.replace('collection', 'resource')
+                              for auth in authorizations]
+            for resource in collection.resources.all():
+                authorization.update_authorizations(resource_auths, for_user, resource)
+
+            return HttpResponseRedirect(reverse('collection-authorization-list', args=(collection.id,)))
+
+    form.fields['for_user'].widget = forms.HiddenInput()
+    context = RequestContext(request, {
+        'for_user': user,
+        'collection': collection,
+        'form': form,
+    })
+    template = loader.get_template('collection_authorization_change.html')
+    return HttpResponse(template.render(context))
+
+
+@authorization.authorization_required('change_authorizations', _get_collection_by_id)
+def collection_authorization_create(request, collection_id):
+    """
+    Allow the user to add authorizations for a new user.
+
+    This is kind of hacky, but will do for now.
+    """
+
+    collection = get_object_or_404(Collection, pk=collection_id)
+    authorized_users = zip(*authorization.list_authorizations(collection))[0]
+    authorized_users_ids = [user.id for user in authorized_users]
+    unauthorized_users = User.objects.filter(~Q(pk__in=authorized_users_ids)).order_by('username')
+
+    context = RequestContext(request, {
+        'unauthorized_users': unauthorized_users,
+        'collection': collection,
+    })
+    template = loader.get_template('collection_authorization_create.html')
     return HttpResponse(template.render(context))
