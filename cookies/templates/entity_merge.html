@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+{% load addcss %}
+
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Entities' 'entity-list' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="h2">Are you sure?</div>
+<p class="text-info">
+    You are about to merge the following entities. This action cannot be
+    undone! Clicking on an entity will open the detail view for that entity
+    in a new tab or window.
+</p>
+<ul class="list-group">
+    {% for ent in entities %}
+    <a href="{{ ent.get_absolute_url }}" class="list-group-item" target="_blank">{{ ent.name.title }}
+        <span class="text-muted">a {{ ent.entity_type.schema }}/{{ ent.entity_type.name }}</span>
+        <span class="pull-right">{{ ent.relations_from.count }}/{{ ent.relations_to.count }}</span>
+    </a>
+    {% endfor %}
+</ul>
+
+<a class="btn btn-success" href="{% url "entity-merge" %}?confirm=true{% for ent in entities %}&entity={{ent.id}}{% endfor %}">
+    Merge (and delete all but one)
+</a>
+
+
+
+
+{% endblock %}

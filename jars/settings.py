@@ -21,7 +21,7 @@ HOSTNAME = socket.gethostname()
 
 TEST = 'test' in sys.argv or eval(os.environ.get('TEST', 'False'))
 DEVELOP = 'runserver' in sys.argv or eval(os.environ.get('DEVELOP', 'False'))
-DEBUG = eval(os.environ.get('DEBUG', 'True' if TEST or DEVELOP else 'False'))
+DEBUG = eval(os.environ.get('DEBUG', 'False')) or TEST or DEVELOP
 SECRET_KEY = os.environ.get('SECRET_KEY', 'fake')
 
 TEMPLATE_DIRS = [os.path.join(BASE_DIR, 'templates')]
@@ -48,7 +48,7 @@ ALLOWED_HOSTS = ['*']
 
 # TODO: clean out dependencies that are no longer used.
 INSTALLED_APPS = (
-    'dal',
+'dal',
     'dal_select2',
     'django.contrib.admin',
     'django.contrib.auth',
