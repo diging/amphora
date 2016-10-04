@@ -15,12 +15,11 @@ import sys
 from urlparse import urlparse
 import requests
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-
+print sys.argv
 LOCAL_PATH = '/'
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.6/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = '#_8=6+i296891#wg9(04o18y2(%6u6*&+fds5wri@tafmni2em'
 
 # SECURITY WARNING: don't run with debug turned on in production!
