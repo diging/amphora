@@ -11,7 +11,7 @@
     <a href="{% url 'index' %}">{% trans 'Home' %}</a>
     {% breadcrumb_url 'Resources' 'resources' %}
     {% breadcrumb_url resource.name 'resource' resource.id  %}
-    <a>Authorizations</a>
+    {% breadcrumb_url 'Authorizations' 'resource-authorization-list' resource.id  %}
 </div>
 {% endblock %}
 
@@ -21,9 +21,9 @@
 
 <div class="">
     <ul class="list-group">
-        {% for auth in authorizations %}
-        <a class="list-group-item">
-            <strong>{{ auth.user }}</strong> can {% for a in auth.auth %}<span class="text-muted">{{ a }}</span>, {% endfor %}
+        {% for username, auths in authorizations %}
+        <a class="list-group-item" href="{% url "resource-authorization-change" resource.id user.id %}">
+            <strong>{{ user.username }}</strong> {% for auth in auths %}<span class="text-muted">{{ auth }}</span>, {% endfor %}
         </a>
         {% endfor %}
     </ul>

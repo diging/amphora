@@ -147,6 +147,8 @@ class ResourceBase(Entity):
     class Meta:
         permissions = (
             ('view_resource', 'View resource'),
+            ('change_authorizations', 'Change authorizations'),
+            ('view_authorizations', 'View authorizations'),
         )
         abstract = True
 

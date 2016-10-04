@@ -3,11 +3,32 @@ from django.utils.decorators import available_attrs
 from django.http import HttpResponseForbidden
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.models import User
-from guardian.shortcuts import get_perms
+from guardian.shortcuts import get_perms, remove_perm, assign_perm
+
+from collections import defaultdict
+
+
+AUTHORIZATIONS = [
+    ('change_resource', 'Change resource'),
+    ('view_resource', 'View resource'),
+    ('delete_resource', 'Delete resource'),
+    ('change_authorizations', 'Change authorizations'),
+    ('view_authorizations', 'View authorizations'),
+]
+
+
+is_owner = lambda user, obj: getattr(obj, 'created_by', None) == user
 
 
 def check_authorization(perm, user, obj):
-    return getattr(obj, 'created', None) == user or user.has_perm(perm, obj)
+    return user.is_superuser or is_owner(user, obj) or user.has_perm(perm, obj)
+
+
+def update_authorizations(auths, user, obj):
+    for auth in set(get_perms(user, obj)) - set(auths):
+        remove_perm(auth, user, obj)
+    for auth in set(auths) - set(get_perms(user, obj)):
+        assign_perm(auth, user, obj)
 
 
 def list_authorizations(obj, user=None):
@@ -15,8 +36,17 @@ def list_authorizations(obj, user=None):
     List authorizations for ``obj``.
     """
     if user is None:    # All authorizations for all users.
-        return [{'user': user.username, 'auth': get_perms(user, obj)}
-                for user in User.objects.all() if len(get_perms(user, obj)) > 0]
+        _auths = defaultdict(list)
+        _users = {obj.created_by.id: obj.created_by}
+        _auths[obj.created_by.id].append('owns')
+
+
+        for user in User.objects.all():
+            _auths[user.id] += get_perms(user, obj)
+            _users[user.id] = user
+
+        return [(_users[user], auths) for user, auths in _auths.items() if auths]
+
     # Authorizations for a specific user.
     return get_perms(user, obj)
 
