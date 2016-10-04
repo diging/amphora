@@ -3,6 +3,7 @@
 {% load staticfiles %}
 {% load breadcrumbs %}
 {% load preview %}
+{% load authorization %}
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
@@ -18,18 +19,23 @@
         <div class="resource_summary">
             <div class="h2 resource_name">
                 {{ resource.name }}
-                {% if resource.created_by == request.user or request.user.is_admin %}
                 <span class="pull-right btn-group">
+                    {% is_authorized "change_resource" user resource as can_edit_resource %}
+                    {% if can_edit_resource %}
                     <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
                         href="{% url "edit-resource-details" resource.id %}?next={{ request.path }}"
                         data-toggle="tooltip"
                         data-title="Edit record"></a>
+                    {% endif %}
+                    {% is_authorized "view_authorizations" user resource as can_view_authorizations %}
+                    {% if can_view_authorizations %}
                     <a class="btn glyphicon glyphicon-lock" aria-hidden="true"
                         href="{% url "resource-authorization-list" resource.id %}?next={{ request.path }}"
                         data-toggle="tooltip"
                         data-title="Authorizations"></a>
+                    {% endif %}
                 </span>
-                {% endif %}
+                
             </div>
 
             <dl class="dl-horizontal">

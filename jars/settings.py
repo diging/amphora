@@ -20,7 +20,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 HOSTNAME = socket.gethostname()
 
 TEST = 'test' in sys.argv or eval(os.environ.get('TEST', 'False'))
-DEVELOP = 'runserver' in sys.argv eval(os.environ.get('DEVELOP', 'False'))
+DEVELOP = 'runserver' in sys.argv or eval(os.environ.get('DEVELOP', 'False'))
 DEBUG = eval(os.environ.get('DEBUG', 'True' if TEST or DEVELOP else 'False'))
 SECRET_KEY = os.environ.get('SECRET_KEY', 'fake')
 

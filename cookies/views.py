@@ -1,4 +1,5 @@
 from django.shortcuts import render, render_to_response, get_object_or_404
+from django import forms
 from django.forms.extras.widgets import SelectDateWidget
 from django.forms import formset_factory
 
@@ -32,7 +33,7 @@ from cookies.operations import add_creation_metadata
 from cookies import metadata, authorization
 
 
-def _get_resource_by_id(request, resource_id):
+def _get_resource_by_id(request, resource_id, *args):
     return get_object_or_404(Resource, pk=resource_id)
 
 
@@ -771,9 +772,62 @@ def resource_authorization_list(request, resource_id):
         'authorizations': authorization.list_authorizations(resource),
     })
     template = loader.get_template('resource_authorization_list.html')
-    if request.method == 'POST':
-        if not can_change:
-            # TODO: make pretty and informative.
-            return HttpResponseForbidden('Nope.')
-    elif request.method == 'GET':
-        return HttpResponse(template.render(context))
+    return HttpResponse(template.render(context))
+
+
+@authorization.authorization_required('change_authorizations', _get_resource_by_id)
+def resource_authorization_create(request, resource_id):
+    """
+    Allow the user to add authorizations for a new user.
+
+    This is kind of hacky, but will do for now.
+    """
+
+    resource = get_object_or_404(Resource, pk=resource_id)
+    authorized_users = zip(*authorization.list_authorizations(resource))[0]
+    authorized_users_ids = [user.id for user in authorized_users]
+    unauthorized_users = User.objects.filter(~Q(pk__in=authorized_users_ids)).order_by('username')
+
+    context = RequestContext(request, {
+        'unauthorized_users': unauthorized_users,
+        'resource': resource,
+    })
+    template = loader.get_template('resource_authorization_create.html')
+    return HttpResponse(template.render(context))
+
+
+
+@authorization.authorization_required('change_authorizations', _get_resource_by_id)
+def resource_authorization_change(request, resource_id, user_id):
+    """
+    Change permissions on a resource for a specific user.
+    """
+    resource = get_object_or_404(Resource, pk=resource_id)
+    user = get_object_or_404(User, pk=user_id)
+
+    if request.method == 'GET':
+        form = AuthorizationForm(initial={
+            'for_user': user,
+            'authorizations': authorization.list_authorizations(resource, user)
+        })
+    elif request.method == 'POST':
+        form = AuthorizationForm(request.POST)
+        if form.is_valid():
+            if form.cleaned_data.get('for_user') != user:
+                raise RuntimeError('Whoops, someone f***ed with the user.')
+
+            authorization.update_authorizations(
+                form.cleaned_data.get('authorizations'),
+                form.cleaned_data.get('for_user'),
+                resource,
+            )
+            return HttpResponseRedirect(reverse('resource-authorization-list', args=(resource.id,)))
+
+    form.fields['for_user'].widget = forms.HiddenInput()
+    context = RequestContext(request, {
+        'for_user': user,
+        'resource': resource,
+        'form': form,
+    })
+    template = loader.get_template('resource_authorization_change.html')
+    return HttpResponse(template.render(context))

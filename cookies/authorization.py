@@ -3,22 +3,63 @@ from django.utils.decorators import available_attrs
 from django.http import HttpResponseForbidden
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.models import User
-from guardian.shortcuts import get_perms
+from guardian.shortcuts import get_perms, remove_perm, assign_perm
+
+from collections import defaultdict
 
 
-def check_authorization(perm, user, obj):
-    return user.has_perm(perm, obj)
+AUTHORIZATIONS = [
+    ('change_resource', 'Change resource'),
+    ('view_resource', 'View resource'),
+    ('delete_resource', 'Delete resource'),
+    ('change_authorizations', 'Change authorizations'),
+    ('view_authorizations', 'View authorizations'),
+]
+
+
+is_owner = lambda user, obj: getattr(obj, 'created_by', None) == user
+
+
+def check_authorization(auth, user, obj):
+    """
+    Check whether ``user`` is authorized to perform ``auth`` on ``obj``.
+    """
+    if auth == 'view_resource' and getattr(obj, 'public', False):
+        return True
+    return user.is_superuser or is_owner(user, obj) or user.has_perm(auth, obj)
+
+
+def update_authorizations(auths, user, obj):
+    for auth in set(get_perms(user, obj)) - set(auths):
+        remove_perm(auth, user, obj)
+    for auth in set(auths) - set(get_perms(user, obj)):
+        assign_perm(auth, user, obj)
 
 
 def list_authorizations(obj, user=None):
-    if user is None:
-        _p = [{'user': user.username, 'auth': get_perms(user, obj)} for user in User.objects.all() if len(get_perms(user, obj)) > 0]
-        print _p
-        return _p
+    """
+    List authorizations for ``obj``.
+    """
+    if user is None:    # All authorizations for all users.
+        _auths = defaultdict(list)
+        _users = {obj.created_by.id: obj.created_by}
+        _auths[obj.created_by.id].append('owns')
+
+
+        for user in User.objects.all():
+            _auths[user.id] += get_perms(user, obj)
+            _users[user.id] = user
+
+        return [(_users[user], auths) for user, auths in _auths.items() if auths]
+
+    # Authorizations for a specific user.
+    return get_perms(user, obj)
 
 
 def authorization_required(perm, fn=None, login_url=None, raise_exception=False):
     """
+    Decorator for views. Checks ``perm`` on an object ``fn`` for the requesting
+    :class:`.User`\.
     """
     def decorator(view_func):
 

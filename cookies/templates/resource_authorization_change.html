@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+{% load pagination_tags %}
+{% load addcss %}
+
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url resource.name 'resource' resource.id  %}
+    {% breadcrumb_url 'Authorizations' 'resource-authorization-list' resource.id  %}
+    {% breadcrumb_url user.username 'resource-authorization-change' resource.id user.id %}
+</div>
+{% endblock %}
+
+{% block content %}
+<span class="h3 text-warning">{{ resource }}</span>
+<div class="h2">Authorizations for {{ for_user }}</div>
+
+<div class="">
+    <form class="form" method='POST' action='.'>
+        {% csrf_token %}
+        {% for error in form.non_field_errors %}
+        <div class="alert alert-warning">{{ error }}</div>
+        {% endfor %}
+        {% for field in form %}
+        <div class="form-group">
+            {% for error in field.errors %}
+            <div class="alert alert-warning">{{ error }}</div>
+            {% endfor %}
+            {% if field.label != 'For user' %}<label>{{ field.label }}</label>{% endif %}
+
+            {{ field|addcss:"form-control" }}
+            <p class="text-muted">{{ field.help_text }}</p>
+        </div>
+
+        {% endfor %}
+    <input type="submit" class="btn btn-success" value="Submit" />
+    </form>
+</div>
+
+
+
+{% endblock %}

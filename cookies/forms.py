@@ -13,8 +13,8 @@ from dal_queryset_sequence.fields import QuerySetSequenceModelField
 from dal_select2_queryset_sequence.widgets import QuerySetSequenceSelect2
 from queryset_sequence import QuerySetSequence
 import inspect, jsonpickle
-from .models import *
-from . import models as md
+from cookies.models import *
+from cookies import authorization
 
 
 class ContenteditableInput(forms.TextInput):
@@ -259,3 +259,8 @@ class MetadatumForm(forms.Form):
         ('Resource', 'Resource'),
         ('Type', 'Type'),
     ))
+
+
+class AuthorizationForm(forms.Form):
+    for_user = forms.ModelChoiceField(queryset=User.objects.all().order_by('-username'))
+    authorizations = forms.MultipleChoiceField(choices=authorization.AUTHORIZATIONS)
