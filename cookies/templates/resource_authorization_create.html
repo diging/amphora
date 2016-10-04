@@ -18,18 +18,13 @@
 {% block content %}
 <span class="h3 text-warning">{{ resource }}</span>
 <div class="h2">Authorizations</div>
-
-<p>
-    <a href="{% url "resource-authorization-create" resource.id %}" class="btn btn-success"><span class="glyphicon glyphicon-plus"></span> Add user</a>
+<p class="text-info">
+    Select a user to authorize.
 </p>
-
-
 <div class="">
     <ul class="list-group">
-        {% for auth_user, auths in authorizations %}
-        <a class="list-group-item" href="{% url "resource-authorization-change" resource.id auth_user.id %}">
-            <strong>{{ auth_user.username }}</strong> {% for auth in auths %}<span class="text-muted">{{ auth }}</span>, {% endfor %}
-        </a>
+        {% for user in unauthorized_users %}
+        <a class="list-group-item" href="{% url "resource-authorization-change" resource.id user.id %}">{{ user.username }}</a>
         {% endfor %}
     </ul>
 </div>

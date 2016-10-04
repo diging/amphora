@@ -262,5 +262,5 @@ class MetadatumForm(forms.Form):
 
 
 class AuthorizationForm(forms.Form):
-    for_user = forms.ModelChoiceField(queryset=User.objects.all().order_by('-name'))
+    for_user = forms.ModelChoiceField(queryset=User.objects.all().order_by('-username'))
     authorizations = forms.MultipleChoiceField(choices=authorization.AUTHORIZATIONS)

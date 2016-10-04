@@ -776,6 +776,28 @@ def resource_authorization_list(request, resource_id):
 
 
 @authorization.authorization_required('change_authorizations', _get_resource_by_id)
+def resource_authorization_create(request, resource_id):
+    """
+    Allow the user to add authorizations for a new user.
+
+    This is kind of hacky, but will do for now.
+    """
+
+    resource = get_object_or_404(Resource, pk=resource_id)
+    authorized_users = zip(*authorization.list_authorizations(resource))[0]
+    authorized_users_ids = [user.id for user in authorized_users]
+    unauthorized_users = User.objects.filter(~Q(pk__in=authorized_users_ids)).order_by('username')
+
+    context = RequestContext(request, {
+        'unauthorized_users': unauthorized_users,
+        'resource': resource,
+    })
+    template = loader.get_template('resource_authorization_create.html')
+    return HttpResponse(template.render(context))
+
+
+
+@authorization.authorization_required('change_authorizations', _get_resource_by_id)
 def resource_authorization_change(request, resource_id, user_id):
     """
     Change permissions on a resource for a specific user.

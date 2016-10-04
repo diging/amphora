@@ -20,8 +20,13 @@ AUTHORIZATIONS = [
 is_owner = lambda user, obj: getattr(obj, 'created_by', None) == user
 
 
-def check_authorization(perm, user, obj):
-    return user.is_superuser or is_owner(user, obj) or user.has_perm(perm, obj)
+def check_authorization(auth, user, obj):
+    """
+    Check whether ``user`` is authorized to perform ``auth`` on ``obj``.
+    """
+    if auth == 'view_resource' and getattr(obj, 'public', False):
+        return True
+    return user.is_superuser or is_owner(user, obj) or user.has_perm(auth, obj)
 
 
 def update_authorizations(auths, user, obj):
