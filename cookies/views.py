@@ -929,8 +929,9 @@ def entity_merge(request):
         # TODO: make this pretty and informative.
         return HttpResponseForbidden('Only the owner can do that')
 
-    if request.GET.get('confirm', False):
-        master = merge_conceptentities(qs)
+    if request.GET.get('confirm', False) == 'true':
+        master_id = request.GET.get('master', None)
+        master = merge_conceptentities(qs, master_id)
         return HttpResponseRedirect(reverse('entity-details', args=(master.id,)))
 
     context = RequestContext(request, {
