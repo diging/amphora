@@ -269,3 +269,9 @@ class AuthorizationForm(forms.Form):
 class CollectionAuthorizationForm(forms.Form):
     for_user = forms.ModelChoiceField(queryset=User.objects.all().order_by('-username'))
     authorizations = forms.MultipleChoiceField(choices=authorization.COLLECTION_AUTHORIZATIONS)
+
+
+class ConceptEntityForm(forms.ModelForm):
+    class Meta:
+        model = ConceptEntity
+        fields = ('name', 'entity_type')

@@ -42,6 +42,10 @@ def _get_collection_by_id(request, collection_id, *args):
     return get_object_or_404(Collection, pk=collection_id)
 
 
+def _get_entity_by_id(request, entity_id, *args):
+    return get_object_or_404(ConceptEntity, pk=entity_id)
+
+
 def _ping_resource(path):
     try:
         response = requests.head(path)
@@ -937,4 +941,28 @@ def entity_merge(request):
         'entities': qs,
     })
     template = loader.get_template('entity_merge.html')
+    return HttpResponse(template.render(context))
+
+
+@authorization.authorization_required('is_owner', _get_entity_by_id)
+def entity_change(request, entity_id):
+    """
+    Edit a :class:`.ConceptEntity` instance.
+    """
+    entity = _get_entity_by_id(request, entity_id)
+
+    if request.method == 'GET':
+        form = ConceptEntityForm(instance=entity)
+
+    if request.method == 'POST':
+        form = ConceptEntityForm(request.POST, instance=entity)
+        if form.is_valid():
+            form.save()
+            return HttpResponseRedirect(entity.get_absolute_url())
+
+    context = RequestContext(request, {
+        'entity': entity,
+        'form': form,
+    })
+    template = loader.get_template('entity_change.html')
     return HttpResponse(template.render(context))

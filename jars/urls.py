@@ -52,13 +52,14 @@ urlpatterns = patterns('',
     url(r'^entity/$', views.entity_list, name='entity-list'),
     url(r'^entity/merge/$', views.entity_merge, name='entity-merge'),
     url(r'^entity/([0-9]+)/$', views.entity_details, name='entity-details'),
+    url(r'^entity/([0-9]+)/change/$', views.entity_change, name='entity-change'),
 
 
     url(r'^task/$', views.jobs, name='jobs'),
     url(r'^task/([0-9a-z\-]+)/$', views.job_status, name='job-status'),
 
     url(r'^rest/', include(router.urls)),
-    url(r'^rest/auth/$', include('rest_framework.urls', namespace='rest_framework')),
+    url(r'^rest/auth/', include('rest_framework.urls', namespace='rest_framework')),
 
     url(r'^oaipmh/', views_oaipmh.oaipmh, name='oaipmh'),
 
