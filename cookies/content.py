@@ -252,7 +252,7 @@ def _process_metadata(metadata, resource, creator):
                 # This is kind of hacky, but we need a prefix.
                 prefix = ''.join([c for c in schema_uri.replace('http://', '').replace('www.', '').split('.')[0] if c not in 'aeiouy'])
                 schema, _ = Schema.objects.get_or_create(uri=schema_uri, defaults={'prefix': prefix, 'name': schema_uri, 'created_by': creator})
-                key = Field.objects.create(name=key_name.title(), uri=key, schema=schema, namespace=schema_uri, created_by=creator)
+                key = Field.objects.create(name=key_name.title(), uri=key, schema=schema, namespace=schema_uri)
 
 
         if key in [CREATOR, AUTHOR]:
