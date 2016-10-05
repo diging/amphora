@@ -310,13 +310,16 @@ def _create_content_resource(localresource, form_data, content_resource_data,
         'created_by': creator,
     }
     if loc == 'local':
-        with open(fpath, 'r') as f:
-            contentResource.file.save(fname, File(f), True)
-            content_type, content_encoding = mimetypes.guess_type(contentResource.file.name)
-        cr_data.update({
-            'content_type': content_type,
-            'content_encoding': content_encoding,
-        })
+        try:
+            with open(fpath, 'r') as f:
+                contentResource.file.save(fname, File(f), True)
+                content_type, content_encoding = mimetypes.guess_type(contentResource.file.name)
+            cr_data.update({
+                'content_type': content_type,
+                'content_encoding': content_encoding,
+            })
+        except IOError:
+            pass
     elif loc == 'remote':
         contentResource.location = fpath
 
@@ -470,7 +473,7 @@ def handle_bulk(file_path, form_data, file_name):
 
             for fpath, fname in zip(fpaths, fnames):
                 # Zotero escapes local file paths as if they were URLs.
-                fpath = urllib.unquote(fpath).encode('utf-8')
+                fpath = urllib.unquote(fpath)
                 try:
                     fname_has_extension = fname[-4] == '.' or fname[-5] == '.'
                 except IndexError:
