@@ -275,3 +275,7 @@ class ConceptEntityForm(forms.ModelForm):
     class Meta:
         model = ConceptEntity
         fields = ('name', 'entity_type')
+
+
+class ConceptEntityLinkForm(forms.Form):
+    uri = forms.CharField(max_length=255, help_text='Manually enter a ConceptPower URI', label='URI')

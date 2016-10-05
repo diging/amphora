@@ -10,7 +10,7 @@
     <a href="{% url 'index' %}">{% trans 'Home' %}</a>
     {% breadcrumb_url 'Entities' 'entity-list' %}
     {% breadcrumb_url entity.name 'entity-details' entity.id %}
-    {% breadcrumb_url 'Edit' 'entity-change' entity.id %}
+    {% breadcrumb_url 'Concept' 'entity-change-concept' entity.id %}
 </div>
 {% endblock %}
 
