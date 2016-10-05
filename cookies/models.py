@@ -159,6 +159,17 @@ class Resource(ResourceBase):
 
     is_part = models.BooleanField(default=False)
 
+    is_external = models.BooleanField(default=False)
+
+    GILES = 'GL'
+    WEB = 'WB'
+    SOURCES = (
+        (GILES, 'Giles'),
+        (WEB, 'Web'),
+    )
+    external_source = models.CharField(max_length=2, choices=SOURCES,
+                                       blank=True, null=True)
+
     @property
     def content_location(self):
         if self.content_resource:
