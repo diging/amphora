@@ -50,6 +50,7 @@ urlpatterns = patterns('',
     url(r'^metadata/$', views.list_metadata, name='list-metadata'),
 
     url(r'^entity/$', views.entity_list, name='entity-list'),
+    url(r'^entity/merge/$', views.entity_merge, name='entity-merge'),
     url(r'^entity/([0-9]+)/$', views.entity_details, name='entity-details'),
 
 

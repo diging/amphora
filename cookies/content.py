@@ -113,20 +113,20 @@ def _get_target(v):
         return Value.objects.create(_value=value)
 
 
-def _process_people(field, data, entity_type):
+def _process_people(field, data, entity_type, creator):
     entities = []
     for surname, forename in data:
         if surname.startswith('http'):
             entity = _find_entity(field, surname)
             if not entity:
-                entity = ConceptEntity.objects.create(name=surname, uri=surname, entity_type=entity_type)
+                entity = ConceptEntity.objects.create(name=surname, uri=surname, entity_type=entity_type, created_by=creator)
         else:
-            entity = ConceptEntity.objects.create(name=u', '.join([surname, forename]), entity_type=entity_type)
+            entity = ConceptEntity.objects.create(name=u', '.join([surname, forename]), entity_type=entity_type, created_by=creator)
         entities.append(entity)
     return entities
 
 
-def _process_ispartof(field, data):
+def _process_ispartof(field, data, creator):
     IDENTIFIER = Field.objects.get(uri='http://purl.org/dc/elements/1.1/identifier')
     TITLE = Field.objects.get(uri='http://purl.org/dc/elements/1.1/title')
     TYPE = Field.objects.get(uri='http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
@@ -155,14 +155,15 @@ def _process_ispartof(field, data):
         entity = ConceptEntity.objects.create(
             name=name if name else uu,
             uri=uri if uri else uu,
-            entity_type=entity_type
+            entity_type=entity_type,
+            created_by=creator,
         )
 
     for field, value in field_data:
         target = _find_entity(field, value)
         if target is None:
             target = Value.objects.create(_value=jsonpickle.encode(value))
-        Relation.objects.create(source=entity, predicate=field, target=target)
+        Relation.objects.create(source=entity, predicate=field, target=target, created_by=creator)
 
     return entity
 
@@ -207,7 +208,7 @@ def _cast_value(value):
     return value
 
 
-def _process_metadata(metadata, resource):
+def _process_metadata(metadata, resource, creator):
     """
     Translate key/value data in ``resource`` into JARS model.
     """
@@ -224,7 +225,7 @@ def _process_metadata(metadata, resource):
     entity_type = None
 
 
-    def _process_keypair(key, value):
+    def _process_keypair(key, value, creator):
         value = _cast_value(value)
 
         # If we are on an inner recursion step, ``key`` will already be
@@ -250,15 +251,15 @@ def _process_metadata(metadata, resource):
 
                 # This is kind of hacky, but we need a prefix.
                 prefix = ''.join([c for c in schema_uri.replace('http://', '').replace('www.', '').split('.')[0] if c not in 'aeiouy'])
-                schema, _ = Schema.objects.get_or_create(uri=schema_uri, defaults={'prefix': prefix, 'name': schema_uri})
-                key = Field.objects.create(name=key_name.title(), uri=key, schema=schema, namespace=schema_uri)
+                schema, _ = Schema.objects.get_or_create(uri=schema_uri, defaults={'prefix': prefix, 'name': schema_uri, 'created_by': creator})
+                key = Field.objects.create(name=key_name.title(), uri=key, schema=schema, namespace=schema_uri, defaults={'created_by': creator})
 
 
         if key in [CREATOR, AUTHOR]:
-            for creator in _process_people(key, value, PERSON):
+            for creator in _process_people(key, value, PERSON, creator):
                 metadata.append((CREATOR, creator))
         elif key == ISPARTOF:
-            value = _process_ispartof(key, value)
+            value = _process_ispartof(key, value, creator)
             metadata.append((key, value))
         elif key in [TYPE, ZTYPE]:
             entity_type = _find_type(value)
@@ -275,36 +276,38 @@ def _process_metadata(metadata, resource):
                 value = found
             else:
                 if value.startswith('http'):
-                    value = Resource.objects.create(name=value, uri=value)
+                    value = Resource.objects.create(name=value, uri=value, created_by=creator)
                 else:
                     value = Value.objects.create(_value=jsonpickle.encode(value))
             metadata.append((key, value))
         elif type(value) is list:
             for elem in value:      # Recurse.
-                _process_keypair(key, elem)
+                _process_keypair(key, elem, creator)
         else:
             value = Value.objects.create(_value=jsonpickle.encode(value))
             metadata.append((key, value))
 
     for key, value in resource:
-        _process_keypair(key, value)
+        _process_keypair(key, value, creator)
 
     return metadata
 
 
 def _create_content_resource(localresource, form_data, content_resource_data,
                              loc, fpath, fname):
+    creator = form_data.get('created_by')
     contentResource = Resource.objects.create(
         name=fname,
         content_resource=True,
         processed=True,
         public=form_data.get('public'),
-        created_by=form_data.get('created_by'),
+        created_by=creator,
     )
 
     cr_data = {
         'for_resource': localresource,
         'content_resource': contentResource,
+        'created_by': creator,
     }
     if loc == 'local':
         with open(fpath, 'r') as f:
@@ -326,9 +329,9 @@ def _create_content_resource(localresource, form_data, content_resource_data,
             'predicate': field,
             'target': target,
             'public': form_data.get('public'),
-            'created_by': form_data.get('created_by'),
+            'created_by': creator,
         })
-    add_creation_metadata(contentResource, form_data.get('created_by'))
+    add_creation_metadata(contentResource, creator)
     contentResource.save()
     return contentResource
 
@@ -362,17 +365,17 @@ def _get_or_create_collection(form_data, public, creator):
     return collection
 
 
-def _get_content_resources(resource):
+def _get_content_resources(resource, creator):
     file_data = getattr(resource, 'file', [])
     content_resources = []
     if len(file_data) > 0:
         if type(file_data[0]) is list:
             for fdata in file_data:
                 content_metadata = []
-                content_resources.append(_process_metadata(content_metadata, fdata))
+                content_resources.append(_process_metadata(content_metadata, fdata, creator))
         else:
             content_metadata = []
-            content_resources.append(_process_metadata(content_metadata, file_data))
+            content_resources.append(_process_metadata(content_metadata, file_data, creator))
     return content_resources
 
 
@@ -400,7 +403,7 @@ def handle_bulk(file_path, form_data, file_name):
 
     # We want to be able to recall that this bulk upload was a/the source for
     #  this collection.
-    Relation.objects.create(source=collection, predicate=SOURCE, target=upload)
+    Relation.objects.create(source=collection, predicate=SOURCE, target=upload, created_by=creator)
 
     # Each file will result in a new Resource.
     for resource in resources:
@@ -415,11 +418,11 @@ def handle_bulk(file_path, form_data, file_name):
 
         # These are the metadata that will be used to create Relations later on,
         #  as opposed to the field values on the Resource model itself.
-        resource_metadata = _process_metadata([], resource.__dict__.items())
+        resource_metadata = _process_metadata([], resource.__dict__.items(), creator)
 
         # These may be remote (i.e. just URLs), local (i.e. with a file), or
         #  both.
-        content_resources = _get_content_resources(resource)
+        content_resources = _get_content_resources(resource, creator)
 
         # User can indicate a default Type to assign to each new Resource.
         default_type = form_data.get('default_type', None)
@@ -443,7 +446,7 @@ def handle_bulk(file_path, form_data, file_name):
         # Here we create the new Resource instance from the current Zotero
         #  record.
         localresource = Resource.objects.create(**resource_data)
-        add_creation_metadata(localresource, form_data.get('created_by'))
+        add_creation_metadata(localresource, creator)
 
         # Handle content.
         for content_resource_data in content_resources:
