@@ -19,18 +19,26 @@
     undone! Clicking on an entity will open the detail view for that entity
     in a new tab or window.
 </p>
-<ul class="list-group">
+<form class="form" action="{% url "entity-merge" %}" method="GET">
+    <ul class="list-group">
+        {% for ent in entities %}
+        <li class="list-group-item">
+            <input type="radio" name="master" value="{{ent.id}}" />
+            <a href="{{ ent.get_absolute_url }}" target="_blank">{{ ent.name.title }}</a>
+            <span class="text-muted">a {{ ent.entity_type.schema }}/{{ ent.entity_type.name }}</span>
+            <span class="pull-right">{{ ent.relations_from.count }}/{{ ent.relations_to.count }}</span>
+        </li>
+        {% endfor %}
+    </ul>
     {% for ent in entities %}
-    <a href="{{ ent.get_absolute_url }}" class="list-group-item" target="_blank">{{ ent.name.title }}
-        <span class="text-muted">a {{ ent.entity_type.schema }}/{{ ent.entity_type.name }}</span>
-        <span class="pull-right">{{ ent.relations_from.count }}/{{ ent.relations_to.count }}</span>
-    </a>
+    <input type="hidden" name="entity" value="{{ent.id}}" />
     {% endfor %}
-</ul>
-
-<a class="btn btn-success" href="{% url "entity-merge" %}?confirm=true{% for ent in entities %}&entity={{ent.id}}{% endfor %}">
-    Merge (and delete all but one)
-</a>
+    <input type="hidden" name="confirm" value="true" />
+    <input type="submit"
+        class="btn btn-success">
+        Merge (and delete all but one)
+    </a>
+</form>
 
 
 

@@ -65,14 +65,20 @@
                         </a>
                         {% for metadatum in metadata %}
                         <li class="list-group-item">
-                            <a class="btn btn-md pull-right"
-                                href="{% url "delete-resource-metadatum" resource.id metadatum.id %}">
-                                <i class="fa fa-trash-o" style="color: red;"></i> &nbsp;
-                            </a>
+                            <span class="btn-group pull-right">
+                                <a class="btn btn-md"
+                                    href="{% url "edit-resource-metadatum" resource.id metadatum.id %}?next={{ request.path }}&tab=metadata">
+                                    <i class="glyphicon glyphicon-pencil"></i>
+                                </a>
+                                <a class="btn btn-md"
+                                    href="{% url "delete-resource-metadatum" resource.id metadatum.id %}">
+                                    <i class="glyphicon glyphicon-remove"></i>
+                                </a>
+
+                            </span>
                             <span class="label label-primary">{{ metadatum.predicate }}</span>
-                            <a href="{% url "edit-resource-metadatum" resource.id metadatum.id %}?next={{ request.path }}&tab=metadata">
-                                {{ metadatum.target.name }}
-                            </a>
+
+                            {{ metadatum.target.name }}
 
                         </li>
                         {% endfor %}

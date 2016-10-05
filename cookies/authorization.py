@@ -28,7 +28,7 @@ COLLECTION_AUTHORIZATIONS = [
 ]
 
 
-is_owner = lambda user, obj: getattr(obj, 'created_by', None) == user
+is_owner = lambda user, obj: getattr(obj, 'created_by', None) == user or user.is_superuser
 
 
 def check_authorization(auth, user, obj):
@@ -36,7 +36,7 @@ def check_authorization(auth, user, obj):
     Check whether ``user`` is authorized to perform ``auth`` on ``obj``.
     """
     if auth == 'is_owner':
-        return getattr(obj, 'created_by', None) == user
+        return is_owner(user, obj)
     if auth == 'view_resource' and getattr(obj, 'public', False):
         return True
     return user.is_superuser or is_owner(user, obj) or user.has_perm(auth, obj)

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+{% load addcss %}
+
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Entities' 'entity-list' %}
+    {% breadcrumb_url entity.name 'entity-details' entity.id %}
+    {% breadcrumb_url 'Edit' 'entity-change' entity.id %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="h2">Edit entity</div>
+<p class="text-info">
+    Entities records represent references to specific concepts in metadata.
+    For example, they represent references to authors, journals, publishers,
+    or locations.
+</p>
+
+<form class="form" method="POST" action=".">
+    {% csrf_token %}
+        {% for error in form.non_field_errors %}
+        <div class="alert alert-warning">{{ error }}</div>
+        {% endfor %}
+        {% for field in form %}
+        <div class="form-group">
+            {% for error in field.errors %}
+            <div class="alert alert-warning">{{ error }}</div>
+            {% endfor %}
+            <label>{{ field.label }}</label>
+            {{ field|addcss:"form-control" }}
+            <p class="text-muted">{{ field.help_text }}</p>
+        </div>
+
+        {% endfor %}
+        <div class="text-center">
+            <input class="btn btn-success" type="submit" value="Save">
+        </div>
+</form>
+
+
+
+{% endblock %}
