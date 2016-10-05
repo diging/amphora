@@ -91,7 +91,7 @@ def resource_by_uri(request):
 
 def resource_list(request):
     # Either the resource is public, or owned by the requesting user.
-    queryset = Resource.objects.filter(
+    queryset_1 = Resource.objects.filter(
         Q(content_resource=False) & Q(is_part=False)
         & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id)))
 
@@ -99,10 +99,16 @@ def resource_list(request):
     #  should use a real search backend.
     #
     # TODO: implement a real search backend.
-    filtered_objects = ResourceFilter(request.GET, queryset=queryset)
+    filtered_objects = ResourceFilter(request.GET, queryset=queryset_1)
+    queryset_2 = Collection.objects.filter(
+        Q(content_resource=False)\
+        & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id))
+    )
+    collections = CollectionFilter(request.GET, queryset=queryset_2)
 
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
+        'collections': collections
     })
 
     template = loader.get_template('resources.html')
