@@ -1,5 +1,6 @@
 from django.shortcuts import render, render_to_response, get_object_or_404
 from django import forms
+from django.forms.utils import ErrorList
 from django.forms.extras.widgets import SelectDateWidget
 from django.forms import formset_factory
 
@@ -32,6 +33,7 @@ from cookies.tasks import *
 from cookies.giles import *
 from cookies.operations import add_creation_metadata, merge_conceptentities
 from cookies import metadata, authorization
+from concepts.models import Concept
 
 
 def _get_resource_by_id(request, resource_id, *args):
@@ -922,6 +924,7 @@ def collection_authorization_create(request, collection_id):
     return HttpResponse(template.render(context))
 
 
+# Authorization is handled internally.
 def entity_merge(request):
     entity_ids = request.GET.getlist('entity', [])
     if len(entity_ids) <= 1:
@@ -966,4 +969,38 @@ def entity_change(request, entity_id):
         'form': form,
     })
     template = loader.get_template('entity_change.html')
+    return HttpResponse(template.render(context))
+
+
+@authorization.authorization_required('is_owner', _get_entity_by_id)
+def entity_change_concept(request, entity_id):
+    entity = _get_entity_by_id(request, entity_id)
+    if request.method == 'GET':
+        initial_data = {}
+        if entity.concept:
+            initial_data.update({'uri': entity.concept.uri})
+        form = ConceptEntityLinkForm(initial_data)    # Not a ModelForm.
+
+    if request.method == 'POST':
+        form = ConceptEntityLinkForm(request.POST)
+        if form.is_valid():
+            uri = form.cleaned_data.get('uri')
+            try:
+                concept, _ = Concept.objects.get_or_create(uri=uri)
+            except ValueError as E:
+                errors = form._errors.setdefault("uri", ErrorList())
+                errors.append(E.args[0])
+                concept = None
+
+            if concept:
+                entity.concept = concept
+                entity.save()
+                return HttpResponseRedirect(entity.get_absolute_url())
+
+    context = RequestContext(request, {
+        'entity': entity,
+        'form': form,
+    })
+    print form
+    template = loader.get_template('entity_change_concept.html')
     return HttpResponse(template.render(context))

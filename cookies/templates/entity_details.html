@@ -44,9 +44,9 @@
             {% with entity.concept as concept %}
             <dd>
                 {% if concept %}
-                <a href=""><i class="fa fa-anchor" aria-hidden="true"></i> {{ entity.concept.uri }}</a>
+                <a href="{% url "entity-change-concept" entity.id %}"><i class="fa fa-anchor" aria-hidden="true"></i> {{ entity.concept.label }}</a>
                 {% else %}
-                <a href=""><i class="fa fa-plus" aria-hidden="true"></i> Link or create record</a>
+                <a href="{% url "entity-change-concept" entity.id %}"><i class="fa fa-plus" aria-hidden="true"></i> Link or create record</a>
                 {% endif %}
             </dd>
             {% endwith %}
