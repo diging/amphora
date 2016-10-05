@@ -4,13 +4,13 @@
 {% load pagination_tags %}
 {% load addcss %}
 {% load breadcrumbs %}
+{% load authorization %}
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'index' %}">{% trans 'Home' %}</a>
     {% breadcrumb_url 'Entities' 'entity-list' %}
-    <span class="breadcrumbs-arrow">›&nbsp;</span>
-    <a href="">{{ entity.name }}</a>
+    {% breadcrumb_url entity.name 'entity-details' entity.id %}
 </div>
 {% endblock %}
 
@@ -20,6 +20,15 @@
 <div class="row">
     <div class="col-sm-8">
         <div class="h2 clearfix">{{ entity.name.title }}
+            <span class="btn-group">
+                {% is_authorized "is_owner" user entity as can_edit %}
+                {% if can_edit %}
+                <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
+                    href="{% url "entity-change" entity.id %}?next={{ request.path }}"
+                    data-toggle="tooltip"
+                    data-title="Edit record"></a>
+                {% endif %}
+            </span>
             <span class="pull-right">a <span class="text-warning">{{ entity.entity_type.schema }}</span>/{{ entity.entity_type.name }}</span>
         </div>
         <dl class="dl-horizontal">
