@@ -310,7 +310,7 @@ def _create_content_resource(localresource, form_data, content_resource_data,
         'created_by': creator,
     }
     if loc == 'local':
-        with open(fpath, 'r') as f:
+        with open(fpath.decode('utf-8'), 'r') as f:
             contentResource.file.save(fname, File(f), True)
             content_type, content_encoding = mimetypes.guess_type(contentResource.file.name)
         cr_data.update({
