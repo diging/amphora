@@ -133,6 +133,8 @@ def _create_content_resource(parent_resource, resource_type, creator, uri, url, 
         'created_by_id': creator.id,
         'entity_type': resource_type,
         'content_type': meta.get('content_type', None),
+        'is_external': True,
+        'external_source': Resource.GILES,
         'uri': uri
     })
 
@@ -176,6 +178,8 @@ def _create_page_resource(parent_resource, page_nr, resource_type, creator, uri,
         'public': public,
         'content_resource': False,
         'is_part': True,
+        'is_external': True,
+        'external_source': Resource.GILES,
     })
 
     Relation.objects.create(**{
@@ -208,6 +212,8 @@ def _process_document_data(session, data, creator, resource=None, giles=settings
                 'entity_type': __document__,
                 'uri': '%s/documents/%s' % (giles, document_id),
                 'content_resource': False,
+                'is_external': True,
+                'external_source': Resource.GILES,
             })
 
     session.resources.add(resource)

@@ -48,7 +48,7 @@ ALLOWED_HOSTS = ['*']
 
 # TODO: clean out dependencies that are no longer used.
 INSTALLED_APPS = (
-'dal',
+    'dal',
     'dal_select2',
     'django.contrib.admin',
     'django.contrib.auth',
