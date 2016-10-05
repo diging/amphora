@@ -318,7 +318,7 @@ def _create_content_resource(localresource, form_data, content_resource_data,
                 'content_type': content_type,
                 'content_encoding': content_encoding,
             })
-        except IOError:
+        except:
             pass
     elif loc == 'remote':
         contentResource.location = fpath
