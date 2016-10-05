@@ -76,6 +76,10 @@ class TestGiles(unittest.TestCase):
         self.assertEqual(len(session.file_details), 1)
         self.assertEqual(session.content_resources.count(), 2)
         self.assertEqual(session.resources.count(), 1)
+        for resource in session.resources.all():
+            self.assertTrue(resource.is_external)
+        for resource in session.content_resources.all():
+            self.assertTrue(resource.is_external)
 
         def _try_related(obj, prop):
             try:
