@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+{% load addcss %}
+
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resource-list' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="h2">Are you sure?</div>
+<p class="text-info">
+    You are about to merge the following resources. This action cannot be
+    undone! Clicking on a resource will open the detail view for that resource
+    in a new tab or window.
+</p>
+<form class="form" action="{% url "resource-merge" %}" method="GET">
+    <ul class="list-group">
+        {% for resource in resources %}
+        <li class="list-group-item">
+            <input type="radio" name="master" value="{{resource.id}}" />
+            <a href="{{ resource.get_absolute_url }}" target="_blank">{{ resource.title }}</a>
+            <span class="text-muted">a {{ resource.entity_type.schema }}/{{ resource.entity_type.name }}</span>
+            <span class="pull-right text-warning">{{ resource.uri }}</spa>
+        </li>
+        {% endfor %}
+    </ul>
+    {% for resource in resources %}
+    <input type="hidden" name="resource" value="{{resource.id}}" />
+    {% endfor %}
+    <input type="hidden" name="confirm" value="true" />
+    <input type="submit"
+        class="btn btn-success">
+        Merge (and delete all but one)
+    </a>
+</form>
+
+
+
+
+{% endblock %}

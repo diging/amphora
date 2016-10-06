@@ -70,6 +70,11 @@
     </div>
 </div>
 
+{% if user.is_staff %}
+<div class="text-center">
+    <a class="btn btn-success" href="{% url "resource-merge" %}?{% for resource in resources %}resource={{resource.id}}&{% endfor %}">Merge all resources on this page</a>
+</div>
+{% endif %}
 
 
 {% endblock %}
