@@ -25,13 +25,15 @@ import iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle
 from hashlib import sha1
 import time, os, json, base64, hmac, urllib, datetime
 
-
+# TODO: clean this up!!
 from cookies.forms import *
 from cookies.models import *
 from cookies.filters import *
 from cookies.tasks import *
 from cookies.giles import *
-from cookies.operations import add_creation_metadata, merge_conceptentities
+from cookies import operations
+# import (add_creation_metadata, merge_conceptentities,
+#                                 merge_resources)
 from cookies import metadata, authorization
 from concepts.models import Concept
 
@@ -247,7 +249,7 @@ def create_resource_file(request):
                 'name': uploaded_file._name,
                 'created_by': request.user,
             })
-            add_creation_metadata(content, request.user)
+            operations.add_creation_metadata(content, request.user)
             # The file upload handler needs the Resource to have an ID first,
             #  so we add the file after creation.
             content.file = uploaded_file
@@ -284,7 +286,7 @@ def create_resource_url(request):
                     }
                 })
                 if created:
-                    add_creation_metadata(content, request.user)
+                    operations.add_creation_metadata(content, request.user)
                 return HttpResponseRedirect(reverse('create-resource-details',
                                                     args=(content.id,)))
             else:
@@ -319,7 +321,7 @@ def create_resource_details(request, content_id):
             collection = resource_data.pop('collection', None)
             resource_data['created_by'] = request.user
             resource = Resource.objects.create(**resource_data)
-            add_creation_metadata(resource, request.user)
+            operations.add_creation_metadata(resource, request.user)
             content_relation = ContentRelation.objects.create(**{
                 'for_resource': resource,
                 'content_resource': content_resource,
@@ -487,7 +489,7 @@ def process_giles_upload(request, session_id):
                     'created_by_id': request.user.id,
                     'name': name,
                 })
-                add_creation_metadata(collection, request.user)
+                operations.add_creation_metadata(collection, request.user)
             session.collection = collection
             session.save()
             form.fields['collection'].initial = collection.id
@@ -944,7 +946,7 @@ def entity_merge(request):
 
     if request.GET.get('confirm', False) == 'true':
         master_id = request.GET.get('master', None)
-        master = merge_conceptentities(qs, master_id)
+        master = operations.merge_conceptentities(qs, master_id)
         return HttpResponseRedirect(reverse('entity-details', args=(master.id,)))
 
     context = RequestContext(request, {
@@ -1009,4 +1011,41 @@ def entity_change_concept(request, entity_id):
     })
     print form
     template = loader.get_template('entity_change_concept.html')
+    return HttpResponse(template.render(context))
+
+
+@authorization.authorization_required('change_resource', _get_resource_by_id)
+def resource_prune(request, resource_id):
+    """
+    Curator can remove duplicate :class:`.Relation`\s from a
+    :class:`.Resource`\.
+    """
+    resource = _get_resource_by_id(request, resource_id)
+    operations.prune_relations(resource)
+    return HttpResponseRedirect(resource.get_absolute_url())
+
+
+def resource_merge(request):
+    """
+    Curator can merge resources.
+    """
+    resource_ids = request.GET.getlist('resource', [])
+    if len(resource_ids) <= 1:
+        raise ValueError('Need more than one resource')
+
+    qs = Resource.objects.filter(pk__in=resource_ids)
+    q = authorization.get_auth_filter('merge_resources', request.user)
+    if qs.filter(q).count() > 0 and not request.user.is_superuser:
+        # TODO: make this pretty and informative.
+        return HttpResponseForbidden('Only the owner can do that')
+
+    if request.GET.get('confirm', False) == 'true':
+        master_id = request.GET.get('master', None)
+        master = operations.merge_resources(qs, master_id)
+        return HttpResponseRedirect(master.get_absolute_url())
+
+    context = RequestContext(request, {
+        'resources': qs,
+    })
+    template = loader.get_template('resource_merge.html')
     return HttpResponse(template.render(context))

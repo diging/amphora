@@ -42,7 +42,7 @@ class ResourceFilter(django_filters.FilterSet):
 
     class Meta:
         model = Resource
-        fields = ['name', 'entity_type', 'content', 'created_by']
+        fields = ['name', 'uri', 'entity_type', 'content', 'created_by']
         order_by = (
             ('name', 'Name (ascending)'),
             ('-name', 'Name (descending)'),
