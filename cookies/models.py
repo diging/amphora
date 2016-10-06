@@ -41,6 +41,7 @@ class Entity(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, blank=True, null=True)
+    updated = models.DateTimeField(auto_now=True)
 
     entity_type = models.ForeignKey('Type', blank=True, null=True,
                                     verbose_name='type', help_text=help_text(
@@ -187,6 +188,7 @@ class ContentRelation(models.Model):
 
     created_by = models.ForeignKey(User, null=True, blank=True)
     created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
 
 
 class Collection(ResourceBase):
@@ -367,6 +369,7 @@ class UserJob(models.Model):
     """
     created_by = models.ForeignKey(User, related_name='jobs')
     created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
     result_id = models.CharField(max_length=255)
     result = models.TextField()
 
@@ -377,6 +380,7 @@ class UserJob(models.Model):
 class GilesSession(models.Model):
     created_by = models.ForeignKey(User, related_name='giles_sessions')
     created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
     _file_ids = models.TextField()
     _file_details = models.TextField()
 
@@ -407,3 +411,4 @@ class GilesUpload(models.Model):
     """
     created_by = models.ForeignKey(User, related_name='giles_uploads')
     created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
