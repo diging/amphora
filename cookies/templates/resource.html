@@ -26,6 +26,10 @@
                         href="{% url "edit-resource-details" resource.id %}?next={{ request.path }}"
                         data-toggle="tooltip"
                         data-title="Edit record"></a>
+                    <a class="btn glyphicon glyphicon-compressed" aria-hidden="true"
+                        href="{% url "resource-prune" resource.id %}"
+                        data-toggle="tooltip"
+                        data-title="Prune duplicate metadata"></a>
                     {% endif %}
                     {% is_authorized "view_authorizations" user resource as can_view_authorizations %}
                     {% if can_view_authorizations %}

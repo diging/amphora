@@ -1,11 +1,83 @@
 """
 """
 
+from django.contrib.contenttypes.models import ContentType
+
 import unittest, mock, json
 
 from cookies import operations
 from cookies.models import *
 from concepts.models import Concept
+
+
+class TestPruneRelations(unittest.TestCase):
+    def test_prune_relations_identical_target(self):
+        resource_1 = Resource.objects.create(name='The first one')
+        a_value = Value.objects.create()
+        a_value.name = 'The value'
+        a_value.save()
+        some_predicate = Field.objects.create(name='related')
+        for i in xrange(5):
+            Relation.objects.create(source=resource_1, predicate=some_predicate, target=a_value)
+
+        operations.prune_relations(resource_1)
+        resource_1.refresh_from_db()
+        self.assertEqual(resource_1.relations_from.count(), 1)
+
+    def test_prune_relations_same_value(self):
+        resource_1 = Resource.objects.create(name='The first one')
+
+        some_predicate = Field.objects.create(name='related')
+        for i in xrange(5):
+            a_value = Value.objects.create()
+            a_value.name = 'The value'
+            a_value.save()
+            Relation.objects.create(source=resource_1, predicate=some_predicate, target=a_value)
+
+        operations.prune_relations(resource_1)
+        resource_1.refresh_from_db()
+        self.assertEqual(resource_1.relations_from.count(), 1)
+
+    def test_prune_relations_same_value_and_friends(self):
+        resource_1 = Resource.objects.create(name='The first one')
+
+        some_predicate = Field.objects.create(name='related')
+        for i in xrange(5):
+            a_value = Value.objects.create()
+            a_value.name = 'The value'
+            a_value.save()
+            Relation.objects.create(source=resource_1, predicate=some_predicate, target=a_value)
+        for i in xrange(5):
+            a_value = Value.objects.create()
+            a_value.name = 'The other value'
+            a_value.save()
+            Relation.objects.create(source=resource_1, predicate=some_predicate, target=a_value)
+
+        operations.prune_relations(resource_1)
+        resource_1.refresh_from_db()
+        self.assertEqual(resource_1.relations_from.count(), 2)
+
+    def test_prune_relations_same_value_different_predicate(self):
+        resource_1 = Resource.objects.create(name='The first one')
+
+        some_predicate = Field.objects.create(name='related')
+        another_predicate = Field.objects.create(name='related!')
+        for i in xrange(5):
+            a_value = Value.objects.create()
+            a_value.name = 'The value'
+            a_value.save()
+            Relation.objects.create(source=resource_1, predicate=some_predicate, target=a_value)
+        for i in xrange(5):
+            a_value = Value.objects.create()
+            a_value.name = 'The value'
+            a_value.save()
+            Relation.objects.create(source=resource_1, predicate=another_predicate, target=a_value)
+
+        operations.prune_relations(resource_1)
+        resource_1.refresh_from_db()
+        self.assertEqual(resource_1.relations_from.count(), 2)
+
+
 
 
 class TestMergeConceptEntities(unittest.TestCase):
