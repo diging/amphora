@@ -1049,3 +1049,37 @@ def resource_merge(request):
     })
     template = loader.get_template('resource_merge.html')
     return HttpResponse(template.render(context))
+
+@login_required
+def create_collection(request):
+    """
+    Curator can add collection
+    """
+    context = RequestContext(request, {})
+
+    template = loader.get_template('create_collection.html')
+
+    if request.method == 'GET':
+        form = UserAddCollectionForm()
+    if request.method == 'POST':
+        form = UserAddCollectionForm(request.POST)
+        if form.is_valid():
+            collection = Collection.objects.create(**{
+                'name': form.cleaned_data['name'],
+                'entity_type': form.cleaned_data['content_type'],
+                'public': form.cleaned_data['public'],
+                'uri': form.cleaned_data['uri'],
+                'created_by': request.user,
+            })
+            for resource in form.cleaned_data['resources']:
+                collection.resources.add(resource)
+                collection.save()
+            context.update({
+            'collection':collection,
+            })
+            return HttpResponseRedirect(reverse('collection',args=(collection.id,)))
+
+    context.update({
+        'form': form
+    })
+    return HttpResponse(template.render(context))

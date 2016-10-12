@@ -279,3 +279,33 @@ class ConceptEntityForm(forms.ModelForm):
 
 class ConceptEntityLinkForm(forms.Form):
     uri = forms.CharField(max_length=255, help_text='Manually enter a ConceptPower URI', label='URI')
+
+
+class UserAddCollectionForm(forms.Form):
+    name = forms.CharField(help_text='Names are unique accross ALL entities in the system.')
+    content_type = forms.ModelChoiceField(**{
+        'queryset': Type.objects.all().order_by('name'),
+        'help_text': 'Types help JARS determine what metadata fields are' \
+                   + ' appropriate for your collection.',
+    })
+    public = forms.BooleanField(**{
+        'required': False,
+        'initial': True,
+        'help_text': u'If checked, this collection will be available to the' \
+                   + u' public. By checking this box you affirm that you have' \
+                   + u' the right to upload and distribute this collection.'
+    })
+    uri = forms.CharField(**{
+        'required': False,
+        'help_text': u'You may (optionally) specifiy an URI for your resource.'\
+                   + u' If you\'re unsure, leave this blank and let JARS' \
+                   + u' generate a URI for you.',
+        'label': 'URI',
+    })
+    resources = forms.MultipleChoiceField(**{
+        'widget': forms.widgets.CheckboxSelectMultiple,
+        'choices': Resource.objects.values_list('id', 'name'),
+        'help_text': u'Add resources to the collection.',
+        'label': 'Add resources:',
+        'required': False,
+    })
