@@ -1053,7 +1053,7 @@ def resource_merge(request):
 @login_required
 def create_collection(request):
     """
-    Curator can add collection
+    Curator can add collection.
     """
     context = RequestContext(request, {})
 
@@ -1064,20 +1064,9 @@ def create_collection(request):
     if request.method == 'POST':
         form = UserAddCollectionForm(request.POST)
         if form.is_valid():
-            collection = Collection.objects.create(**{
-                'name': form.cleaned_data['name'],
-                'entity_type': form.cleaned_data['content_type'],
-                'public': form.cleaned_data['public'],
-                'uri': form.cleaned_data['uri'],
-                'created_by': request.user,
-            })
-            for resource in form.cleaned_data['resources']:
-                collection.resources.add(resource)
-                collection.save()
-            context.update({
-            'collection':collection,
-            })
-            return HttpResponseRedirect(reverse('collection',args=(collection.id,)))
+            form.instance.created_by = request.user
+            form.save()
+            return HttpResponseRedirect(form.instance.get_absolute_url())
 
     context.update({
         'form': form
