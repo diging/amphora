@@ -294,14 +294,7 @@ class UserAddCollectionForm(forms.ModelForm):
 
     class Meta:
         model = Collection
-        fields = ['name', 'public', 'uri', 'content_type',
-        'content_resource', 'resources']
-        widgets = {
-            'resources': forms.CheckboxSelectMultiple(),
-        }
-        help_texts = {
-            'resources': u'Add resources to collection'
-        }
+        fields = ['name', 'public', 'uri', 'content_type', 'content_resource']
 
     def __init__(self, *args, **kwargs):
         super(UserAddCollectionForm, self).__init__(*args, **kwargs)
