@@ -60,9 +60,9 @@
                         {{ content_relation.content_resource.content_location|truncatechars:50 }}
                     </a>&nbsp;
                     {% if content_relation.content_type %}
-                    <label class="label label-primary">
+                    <span class="text-warning">
                         {{ content_relation.content_type }}
-                    </label>
+                    </span>
                     {% endif %}
                 </dd>
                 {% endfor %}

@@ -1,4 +1,5 @@
 from cookies.models import *
+from cookies import authorization
 
 from itertools import chain, groupby
 
@@ -118,7 +119,7 @@ def get_conceptentity_with_uri(uri, qs=ConceptEntity.objects.all(),
 
 
 def get_instances_with_uri(uri, getters=[get_resource_with_uri,
-                                           get_conceptentity_with_uri],
+                                         get_conceptentity_with_uri],
                             fields=['id', 'name', 'entity_type']):
     return list(chain(*[getter(uri, fields=fields) for getter in getters]))
 
@@ -188,7 +189,7 @@ def filter_by_generic_with_name(field, name, qs=Relation.objects.all()):
 
 
 def filter_relations(source=None, predicate=None, target=None,
-                     qs=Relation.objects.all()):
+                     qs=Relation.objects.all(), user=None):
     """
     Filter a :class:`.Relation` queryset by source, predicate, and/or object.
 
@@ -205,6 +206,15 @@ def filter_relations(source=None, predicate=None, target=None,
 
     if all([value is None for value in [source, predicate, target]]):
         return qs.none()
+    resource_type = ContentType.objects.get_for_model(Resource)
+    entity_type = ContentType.objects.get_for_model(ConceptEntity)
+    allowed_resources = authorization.filter(user, 'view_resource', Resource.objects.all()).values_list('id', flat=True)
+    qs = qs.filter(((Q(source_instance_id__in=allowed_resources)
+                        & Q(source_type=resource_type))
+                       | Q(source_type=entity_type))
+                    & ((Q(target_instance_id__in=allowed_resources)
+                        &  Q(target_type=resource_type))
+                       | Q(target_type=entity_type)))
 
     for field, qfield, value in [('source', 'source_instance_id', source),
                                  ('target', 'target_instance_id', target)]:
@@ -218,6 +228,7 @@ def filter_relations(source=None, predicate=None, target=None,
                 qs = qs.filter(qfield=getattr(value, 'id', value))
 
     if predicate is not None:
+
         if type(predicate) in [str, unicode]:
             if predicate.startswith('http'):    # Treat as a URI.
                 qs = qs.filter(predicate__uri=predicate)
@@ -225,6 +236,7 @@ def filter_relations(source=None, predicate=None, target=None,
                 qs = qs.filter(predicate__name__icontains=predicate)
         else:
             qs = qs.filter(predicate=getattr(predicate, 'id', predicate))
+
 
     try:
         _states = qs.distinct('id')

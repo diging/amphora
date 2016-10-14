@@ -37,8 +37,12 @@
     <div class="collection_uri"><strong>URI:</strong> {{ collection.uri }}</div>
 </div>
 
-<div class="h3">Resources</div>
-
+<div class="row">
+    <div class="h3 col-xs-4">Resources</div>
+    <div class="col-xs-4 text-center">
+        {% paginate %}
+    </div>
+</div>
 <div class="panel-group">
     <div class="panel panel-default">
         <div class="panel-heading">
@@ -75,9 +79,6 @@
 </div>
 
 <div class="collection_resources">
-    <div class="pagination container text-center">
-        {% paginate %}
-    </div>
     <ul class="list-group">
         {% for resource in resources %}
         <a class="resource-name list-group-item" href="{{ resource.get_absolute_url }}">{{ resource.name }}</a>

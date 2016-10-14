@@ -125,8 +125,6 @@ class BulkResourceForm(forms.Form):
             raise forms.ValidationError("Please enter a name for your new collection")
 
 
-
-
 class ResourceForm(forms.ModelForm):
     class Meta:
         model = Resource
@@ -156,11 +154,11 @@ class UserResourceForm(forms.Form):
                    + u' generate a URI for you.',
         'label': 'URI',
     })
-    namespace = forms.CharField(**{
-        'help_text': u'Use this field if you wish to explicitly specify a' \
-                   + u' namespace for this resource.',
-        'required': False,
-    })
+    # namespace = forms.CharField(**{
+    #     'help_text': u'Use this field if you wish to explicitly specify a' \
+    #                + u' namespace for this resource.',
+    #     'required': False,
+    # })
     collection = forms.ModelChoiceField(**{
         'queryset': Collection.objects.all().order_by('name'),
         'required': False
@@ -263,7 +261,7 @@ class MetadatumForm(forms.Form):
 
 class AuthorizationForm(forms.Form):
     for_user = forms.ModelChoiceField(queryset=User.objects.all().order_by('-username'))
-    authorizations = forms.MultipleChoiceField(choices=authorization.AUTHORIZATIONS)
+    authorizations = forms.MultipleChoiceField(choices=authorization.AUTHORIZATIONS, required=False)
 
 
 class CollectionAuthorizationForm(forms.Form):

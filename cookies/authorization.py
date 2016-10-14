@@ -6,7 +6,8 @@ from django.db.models import Q
 from django.http import HttpResponseForbidden
 from django.utils.decorators import available_attrs
 
-from guardian.shortcuts import get_perms, remove_perm, assign_perm
+from guardian.shortcuts import (get_perms, remove_perm, assign_perm,
+                                get_objects_for_user)
 
 from collections import defaultdict
 
@@ -40,13 +41,6 @@ def check_authorization(auth, user, obj):
     if auth == 'view_resource' and getattr(obj, 'public', False):
         return True
     return user.is_superuser or is_owner(user, obj) or user.has_perm(auth, obj)
-
-
-# TODO: build this out.
-def get_auth_filter(auth, user):
-    """
-    """
-    return ~Q(created_by=user)
 
 
 def update_authorizations(auths, user, obj):
@@ -96,3 +90,23 @@ def authorization_required(perm, fn=None, login_url=None, raise_exception=False)
             return view_func(request, *args, **kwargs)
         return _wrapped_view
     return decorator
+
+
+def filter(user, permission, queryset):
+    """
+    Limit ``queryset`` to those objects for which ``user`` has ``permission``.
+
+    Parameters
+    ----------
+    user : :class:`django.contrib.auth.models.User`
+    permission : str
+    queryset : :class:`django.db.models.QuerySet`
+
+    Returns
+    -------
+    :class:`django.db.models.QuerySet`
+
+    """
+    if user.is_superuser:
+        return queryset
+    return get_objects_for_user(user, permission, queryset)

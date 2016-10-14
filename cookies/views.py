@@ -19,8 +19,6 @@ from django.conf import settings
 
 from celery.result import AsyncResult
 
-from guardian.shortcuts import get_objects_for_user
-
 import iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle
 from hashlib import sha1
 import time, os, json, base64, hmac, urllib, datetime
@@ -66,12 +64,9 @@ def check_authorization(request, instance, permission):
         raise RuntimeError('')
 
 
+@authorization.authorization_required('view_resource', _get_resource_by_id)
 def resource(request, obj_id):
-    resource = get_object_or_404(Resource, pk=obj_id)
-    try:
-        check_authorization(request, resource, 'view_resource')
-    except RuntimeError:
-        return HttpResponse('You do not have permission to view this resource', status=401)
+    resource = _get_resource_by_id(request, obj_id)
     return render(request, 'resource.html', {'resource':resource})
 
 
@@ -93,9 +88,12 @@ def resource_by_uri(request):
 
 def resource_list(request):
     # Either the resource is public, or owned by the requesting user.
-    qset_resources = Resource.objects.filter(
-        Q(content_resource=False) & Q(is_part=False)
-        & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id)))
+    qset_resources = Resource.objects.filter(content_resource=False,
+                                             is_part=False,
+                                             hidden=False)
+
+    qset_resources = authorization.filter(request.user, 'view_resource',
+                                          qset_resources)
 
     # For now we use filters to achieve search functionality. At some point we
     #  should use a real search backend.
@@ -310,6 +308,11 @@ def create_resource_details(request, content_id):
             'uri': content_resource.location,
             'public': True,    # If the resource is already online, it's public.
         })
+        form.fields['collection'].queryset = authorization.filter(*(
+            request.user,
+            'change_collection',
+            form.fields['collection'].queryset
+        ))
         # It wouldn't mean much for the user to indicate that the resource was
         #  non-public, given that we are accessing it over a public connection.
         # form.fields['public'].widget.attrs.update({'disabled': True})
@@ -726,7 +729,8 @@ def list_metadata(request):
     size = int(request.GET.get('size', 20))
     qs = metadata.filter_relations(source=source if source else None,
                                    predicate=predicate if predicate else None,
-                                   target=target if target else None)
+                                   target=target if target else None,
+                                   user=request.user)
     max_results = qs.count()
     current_path = request.get_full_path().split('?')[0]
     params = request.GET.copy()
@@ -939,8 +943,9 @@ def entity_merge(request):
         raise ValueError('')
 
     qs = ConceptEntity.objects.filter(pk__in=entity_ids)
-    q = authorization.get_auth_filter('merge_conceptentities', request.user)
-    if qs.filter(q).count() > 0 and not request.user.is_superuser:
+    qs = authorization.filter(request.user, 'merge_conceptentities', qs)
+    # q = authorization.get_auth_filter('merge_conceptentities', request.user)
+    if qs.count() == 0:
         # TODO: make this pretty and informative.
         return HttpResponseForbidden('Only the owner can do that')
 
@@ -1017,8 +1022,8 @@ def entity_change_concept(request, entity_id):
 @authorization.authorization_required('change_resource', _get_resource_by_id)
 def resource_prune(request, resource_id):
     """
-    Curator can remove duplicate :class:`.Relation`\s from a
-    :class:`.Resource`\.
+    Curator can remove duplicate :class:`.Relation` instances from a
+    :class:`.Resource` instance.
     """
     resource = _get_resource_by_id(request, resource_id)
     operations.prune_relations(resource)
@@ -1034,8 +1039,8 @@ def resource_merge(request):
         raise ValueError('Need more than one resource')
 
     qs = Resource.objects.filter(pk__in=resource_ids)
-    q = authorization.get_auth_filter('merge_resources', request.user)
-    if qs.filter(q).count() > 0 and not request.user.is_superuser:
+    qs = authorization.filter(request.user, 'merge_resources', qs)
+    if qs.count() == 0:
         # TODO: make this pretty and informative.
         return HttpResponseForbidden('Only the owner can do that')
 
@@ -1049,6 +1054,7 @@ def resource_merge(request):
     })
     template = loader.get_template('resource_merge.html')
     return HttpResponse(template.render(context))
+
 
 @login_required
 def create_collection(request):

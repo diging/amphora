@@ -11,6 +11,7 @@ from django.conf import settings
 
 
 import iso8601, json, sys, six, logging, rest_framework, jsonpickle
+from cookies import authorization
 from uuid import uuid4
 
 logging.basicConfig()
@@ -142,6 +143,12 @@ class ResourceBase(Entity):
         elif self.location:
             return False
 
+    def save(self, *args, **kwargs):
+        super(ResourceBase, self).save(*args, **kwargs)
+        anonymous = User.objects.get(username=u'AnonymousUser')
+        auths = ['view_resource'] if self.public else []
+        authorization.update_authorizations(auths, anonymous, self)
+
     class Meta:
         permissions = (
             ('view_resource', 'View resource'),
@@ -175,6 +182,16 @@ class Resource(ResourceBase):
                 return self.file.url
             return self.location
 
+    def save(self, *args, **kwargs):
+        super(Resource, self).save(*args, **kwargs)
+        authorization.update_authorizations(['change_resource', 'view_resource',
+                                             'delete_resource', 'add_resource',
+                                             'change_authorizations',
+                                             'view_authorizations'],
+                                             self.created_by, self)
+
+
+
 
 class ContentRelation(models.Model):
     """
@@ -205,6 +222,16 @@ class Collection(ResourceBase):
     @property
     def size(self):
         return self.resources.count()
+
+    def save(self, *args, **kwargs):
+        super(Collection, self).save(*args, **kwargs)
+        authorization.update_authorizations(['change_collection',
+                                             'view_resource',
+                                             'delete_collection',
+                                             'change_authorizations',
+                                             'view_authorizations'],
+                                             self.created_by, self)
+
 
 
 ### Types and Fields ###
