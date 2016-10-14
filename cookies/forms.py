@@ -279,3 +279,22 @@ class ConceptEntityForm(forms.ModelForm):
 
 class ConceptEntityLinkForm(forms.Form):
     uri = forms.CharField(max_length=255, help_text='Manually enter a ConceptPower URI', label='URI')
+
+
+class UserAddCollectionForm(forms.ModelForm):
+
+    """
+    Form for allowing Curator to create a collection from
+    the collection list view.
+    """
+
+    uri = forms.CharField(**{
+        'required': False,
+    })
+
+    class Meta:
+        model = Collection
+        fields = ['name', 'public', 'uri', 'content_type', 'content_resource']
+
+    def __init__(self, *args, **kwargs):
+        super(UserAddCollectionForm, self).__init__(*args, **kwargs)

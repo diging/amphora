@@ -49,6 +49,7 @@ urlpatterns = patterns('',
     url(r'^collection/([0-9]+)/authorizations/([0-9]+)/$', views.collection_authorization_change, name="collection-authorization-change"),
     url(r'^collection/([0-9]+)/authorizations/create/$', views.collection_authorization_create, name="collection-authorization-create"),
     url(r'^collection/$', views.collection_list, name="collections"),
+    url(r'^collection/create/$', views.create_collection, name="create-collection"),
     url(r'^metadata/$', views.list_metadata, name='list-metadata'),
 
     url(r'^entity/$', views.entity_list, name='entity-list'),
