@@ -1,6 +1,6 @@
 from django.conf.urls import url, include
 from django.contrib.auth.models import User
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
 from rest_framework import routers, serializers, viewsets, reverse, renderers, mixins
 from rest_framework.views import APIView
@@ -19,7 +19,8 @@ from cookies.http import HttpResponseUnacceptable, IgnoreClientContentNegotiatio
 import magic
 import re
 
-from models import *
+from cookies.models import *
+from cookies import authorization
 
 
 class MultiSerializerViewSet(viewsets.ModelViewSet):
@@ -53,10 +54,14 @@ class RelationSerializer(serializers.HyperlinkedModelSerializer):
 
 class ResourcePermission(BasePermission):
     def has_object_permission(self, request, view, obj):
-        authorized = request.user.has_perm('cookies.view_resource', obj)
-        if obj.hidden or not (obj.public or authorized):
-            return False
-        return True
+        authorized = authorization.check_authorization('view_resource', request.user, obj)
+        return authorized or request.user.is_superuser
+
+
+class CollectionPermission(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        authorized = authorization.check_authorization('view_resource', request.user, obj)
+        return authorized or request.user.is_superuser
 
 
 class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
@@ -107,10 +112,17 @@ class CollectionViewSet(viewsets.ModelViewSet):
     queryset = Collection.objects.all()
     serializer_class = CollectionSerializer
     parser_classes = (JSONParser,)
+    permission_classes = (CollectionPermission,)
+
+    def get_queryset(self, *args, **kwargs):
+        qs = super(CollectionViewSet, self).get_queryset(*args, **kwargs)
+        return authorization.apply_filter(self.request.user, 'view_resource', qs)
 
     def retrieve(self, request, pk=None):
         queryset = self.get_queryset()
         collection = get_object_or_404(queryset, pk=pk)
+        if not authorization.check_authorization('view_resource', request.user, collection):
+            return HttpResponseForbidden('Nope')
         context = {'request': request}
         serializer = CollectionDetailSerializer(collection, context=context)
         return Response(serializer.data)
@@ -132,7 +144,7 @@ class FieldViewSet(viewsets.ModelViewSet):
 
 class ResourceViewSet(MultiSerializerViewSet):
     parser_classes = (JSONParser,)
-    queryset = Resource.objects.all()
+    queryset = Resource.objects.filter(hidden=False)
     serializers = {
         'list': ResourceListSerializer,
         'retrieve':  ResourceDetailSerializer,
@@ -141,18 +153,19 @@ class ResourceViewSet(MultiSerializerViewSet):
     permission_classes = (ResourcePermission,)
 
     def get_queryset(self):
-        queryset = super(ResourceViewSet, self).get_queryset()
+        qs = super(ResourceViewSet, self).get_queryset()
+        qs = authorization.apply_filter(self.request.user, 'view_resource', qs)
 
         if not self.kwargs.get('pk', None):
-            queryset = queryset.filter(content_resource=False)
+            qs = qs.filter(content_resource=False)
         uri = self.request.query_params.get('uri', None)
         if uri:
-            queryset = queryset.filter(uri=uri)
+            qs = qs.filter(uri=uri)
 
         query = self.request.query_params.get('search', None)
         if query:
-            queryset = queryset.filter(name__icontains=query)
-        return queryset
+            qs = qs.filter(name__icontains=query)
+        return qs
 
 
 class ResourceContentView(APIView):

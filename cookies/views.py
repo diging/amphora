@@ -69,7 +69,7 @@ def resource(request, obj_id):
     resource = _get_resource_by_id(request, obj_id)
     context = {
         'resource':resource,
-        'part_of': authorization.filter(request.user, 'view_resource', resource.part_of.all())
+        'part_of': authorization.apply_filter(request.user, 'view_resource', resource.part_of.all())
     }
     return render(request, 'resource.html', context)
 
@@ -96,7 +96,7 @@ def resource_list(request):
                                              is_part=False,
                                              hidden=False)
 
-    qset_resources = authorization.filter(request.user, 'view_resource',
+    qset_resources = authorization.apply_filter(request.user, 'view_resource',
                                           qset_resources)
 
     # For now we use filters to achieve search functionality. At some point we
@@ -124,11 +124,9 @@ def resource_list(request):
 @authorization.authorization_required('view_resource', _get_collection_by_id)
 def collection(request, obj_id):
     collection = _get_collection_by_id(request, obj_id)
-
-    filtered_objects = ResourceFilter(request.GET, queryset=collection.resources.filter(
-        Q(content_resource=False)
-        & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id))
-    ))
+    resources = collection.resources.filter(content_resource=False, hidden=False)
+    resources = authorization.apply_filter(request.user, 'view_resource', resources)
+    filtered_objects = ResourceFilter(request.GET, queryset=resources)
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
         'collection': collection
@@ -139,7 +137,7 @@ def collection(request, obj_id):
 
 def collection_list(request):
     queryset = Collection.objects.filter(content_resource=False, hidden=False)
-    queryset = authorization.filter(request.user, 'view_resource', queryset)
+    queryset = authorization.apply_filter(request.user, 'view_resource', queryset)
     filtered_objects = CollectionFilter(request.GET, queryset=queryset)
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
@@ -308,7 +306,7 @@ def create_resource_details(request, content_id):
             'uri': content_resource.location,
             'public': True,    # If the resource is already online, it's public.
         })
-        form.fields['collection'].queryset = authorization.filter(*(
+        form.fields['collection'].queryset = authorization.apply_filter(*(
             request.user,
             'change_collection',
             form.fields['collection'].queryset
@@ -371,11 +369,19 @@ def create_resource_bulk(request):
     if request.method == 'GET':
         form = BulkResourceForm()
         qs = form.fields['collection'].queryset
-        form.fields['collection'].queryset = qs.filter(created_by=request.user)
+        form.fields['collection'].queryset = authorization.apply_filter(*(
+            request.user,
+            'change_collection',
+            form.fields['collection'].queryset
+        ))
     elif request.method == 'POST':
         form = BulkResourceForm(request.POST, request.FILES)
         qs = form.fields['collection'].queryset
-        form.fields['collection'].queryset = qs.filter(created_by=request.user)
+        form.fields['collection'].queryset = authorization.apply_filter(*(
+            request.user,
+            'change_collection',
+            form.fields['collection'].queryset
+        ))
         if form.is_valid():
             uploaded_file = request.FILES['upload_file']
             # File pointers aren't easily serializable; we need to farm this
@@ -740,6 +746,7 @@ def list_metadata(request):
     previous_offset = offset - size if offset - size >= 0 else -1
     next_offset = offset + size if offset + size < max_results else None
 
+    qs[offset:offset+size]
     context = RequestContext(request, {
         'relations': qs[offset:offset+size],
         'source': source,
@@ -757,13 +764,16 @@ def list_metadata(request):
     return HttpResponse(template.render(context))
 
 
+@authorization.authorization_required('view_entity', _get_entity_by_id)
 def entity_details(request, entity_id):
-    entity = get_object_or_404(ConceptEntity, pk=entity_id)
+    entity = _get_entity_by_id(request, entity_id)
     template = loader.get_template('entity_details.html')
+    similar_entities = ConceptEntity.objects.filter(name__icontains=entity.name).filter(~Q(id=entity.id))
+    similar_entities = authorization.apply_filter(request.user, 'is_owner', similar_entities)
     context = RequestContext(request, {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
         'entity': entity,
-        'similar_entities': ConceptEntity.objects.filter(name__icontains=entity.name).filter(~Q(id=entity.id)),
+        'similar_entities': similar_entities,
         'relations_from': metadata.filter_relations(qs=entity.relations_from.all(), user=request.user),
         'relations_to': metadata.filter_relations(qs=entity.relations_to.all(), user=request.user)
     })
@@ -772,7 +782,8 @@ def entity_details(request, entity_id):
 
 def entity_list(request):
     template = loader.get_template('entity_list.html')
-    filtered_objects = ConceptEntityFilter(request.GET, queryset=ConceptEntity.objects.all())
+    qs = authorization.apply_filter(request.user, 'view_entity', ConceptEntity.objects.all())
+    filtered_objects = ConceptEntityFilter(request.GET, queryset=qs)
 
     context = RequestContext(request, {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
@@ -846,6 +857,12 @@ def resource_authorization_change(request, resource_id, user_id):
                 form.cleaned_data.get('for_user'),
                 resource,
             )
+            update_authorizations.delay(
+                form.cleaned_data.get('authorizations'),
+                form.cleaned_data.get('for_user'),
+                resource,
+                by_user=request.user
+            )
             return HttpResponseRedirect(reverse('resource-authorization-list', args=(resource.id,)))
 
     form.fields['for_user'].widget = forms.HiddenInput()
@@ -898,12 +915,11 @@ def collection_authorization_change(request, collection_id, user_id):
             authorizations = form.cleaned_data.get('authorizations')
             for_user = form.cleaned_data.get('for_user')
             authorization.update_authorizations(
-                authorizations, for_user, collection,
+                authorizations, for_user, collection
             )
-            resource_auths = [auth.replace('collection', 'resource')
-                              for auth in authorizations]
-            for resource in collection.resources.all():
-                authorization.update_authorizations(resource_auths, for_user, resource)
+            update_authorizations.delay(
+                authorizations, for_user, collection, request.user
+            )
 
             return HttpResponseRedirect(reverse('collection-authorization-list', args=(collection.id,)))
 
@@ -945,7 +961,7 @@ def entity_merge(request):
         raise ValueError('')
 
     qs = ConceptEntity.objects.filter(pk__in=entity_ids)
-    qs = authorization.filter(request.user, 'merge_conceptentities', qs)
+    qs = authorization.apply_filter(request.user, 'change_conceptentity', qs)
     # q = authorization.get_auth_filter('merge_conceptentities', request.user)
     if qs.count() == 0:
         # TODO: make this pretty and informative.
@@ -963,7 +979,7 @@ def entity_merge(request):
     return HttpResponse(template.render(context))
 
 
-@authorization.authorization_required('is_owner', _get_entity_by_id)
+@authorization.authorization_required('change_conceptentity', _get_entity_by_id)
 def entity_change(request, entity_id):
     """
     Edit a :class:`.ConceptEntity` instance.
@@ -987,7 +1003,7 @@ def entity_change(request, entity_id):
     return HttpResponse(template.render(context))
 
 
-@authorization.authorization_required('is_owner', _get_entity_by_id)
+@authorization.authorization_required('change_conceptentity', _get_entity_by_id)
 def entity_change_concept(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
     if request.method == 'GET':
@@ -1041,7 +1057,7 @@ def resource_merge(request):
         raise ValueError('Need more than one resource')
 
     qs = Resource.objects.filter(pk__in=resource_ids)
-    qs = authorization.filter(request.user, 'merge_resources', qs)
+    qs = authorization.apply_filter(request.user, 'merge_resources', qs)
     if qs.count() == 0:
         # TODO: make this pretty and informative.
         return HttpResponseForbidden('Only the owner can do that')

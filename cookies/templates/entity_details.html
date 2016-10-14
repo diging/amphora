@@ -15,13 +15,13 @@
 {% endblock %}
 
 {% block content %}
-{% is_authorized "is_owner" user entity as can_edit %}
+{% is_authorized "change_conceptentity" user entity as can_edit %}
+{% is_authorized "delete_conceptentity" user entity as can_delete %}
 
 <div class="row">
     <div class="col-sm-8">
         <div class="h2 clearfix">{{ entity.name.title }}
             <span class="btn-group">
-
 
                 {% if can_edit %}
                 <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
@@ -59,7 +59,7 @@
             </dd>
             {% endwith %}
             <dt class="resource_entity_type">Type</dt>
-            <dd>{{ entity.entity_type }}</dd>
+            <dd>{{ entity.entity_type }} {{entity.relations_to.count}}</dd>
         </dl>
 
         {% if relations_from.count > 0 %}
@@ -110,13 +110,18 @@
     <div class="col-sm-4">
         {% if similar_entities.count > 0 %}
         <div class="panel panel-default">
-            <div class="panel-heading">
+            <div class="panel-heading clearfix">
                 <span class="h4">Similar entities</span>
+                <div class="pull-right">
+                    <a class="btn btn-success btn-xs" href="{% url "entity-merge" %}?entity={{ entity.id }}&{% for ent in similar_entities %}entity={{ent.id}}&{% endfor %}">Merge all</a>
+                </div>
+
             </div>
             <div class="list-group">
                 {% for ent in similar_entities %}
                 <li class="list-group-item">
-                    {% if user_can_edit %}
+                    {% is_authorized "delete_conceptentity" user ent as can_edit_sim %}
+                    {% if can_delete and can_edit_sim %}
                     <span class="btn-group">
                         <a href="{% url "entity-merge" %}?entity={{entity.id}}&entity={{ent.id}}"
                             class="btn btn-xs"

@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 from celery import shared_task
 
-from cookies import content, giles
+from cookies import content, giles, authorization
 from cookies.models import *
 
 
@@ -33,3 +33,8 @@ def check_giles_upload(resource, creator, upload_id, checkURL, session_id):
         raise check_giles_upload.retry()
     print content
     giles.process_file_upload(resource, creator, content, session_id)
+
+
+@shared_task
+def update_authorizations(auths, user, obj, by_user=None):
+    authorization.update_authorizations(auths, user, obj, by_user=by_user)

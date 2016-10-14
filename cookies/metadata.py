@@ -203,18 +203,8 @@ def filter_relations(source=None, predicate=None, target=None,
     -------
     :class:`django.db.models.query.QuerySet`
     """
-
-    if all([value is None for value in [source, predicate, target]]):
-        return qs.none()
-    resource_type = ContentType.objects.get_for_model(Resource)
-    entity_type = ContentType.objects.get_for_model(ConceptEntity)
-    allowed_resources = authorization.filter(user, 'view_resource', Resource.objects.all()).values_list('id', flat=True)
-    qs = qs.filter(((Q(source_instance_id__in=allowed_resources)
-                        & Q(source_type=resource_type))
-                       | Q(source_type=entity_type))
-                    & ((Q(target_instance_id__in=allowed_resources)
-                        &  Q(target_type=resource_type))
-                       | Q(target_type=entity_type)))
+    if not user.is_superuser:
+        qs = authorization.apply_filter(user, 'view_relation', qs)
 
     for field, qfield, value in [('source', 'source_instance_id', source),
                                  ('target', 'target_instance_id', target)]:
@@ -230,7 +220,6 @@ def filter_relations(source=None, predicate=None, target=None,
                 qs = qs.filter(qfield=getattr(value, 'id', value))
 
     if predicate is not None:
-
         if type(predicate) in [str, unicode]:
             if predicate.startswith('http'):    # Treat as a URI.
                 qs = qs.filter(predicate__uri=predicate)

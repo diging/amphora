@@ -74,11 +74,9 @@
     </div>
 </div>
 
-{% if user.is_staff %}
 <div class="text-center">
     <a class="btn btn-success" href="{% url "entity-merge" %}?{% for entity in entities %}entity={{entity.id}}&{% endfor %}">Merge all entities on this page</a>
 </div>
-{% endif %}
 
 
 {% endblock %}

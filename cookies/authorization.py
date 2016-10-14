@@ -10,6 +10,7 @@ from guardian.shortcuts import (get_perms, remove_perm, assign_perm,
                                 get_objects_for_user)
 
 from collections import defaultdict
+from itertools import chain
 
 
 AUTHORIZATIONS = [
@@ -58,11 +59,37 @@ def check_authorization(auth, user, obj):
     return user.is_superuser or is_owner(user, obj) or user.has_perm(auth, obj)
 
 
-def update_authorizations(auths, user, obj):
+def update_authorizations(auths, user, obj, by_user=None):
     for auth in set(get_perms(user, obj)) - set(auths):
         remove_perm(auth, user, obj)
     for auth in set(auths) - set(get_perms(user, obj)):
         assign_perm(auth, user, obj)
+
+    if by_user is None:
+        return
+
+    if type(obj).__name__ == 'Collection':
+        resource_auths = [auth.replace('collection', 'resource') for auth in auths]
+        for resource in apply_filter(by_user, 'change_authorizations', obj.resources.all()):
+            update_authorizations(resource_auths, user, resource, by_user=by_user)
+    elif type(obj).__name__ == 'Resource':
+        relation_auths = [auth.replace('resource', 'relation') for auth in auths]
+
+        relations_from = apply_filter(by_user, 'change_authorizations', obj.relations_from.all())
+        relations_to = apply_filter(by_user, 'change_authorizations', obj.relations_to.all())
+
+        for relation in chain(relations_from, relations_to):
+            update_authorizations(relation_auths, user, relation, by_user=by_user)
+    elif type(obj).__name__ == 'Relation':
+        entity_auths = [auth.replace('relation', 'conceptentity')
+                        if auth != 'view_relation' else 'view_entity'
+                        for auth in auths]
+        for field in ['source', 'target']:
+            related_obj = getattr(obj, field)
+            if type(related_obj).__name__ == 'ConceptEntity' and by_user.has_perm('change_authorizations', related_obj):
+                update_authorizations(entity_auths, user, related_obj, by_user=by_user)
+
+
 
 
 def list_authorizations(obj, user=None):
@@ -107,7 +134,7 @@ def authorization_required(perm, fn=None, login_url=None, raise_exception=False)
     return decorator
 
 
-def filter(user, permission, queryset):
+def apply_filter(user, permission, queryset):
     """
     Limit ``queryset`` to those objects for which ``user`` has ``permission``.
 
@@ -124,4 +151,6 @@ def filter(user, permission, queryset):
     """
     if user.is_superuser:
         return queryset
+    if permission == 'is_owner':
+        return queryset.filter(created_by_id=user.id)
     return get_objects_for_user(user, permission, queryset)

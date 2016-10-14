@@ -4,14 +4,26 @@ from django.dispatch import receiver
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 
-from cookies.models import ConceptType, ConceptEntity, Resource, ContentRelation
+from cookies.models import *
 from cookies import content
-from tasks import handle_content, send_to_giles
+from tasks import handle_content, send_to_giles, update_authorizations
 
 import logging
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel('DEBUG')
+
+
+@receiver(post_save, sender=Collection)
+@receiver(post_save, sender=Resource)
+@receiver(post_save, sender=Relation)
+@receiver(post_save, sender=ConceptEntity)
+def set_default_auths_for_collection(sender, **kwargs):
+    instance = kwargs.get('instance', None)
+    created = kwargs.get('created', False)
+    if created and instance.created_by:
+        update_authorizations.delay(sender.DEFAULT_AUTHS, instance.created_by,
+                                    instance, by_user=instance.created_by)
 
 
 @receiver(post_save, sender=User)
