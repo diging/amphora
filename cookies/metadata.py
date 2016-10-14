@@ -219,7 +219,9 @@ def filter_relations(source=None, predicate=None, target=None,
     for field, qfield, value in [('source', 'source_instance_id', source),
                                  ('target', 'target_instance_id', target)]:
         if value is not None:
-            if type(value) in [str, unicode]:
+            if type(value) is ConceptEntity:
+                qs.filter(**{'%s_instance_id': value.id, '%s_type': entity_type})
+            elif type(value) in [str, unicode]:
                 if value.startswith('http'):    # Treat as a URI.
                     qs = filter_by_generic_with_uri(field, value, qs=qs)
                 else:

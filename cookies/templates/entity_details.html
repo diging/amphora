@@ -15,13 +15,14 @@
 {% endblock %}
 
 {% block content %}
-
+{% is_authorized "is_owner" user entity as can_edit %}
 
 <div class="row">
     <div class="col-sm-8">
         <div class="h2 clearfix">{{ entity.name.title }}
             <span class="btn-group">
-                {% is_authorized "is_owner" user entity as can_edit %}
+
+
                 {% if can_edit %}
                 <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
                     href="{% url "entity-change" entity.id %}?next={{ request.path }}"
@@ -44,9 +45,16 @@
             {% with entity.concept as concept %}
             <dd>
                 {% if concept %}
-                <a href="{% url "entity-change-concept" entity.id %}"><i class="fa fa-anchor" aria-hidden="true"></i> {{ entity.concept.label }}</a>
+                <i class="fa fa-anchor" aria-hidden="true"></i> {% if entity.concept.label %}{{ entity.concept.label }}{% else %}{{ entity.concept.uri }}{% endif %}
+                {% if can_edit %}
+                <a href="{% url "entity-change-concept" entity.id %}">
+                    <i class="glyphicon glyphicon-pencil"></i>
+                </a>
+                {% endif %}
                 {% else %}
+                {% if can_edit %}
                 <a href="{% url "entity-change-concept" entity.id %}"><i class="fa fa-plus" aria-hidden="true"></i> Link or create record</a>
+                {% endif %}
                 {% endif %}
             </dd>
             {% endwith %}
@@ -54,7 +62,7 @@
             <dd>{{ entity.entity_type }}</dd>
         </dl>
 
-        {% if entity.relations_from.count > 0 %}
+        {% if relations_from.count > 0 %}
         <div class="resource_relations">
             <div class="h4">Relations from this entity</div>
             <dl class="dl-horizontal">
@@ -76,7 +84,7 @@
             </dl>
         </div>
         {% endif %}
-        {% if entity.relations_to.count > 0 %}
+        {% if relations_to.count > 0 %}
         <div class="resource_relations">
             <div class="h4">Relations to this entity</div>
             <dl class="dl-horizontal">

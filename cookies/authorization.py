@@ -29,7 +29,22 @@ COLLECTION_AUTHORIZATIONS = [
 ]
 
 
-is_owner = lambda user, obj: getattr(obj, 'created_by', None) == user or user.is_superuser
+def is_owner(user, obj):
+    """
+    Evaluates whether or not ``user`` is the owner of ``obj``. At the moment
+    this just means that the user is the creator of the object, but we may
+    switch to something more explicit later on.
+
+    Parameters
+    ----------
+    user : :class:`django.contrib.auth.models.User`
+    obj : Instance of :class:`django.models.Model` subclass.
+
+    Returns
+    -------
+    bool
+    """
+    return getattr(obj, 'created_by', None) == user or user.is_superuser
 
 
 def check_authorization(auth, user, obj):

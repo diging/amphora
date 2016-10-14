@@ -67,7 +67,11 @@ def check_authorization(request, instance, permission):
 @authorization.authorization_required('view_resource', _get_resource_by_id)
 def resource(request, obj_id):
     resource = _get_resource_by_id(request, obj_id)
-    return render(request, 'resource.html', {'resource':resource})
+    context = {
+        'resource':resource,
+        'part_of': authorization.filter(request.user, 'view_resource', resource.part_of.all())
+    }
+    return render(request, 'resource.html', context)
 
 
 def resource_by_uri(request):
@@ -117,11 +121,9 @@ def resource_list(request):
     return HttpResponse(template.render(context))
 
 
+@authorization.authorization_required('view_resource', _get_collection_by_id)
 def collection(request, obj_id):
-    collection = get_object_or_404(Collection, pk=obj_id)
-    if not collection.public and not collection.created_by == request.user:
-        return HttpResponse('You do not have permission to view this resource',
-                            status=401)
+    collection = _get_collection_by_id(request, obj_id)
 
     filtered_objects = ResourceFilter(request.GET, queryset=collection.resources.filter(
         Q(content_resource=False)
@@ -136,10 +138,8 @@ def collection(request, obj_id):
 
 
 def collection_list(request):
-    queryset = Collection.objects.filter(
-        Q(content_resource=False)\
-        & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id))
-    )
+    queryset = Collection.objects.filter(content_resource=False, hidden=False)
+    queryset = authorization.filter(request.user, 'view_resource', queryset)
     filtered_objects = CollectionFilter(request.GET, queryset=queryset)
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
@@ -764,6 +764,8 @@ def entity_details(request, entity_id):
         'user_can_edit': request.user.is_staff,    # TODO: change this!
         'entity': entity,
         'similar_entities': ConceptEntity.objects.filter(name__icontains=entity.name).filter(~Q(id=entity.id)),
+        'relations_from': metadata.filter_relations(qs=entity.relations_from.all(), user=request.user),
+        'relations_to': metadata.filter_relations(qs=entity.relations_to.all(), user=request.user)
     })
     return HttpResponse(template.render(context))
 

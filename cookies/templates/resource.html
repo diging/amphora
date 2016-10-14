@@ -72,7 +72,7 @@
         <h3>Collections</h2>
         <div class="resource_collections">
             <ul class="list-group">
-                {% for collection in resource.part_of.all %}
+                {% for collection in part_of %}
                 <a href="{% url "collection" collection.id %}"
                     class="list-group-item">
                     {{ collection.name }}
