@@ -45,35 +45,35 @@ class Entity(models.Model):
     updated = models.DateTimeField(auto_now=True)
 
     entity_type = models.ForeignKey('Type', blank=True, null=True,
-                                    verbose_name='type', help_text=help_text(
-        """
-        Specifying a type helps to determine what metadata fields are
-        appropriate for this resource, and can help with searching. Note that
-        type-specific filtering of metadata fields will only take place after
-        this resource has been saved.
-        """))
+                                    verbose_name='type',
+                                    help_text="Specifying a type helps to"
+                                    " determine what metadata fields are"
+                                    " appropriate for this resource, and can"
+                                    " help with searching. Note that type-"
+                                    "specific filtering of metadata fields"
+                                    " will only take place after this resource"
+                                    " has been saved.")
+
     name = models.CharField(max_length=255)
 
-    hidden = models.BooleanField(default=False, help_text=help_text(
-        """
-        If a resource is hidden it will not appear in search results and will
-        not be accessible directly, even for logged-in users.
-        """))
+    hidden = models.BooleanField(default=False)
+    """
+    If a resource is hidden it will not appear in search results and will
+    not be accessible directly, even for logged-in users.
+    """
 
-    public = models.BooleanField(default=True, help_text=help_text(
-        """
-        If a resource is not public it will only be accessible to logged-in
-        users and will not appear in public search results. If this option is
-        selected, you affirm that you have the right to upload and distribute
-        this resource.
-        """))
+    public = models.BooleanField(default=True, help_text="If a resource is not"
+                                 " public it will only be accessible to"
+                                 " logged-in users and will not appear in"
+                                 " public search results. If this option is"
+                                 " selected, you affirm that you have the right"
+                                 " to upload and distribute this resource.")
 
     namespace = models.CharField(max_length=255, blank=True, null=True)
-    uri = models.CharField(max_length=255, verbose_name='URI', help_text=help_text(
-       """
-       You may provide your own URI, or allow the system to assign one
-       automatically (recommended).
-       """))
+    uri = models.CharField(max_length=255, verbose_name='URI',
+                           help_text="You may provide your own URI, or allow"
+                           " the system to assign one automatically"
+                           " (recommended).")
 
 
     relations_from = GenericRelation('Relation',
@@ -134,7 +134,7 @@ class ResourceBase(Entity):
         return reverse("cookies.views.resource", args=(self.id,))
 
     @property
-    def local(self):
+    def is_local(self):
         if self.file:
             return True
         elif self.location:
@@ -164,7 +164,6 @@ class Resource(ResourceBase):
                                      blank=True, null=True)
 
     is_part = models.BooleanField(default=False)
-
     is_external = models.BooleanField(default=False)
 
     GILES = 'GL'
@@ -182,6 +181,10 @@ class Resource(ResourceBase):
             if self.file:
                 return self.file.url
             return self.location
+
+    @property
+    def is_remote(self):
+        return not self.is_local and not self.is_external
 
 
 
@@ -324,6 +327,10 @@ class Value(models.Model):
 
     def __unicode__(self):
         return unicode(self.name)
+
+    @property
+    def uri(self):
+        return u'Literal: ' + self.__unicode__()
 
 
 ### Relations ###

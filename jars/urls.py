@@ -16,6 +16,7 @@ router.register(r'resource', views_rest.ResourceViewSet)
 router.register(r'collection', views_rest.CollectionViewSet)
 router.register(r'relation', views_rest.RelationViewSet)
 router.register(r'field', views_rest.FieldViewSet)
+router.register(r'concept', views_rest.ConceptViewSet)
 
 
 urlpatterns = patterns('',
@@ -57,6 +58,7 @@ urlpatterns = patterns('',
     url(r'^entity/([0-9]+)/$', views.entity_details, name='entity-details'),
     url(r'^entity/([0-9]+)/change/$', views.entity_change, name='entity-change'),
     url(r'^entity/([0-9]+)/change/concept/$', views.entity_change_concept, name='entity-change-concept'),
+    url(r'^entity/([0-9]+)/prune/$', views.entity_prune, name="entity-prune"),
 
 
     url(r'^task/$', views.jobs, name='jobs'),

@@ -109,9 +109,8 @@ def preview(resource, request):
         if content_relations.count() > 0:     # Get content from linked resources.
 
             for i, relation in enumerate(content_relations.all()):
-                print relation.content_resource.location, relation.content_resource.local
                 preview_elem = relation.content_resource.content_location
-                if relation.content_resource.content_type in images and not relation.content_resource.local:
+                if relation.content_resource.content_type in images and not relation.content_resource.is_local:
                     image_location = relation.content_resource.content_location
                     # if not relation.content_resource.public:
                     if image_location.startswith(settings.GILES):
@@ -119,12 +118,12 @@ def preview(resource, request):
                         image_location += '&accessToken=' + social.extra_data['access_token']
                         image_location += '&dw=400'    # We can let page scripts change this after rendering.
                     preview_elem = image_preview_template.format(src=image_location)
-                elif (resource.content_type == 'application/xpdf' or (relation.content_resource.content_location and relation.content_resource.content_location.lower().endswith('.pdf'))) and relation.content_resource.local:
+                elif (resource.content_type == 'application/xpdf' or (relation.content_resource.content_location and relation.content_resource.content_location.lower().endswith('.pdf'))) and relation.content_resource.is_local:
                     preview_elem = pdf_preview_template.format(**{
                         'src': relation.content_resource.content_location,
                         "page_id": str(relation.content_resource.id),
                     }) + pdf_preview_fragment
-                elif not relation.content_resource.local:
+                elif not relation.content_resource.is_local:
                     preview_elem = external_link_template.format(**{
                         'href': relation.content_resource.location
                     })

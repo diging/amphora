@@ -29,7 +29,7 @@ from cookies.models import *
 from cookies.filters import *
 from cookies.tasks import *
 from cookies.giles import *
-from cookies import operations
+from cookies import operations, entities
 # import (add_creation_metadata, merge_conceptentities,
 #                                 merge_resources)
 from cookies import metadata, authorization
@@ -98,7 +98,12 @@ def resource_list(request):
 
     qset_resources = authorization.apply_filter(request.user, 'view_resource',
                                           qset_resources)
-
+    predicate_ids = request.GET.getlist('predicate')
+    target_ids = request.GET.getlist('target')
+    target_type_ids = request.GET.getlist('target_type')
+    if predicate_ids and target_ids and target_type_ids:
+        for p, t, y in zip(predicate_ids, target_ids, target_type_ids):
+            qset_resources = qset_resources.filter(relations_from__predicate_id=p, relations_from__target_instance_id=t, relations_from__target_type_id=y)
     # For now we use filters to achieve search functionality. At some point we
     #  should use a real search backend.
     #
@@ -768,14 +773,16 @@ def list_metadata(request):
 def entity_details(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
     template = loader.get_template('entity_details.html')
-    similar_entities = ConceptEntity.objects.filter(name__icontains=entity.name).filter(~Q(id=entity.id))
+    similar_entities = entities.suggest_similar(entity)
     similar_entities = authorization.apply_filter(request.user, 'is_owner', similar_entities)
+
     context = RequestContext(request, {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
         'entity': entity,
         'similar_entities': similar_entities,
-        'relations_from': metadata.filter_relations(qs=entity.relations_from.all(), user=request.user),
-        'relations_to': metadata.filter_relations(qs=entity.relations_to.all(), user=request.user)
+        'entity_type': ContentType.objects.get_for_model(ConceptEntity),
+        'relations_from': metadata.group_relations(metadata.filter_relations(qs=entity.relations_from.all(), user=request.user)),
+        'relations_to': metadata.group_relations(metadata.filter_relations(qs=entity.relations_to.all(), user=request.user)),
     })
     return HttpResponse(template.render(context))
 
@@ -1010,7 +1017,10 @@ def entity_change_concept(request, entity_id):
         initial_data = {}
         if entity.concept:
             initial_data.update({'uri': entity.concept.uri})
-        form = ConceptEntityLinkForm(initial_data)    # Not a ModelForm.
+        if initial_data:
+            form = ConceptEntityLinkForm(initial_data)    # Not a ModelForm.
+        else:
+            form = ConceptEntityLinkForm()
 
     if request.method == 'POST':
         form = ConceptEntityLinkForm(request.POST)
@@ -1044,8 +1054,20 @@ def resource_prune(request, resource_id):
     :class:`.Resource` instance.
     """
     resource = _get_resource_by_id(request, resource_id)
-    operations.prune_relations(resource)
+    operations.prune_relations(resource, request.user)
     return HttpResponseRedirect(resource.get_absolute_url())
+
+
+@authorization.authorization_required('change_conceptentity', _get_entity_by_id)
+def entity_prune(request, entity_id):
+    """
+    Curator can remove duplicate :class:`.Relation` instances from a
+    :class:`.ConceptEntity` instance.
+    """
+    entity = _get_entity_by_id(request, entity_id)
+    operations.prune_relations(entity, request.user)
+    return HttpResponseRedirect(entity.get_absolute_url())
+
 
 
 def resource_merge(request):
@@ -1064,7 +1086,7 @@ def resource_merge(request):
 
     if request.GET.get('confirm', False) == 'true':
         master_id = request.GET.get('master', None)
-        master = operations.merge_resources(qs, master_id)
+        master = operations.merge_resources(qs, master_id, user=request.user)
         return HttpResponseRedirect(master.get_absolute_url())
 
     context = RequestContext(request, {

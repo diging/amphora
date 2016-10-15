@@ -20,7 +20,8 @@ import magic
 import re
 
 from cookies.models import *
-from cookies import authorization
+from concepts.models import *
+from cookies import authorization, tasks
 
 
 class MultiSerializerViewSet(viewsets.ModelViewSet):
@@ -32,21 +33,28 @@ class MultiSerializerViewSet(viewsets.ModelViewSet):
         return self.serializers.get(self.action, self.serializers['default'])
 
 
+class ConceptSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Concept
+        fields = ('id', 'uri', 'label', 'description', 'authority')
+
+
 class FieldSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Field
         fields = ('id', 'name')
 
 
-class TargetResourceSerializer(serializers.HyperlinkedModelSerializer):
+class TargetResourceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Resource
-        fields = ('id', 'name')
+        fields = ('id', 'url', 'name',)
 
 
 class RelationSerializer(serializers.HyperlinkedModelSerializer):
     target = TargetResourceSerializer()
     predicate = FieldSerializer()
+
     class Meta:
         model = Relation
         fields = ('id', 'uri', 'url', 'name', 'target', 'predicate')
@@ -67,7 +75,8 @@ class CollectionPermission(BasePermission):
 class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Resource
-        fields = ('url', 'id', 'uri', 'name', 'public', 'file')
+        fields = ('url', 'id', 'uri', 'name', 'public', 'file', 'location',
+                  'is_external', 'external_source', 'is_local', 'is_remote')
 
 
 class ContentRelationSerializer(serializers.HyperlinkedModelSerializer):
@@ -107,11 +116,25 @@ class CollectionDetailSerializer(serializers.HyperlinkedModelSerializer):
         fields = ('url', 'id', 'name', 'resources', 'public')
 
 
+class ConceptViewSet(viewsets.ModelViewSet):
+    parser_classes = (JSONParser,)
+    queryset = Concept.objects.all()
+    serializer_class = ConceptSerializer
+
+    def get_queryset(self, *args, **kwargs):
+        queryset = super(ConceptViewSet, self).get_queryset(*args, **kwargs)
+        search = self.request.query_params.get('search', None)
+        print search
+        if search is not None:
+            queryset = queryset.filter(label__icontains=search)
+            tasks.search_for_concept.delay(search)
+        return queryset
+
+
 class CollectionViewSet(viewsets.ModelViewSet):
     parser_classes = (JSONParser,)
     queryset = Collection.objects.all()
     serializer_class = CollectionSerializer
-    parser_classes = (JSONParser,)
     permission_classes = (CollectionPermission,)
 
     def get_queryset(self, *args, **kwargs):
@@ -134,6 +157,13 @@ class RelationViewSet(viewsets.ModelViewSet):
     serializer_class = RelationSerializer
     parser_classes = (JSONParser,)
 
+    def get_queryset(self):
+        """
+        Extended to provide authorization filtering.
+        """
+        qs = super(RelationViewSet, self).get_queryset()
+        return authorization.apply_filter(self.request.user, 'view_relation', qs)
+
 
 class FieldViewSet(viewsets.ModelViewSet):
     parser_classes = (JSONParser,)
@@ -153,6 +183,9 @@ class ResourceViewSet(MultiSerializerViewSet):
     permission_classes = (ResourcePermission,)
 
     def get_queryset(self):
+        """
+        Extended to provide authorization filtering.
+        """
         qs = super(ResourceViewSet, self).get_queryset()
         qs = authorization.apply_filter(self.request.user, 'view_resource', qs)
 

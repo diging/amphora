@@ -4,6 +4,7 @@ from celery import shared_task
 
 from cookies import content, giles, authorization
 from cookies.models import *
+from concepts import authorities
 
 
 @shared_task
@@ -38,3 +39,8 @@ def check_giles_upload(resource, creator, upload_id, checkURL, session_id):
 @shared_task
 def update_authorizations(auths, user, obj, by_user=None):
     authorization.update_authorizations(auths, user, obj, by_user=by_user)
+
+
+@shared_task
+def search_for_concept(lemma):
+    authorities.searchall(lemma)

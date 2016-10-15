@@ -276,7 +276,7 @@ class ConceptEntityForm(forms.ModelForm):
 
 
 class ConceptEntityLinkForm(forms.Form):
-    uri = forms.CharField(max_length=255, help_text='Manually enter a ConceptPower URI', label='URI')
+    uri = forms.CharField(max_length=255, help_text='You may manually enter a ConceptPower URI', label='URI')
 
 
 class UserAddCollectionForm(forms.ModelForm):

@@ -3,6 +3,7 @@ from django.db.models import Q
 
 from cookies.models import *
 from concepts.models import Concept
+from cookies import authorization
 
 import jsonpickle, datetime
 from itertools import groupby
@@ -28,7 +29,7 @@ def _transfer_all_relations(from_instance, to_instance_id, content_type):
                                       target_instance_id=to_instance_id)
 
 
-def prune_relations(resource):
+def prune_relations(resource, user):
     """
     Search for and remove duplicate relations for a :class:`.Resource`\.
     """
@@ -63,10 +64,12 @@ def prune_relations(resource):
                     _delete_dupes(v_relations)    # Target has the same value.
 
     fields = ['predicate_id', 'target_type', 'target_instance_id', 'id']
-    _search_and_destroy(resource.relations_from.order_by(*fields).values_list(*fields))
+    relations_from = authorization.apply_filter(user, 'delete_relation', resource.relations_from.all())
+    _search_and_destroy(relations_from.order_by(*fields).values_list(*fields))
 
     fields = ['predicate_id', 'source_type', 'source_instance_id', 'id']
-    _search_and_destroy(resource.relations_to.order_by(*fields).values_list(*fields))
+    relations_to = authorization.apply_filter(user, 'delete_relation', resource.relations_to.all())
+    _search_and_destroy(relations_to.order_by(*fields).values_list(*fields))
 
 
 
@@ -128,7 +131,7 @@ def merge_conceptentities(entities, master_id=None, delete=True):
     return master
 
 
-def merge_resources(resources, master_id=None, delete=True):
+def merge_resources(resources, master_id=None, delete=True, user=None):
     """
     """
     resource_type = ContentType.objects.get_for_model(Resource)
@@ -139,6 +142,9 @@ def merge_resources(resources, master_id=None, delete=True):
 
     if with_content.count() != 0 and with_content.count() != resources.count():
         raise RuntimeError("Cannot merge content and non-content resources")
+
+    if user is None:
+        user = User.objects.get(username='AnonymousUser')
 
     if master_id:
         master = resources.get(pk=master_id)
@@ -152,7 +158,7 @@ def merge_resources(resources, master_id=None, delete=True):
         for collection in resource.part_of.all():
             master.part_of.add(collection)
 
-    prune_relations(master)
+    prune_relations(master, user)
 
     master.save()
     if delete:

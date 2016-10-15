@@ -235,3 +235,8 @@ def filter_relations(source=None, predicate=None, target=None,
         return _states
     except NotImplementedError:
         return qs
+
+
+def group_relations(relations, by='predicate'):
+    _key = lambda o: o.predicate
+    return [(predicate, [r for r in group]) for predicate, group in groupby(sorted(relations, key=_key), key=_key)]
