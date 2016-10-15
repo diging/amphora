@@ -184,3 +184,9 @@ POST = requests.post
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
 URI_NAMESPACE = 'http://diging.asu.edu/amphora'
+
+LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
+import logging
+logging.basicConfig()
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(LOGLEVEL)

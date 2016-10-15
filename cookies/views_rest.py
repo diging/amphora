@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.conf.urls import url, include
 from django.contrib.auth.models import User
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseForbidden
@@ -21,7 +22,10 @@ import re
 
 from cookies.models import *
 from concepts.models import *
+from cookies.exceptions import *
 from cookies import authorization, tasks
+
+logger = settings.LOGGER
 
 
 class MultiSerializerViewSet(viewsets.ModelViewSet):
@@ -127,7 +131,11 @@ class ConceptViewSet(viewsets.ModelViewSet):
         print search
         if search is not None:
             queryset = queryset.filter(label__icontains=search)
-            tasks.search_for_concept.delay(search)
+            try:
+                tasks.search_for_concept.delay(search)
+            except ConnectionError:
+                logger.error("ConceptViewSet.get_queryset: there was an error"
+                             " connecting to the redis message passing backend")
         return queryset
 
 

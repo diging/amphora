@@ -1,5 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
+from django.conf import settings
 
 from cookies.models import *
 from concepts.models import Concept
@@ -7,6 +8,9 @@ from cookies import authorization
 
 import jsonpickle, datetime
 from itertools import groupby
+
+from cookies.exceptions import *
+logger = settings.LOGGER
 
 
 def add_creation_metadata(resource, user):
@@ -29,7 +33,7 @@ def _transfer_all_relations(from_instance, to_instance_id, content_type):
                                       target_instance_id=to_instance_id)
 
 
-def prune_relations(resource, user):
+def prune_relations(resource, user=None):
     """
     Search for and remove duplicate relations for a :class:`.Resource`\.
     """
@@ -64,11 +68,15 @@ def prune_relations(resource, user):
                     _delete_dupes(v_relations)    # Target has the same value.
 
     fields = ['predicate_id', 'target_type', 'target_instance_id', 'id']
-    relations_from = authorization.apply_filter(user, 'delete_relation', resource.relations_from.all())
+    relations_from = resource.relations_from.all()
+    if user:
+        relations_from = authorization.apply_filter(user, 'delete_relation', relations_from)
     _search_and_destroy(relations_from.order_by(*fields).values_list(*fields))
 
     fields = ['predicate_id', 'source_type', 'source_instance_id', 'id']
-    relations_to = authorization.apply_filter(user, 'delete_relation', resource.relations_to.all())
+    relations_to = resource.relations_to.all()
+    if user:
+        relations_to = authorization.apply_filter(user, 'delete_relation', relations_to)
     _search_and_destroy(relations_to.order_by(*fields).values_list(*fields))
 
 

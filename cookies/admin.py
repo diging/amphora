@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin
 from django.forms.models import inlineformset_factory
 from django.http import HttpResponseRedirect
@@ -20,14 +21,11 @@ from unidecode import unidecode
 
 import rdflib
 
-from .models import *
-from .forms import *
+from cookies.models import *
+from cookies.forms import *
 from cookies.tasks import handle_bulk
-
-import logging
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logger.setLevel('ERROR')
+from cookies.exceptions import *
+logger = settings.LOGGER
 
 
 def import_schema(schema_url, schema_title, default_domain=None, namespace=None, prefix=None):
@@ -247,7 +245,11 @@ class ResourceAdmin(admin.ModelAdmin):
         if request.method == 'POST':
             form = BulkResourceForm(request.POST, request.FILES)
             if form.is_valid():
-                handle_bulk.delay(request.FILES['file'].temporary_file_path(), {k: v for k, v in form.cleaned_data.iteritems() if k != 'file'})
+                try:
+                    handle_bulk.delay(request.FILES['file'].temporary_file_path(), {k: v for k, v in form.cleaned_data.iteritems() if k != 'file'})
+                except ConnectionError:
+                    logger.error("resource_post_save: there was an error connecting to"
+                                 " the redis message passing backend.")
                 return HttpResponseRedirect(reverse("admin:cookies_resource_changelist"))
 
         else:

@@ -3,15 +3,14 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.conf import settings
 
 from cookies.models import *
 from cookies import content
-from tasks import handle_content, send_to_giles, update_authorizations
+from cookies.tasks import handle_content, send_to_giles, update_authorizations
+from cookies.exceptions import *
+logger = settings.LOGGER
 
-import logging
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logger.setLevel('DEBUG')
 
 
 @receiver(post_save, sender=Collection)
@@ -22,8 +21,14 @@ def set_default_auths_for_collection(sender, **kwargs):
     instance = kwargs.get('instance', None)
     created = kwargs.get('created', False)
     if created and instance.created_by:
-        update_authorizations.delay(sender.DEFAULT_AUTHS, instance.created_by,
-                                    instance, by_user=instance.created_by)
+        try:
+            update_authorizations.delay(sender.DEFAULT_AUTHS,
+                                        instance.created_by,
+                                        instance, by_user=instance.created_by)
+        except ConnectionError:
+            logger.error("set_default_auths_for_collection: there was an error"
+                         " connecting to the redis message passing backend.")
+
 
 
 @receiver(post_save, sender=User)
@@ -45,9 +50,14 @@ def send_pdfs_and_images_to_giles(sender, **kwargs):
         # PDFs and images should be stored in Digilib via Giles.
         if instance.content_resource.content_type in ['image/png', 'image/tiff', 'image/jpeg', 'application/pdf']:
             logger.debug('%s has a ContentResource; sending to Giles' % instance.content_resource.name)
-            send_to_giles.delay(instance.content_resource.file.name,
-                                instance.for_resource.created_by, resource=instance.for_resource,
-                                public=instance.for_resource.public)#delay
+            try:
+                send_to_giles.delay(instance.content_resource.file.name,
+                                    instance.for_resource.created_by, resource=instance.for_resource,
+                                    public=instance.for_resource.public)
+            except ConnectionError:
+                logger.error("send_pdfs_and_images_to_giles: there was an error"
+                             " connecting to the redis message passing"
+                             " backend.")
 
 
 @receiver(post_save, sender=ConceptEntity)
@@ -102,7 +112,12 @@ def resource_post_save(sender, **kwargs):
     # Only attempt to extract content if the instance has a file associated
     #  with it, and indexable_content has not been set.
     if instance.file._committed and not instance.indexable_content:
-        handle_content.delay(instance)
+        try:
+            handle_content.delay(instance)
+        except ConnectionError:
+            logger.error("resource_post_save: there was an error connecting to"
+                         " the redis message passing backend.")
+
 
 # TODO: list for RemoteResource post_save and try to get text via request and
 # BeautifulSoup.text
