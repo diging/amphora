@@ -142,7 +142,7 @@ class ResourceBase(Entity):
 
     def save(self, *args, **kwargs):
         super(ResourceBase, self).save(*args, **kwargs)
-        anonymous = User.objects.get(username=u'AnonymousUser')
+        anonymous, _ = User.objects.get_or_create(username=u'AnonymousUser')
         auths = ['view_resource'] if self.public else []
         authorization.update_authorizations(auths, anonymous, self)
 
