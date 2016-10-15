@@ -12,9 +12,10 @@
     <!--[if lte IE 7]><link rel="stylesheet" type="text/css" href="{% block stylesheet_ie %}{% static "admin/css/ie.css" %}{% endblock %}" /><![endif]-->
     {% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}" />{% endif %}
     <script type="text/javascript">window.__admin_media_prefix__ = "{% filter escapejs %}{% static "admin/" %}{% endfilter %}";</script>
-    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.js" type="text/javascript"></script>
+    <script src="{% static "cookies/js/jquery-1.11.1.min.js"%}" type="text/javascript"></script>
     <script type="text/javascript" src="{% static "cookies/js/bootstrap.min.js" %}"></script>
     <script type="text/javascript" src="{% static "cookies/js/pdf.js" %}"></script>
+    <script src="{% static "cookies/js/jquery-ui.min.js" %}"></script>
     {% block extrahead %}{% endblock %}
     {% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE" />{% endblock %}
 </head>
@@ -49,8 +50,8 @@
                 {% endif %}
                 <img class="img img-responsive" style="height:45px; display: inline-block; margin-right: 15px; vertical-align: top;" src="{% static "cookies/img/jar.png" %}" />
                 <span class="h1">
-                    <span class="text-warning" style="vertical-align: middle;">JARS</span>&nbsp;
-                    <small class=" text-muted" style="vertical-align: middle;">Just Another Repository for Scholars</small>
+                    <span class="text-warning">Amphora</span>&nbsp;
+                    <small class=" text-muted" style="vertical-align: middle;">Research Collection Management Platform</small>
                 </span>
             </div>
 

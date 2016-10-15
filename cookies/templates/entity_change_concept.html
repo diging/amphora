@@ -21,27 +21,100 @@
     For example, they represent references to authors, journals, publishers,
     or locations.
 </p>
+<script>
+var bindAutocomplete = function(selector) {
 
+    $(function() {
+        function split( val ) {
+            return val.split( /,\s*/ );
+        }
+        function extractLast( term ) {
+            return split( term ).pop();
+        }
+
+        $(selector)
+            // don't navigate away from the field on tab when selecting an item
+            .bind( "keydown", function( event ) {
+                if ( event.keyCode === $.ui.keyCode.TAB &&
+                    $( this ).autocomplete( "instance" ).menu.active ) {
+                        event.preventDefault();
+                    }
+                })
+                .autocomplete({
+                    source: function( request, response ) {
+                        $.getJSON("/rest/concept", {
+                            format: 'json',
+                            search: extractLast( request.term ),
+                            pos: 'noun',
+                            remote: true,
+                        }, function(data){
+
+                            response(data.results);
+                        } );
+                    },
+                    search: function() {
+                        // custom minLength
+                        var term = extractLast( this.value );
+                        if ( term.length < 3 ) {
+                            return false;
+                        }
+                    },
+                    focus: function() {
+                        return false;
+                    },
+                    select: function( event, ui ) {
+                        this.value = ui.item.value;
+                        $(this).attr('concept_id', ui.item.id);
+                        var target = $(this).attr('target');
+                        if (target) {
+                            $('#' + target).val(ui.item.uri);
+                        }
+                        return false;
+                    }
+                })
+                .autocomplete( "instance" )._renderItem = function( ul, item ) {
+                    ul.addClass('list-group');
+                    return $( "<a class='list-group-item' style='cursor: pointer;'>" )
+                        .append( "" + item.label + "<br><span class='text-muted'>" + item.description + "</span>" )
+                        .appendTo( ul );
+                };
+            });
+}
+
+</script>
 <form class="form" method="POST" action=".">
     {% csrf_token %}
         {% for error in form.non_field_errors %}
         <div class="alert alert-warning">{{ error }}</div>
         {% endfor %}
-        {% for field in form %}
-        <div class="form-group">
-            {% for error in field.errors %}
-            <div class="alert alert-warning">{{ error }}</div>
-            {% endfor %}
-            <label>{{ field.label }}</label>
-            {{ field|addcss:"form-control" }}
-            <p class="text-muted">{{ field.help_text }}</p>
-        </div>
+        <div class="row">
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label>Search</label>
+                    <input id="search-input" type="text" name="label" class="form-control"  target="id_uri" value="{{entity.concept.label}}" />
+                </div>
+            </div>
+            <div class="col-sm-6">
+                {% with form.uri as field %}
+                <div class="form-group">
+                    {% for error in field.errors %}
+                    <div class="alert alert-warning">{{ error }}</div>
+                    {% endfor %}
+                    <label>{{ field.label }}</label>
+                    {{ field|addcss:"form-control" }}
+                    <p class="text-muted">{{ field.help_text }}</p>
+                </div>
 
-        {% endfor %}
+                {% endwith %}
+            </div>
+        </div>
         <div class="text-center">
             <input class="btn btn-success" type="submit" value="Save">
         </div>
 </form>
+<script>
+bindAutocomplete($('#search-input'));
+</script>
 
 
 

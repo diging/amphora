@@ -1,4 +1,5 @@
 from cookies.models import *
+from cookies import authorization
 
 from itertools import chain, groupby
 
@@ -118,7 +119,7 @@ def get_conceptentity_with_uri(uri, qs=ConceptEntity.objects.all(),
 
 
 def get_instances_with_uri(uri, getters=[get_resource_with_uri,
-                                           get_conceptentity_with_uri],
+                                         get_conceptentity_with_uri],
                             fields=['id', 'name', 'entity_type']):
     return list(chain(*[getter(uri, fields=fields) for getter in getters]))
 
@@ -188,7 +189,7 @@ def filter_by_generic_with_name(field, name, qs=Relation.objects.all()):
 
 
 def filter_relations(source=None, predicate=None, target=None,
-                     qs=Relation.objects.all()):
+                     qs=Relation.objects.all(), user=None):
     """
     Filter a :class:`.Relation` queryset by source, predicate, and/or object.
 
@@ -202,14 +203,15 @@ def filter_relations(source=None, predicate=None, target=None,
     -------
     :class:`django.db.models.query.QuerySet`
     """
-
-    if all([value is None for value in [source, predicate, target]]):
-        return qs.none()
+    if user and not user.is_superuser:
+        qs = authorization.apply_filter(user, 'view_relation', qs)
 
     for field, qfield, value in [('source', 'source_instance_id', source),
                                  ('target', 'target_instance_id', target)]:
         if value is not None:
-            if type(value) in [str, unicode]:
+            if type(value) is ConceptEntity:
+                qs.filter(**{'%s_instance_id': value.id, '%s_type': entity_type})
+            elif type(value) in [str, unicode]:
                 if value.startswith('http'):    # Treat as a URI.
                     qs = filter_by_generic_with_uri(field, value, qs=qs)
                 else:
@@ -226,9 +228,15 @@ def filter_relations(source=None, predicate=None, target=None,
         else:
             qs = qs.filter(predicate=getattr(predicate, 'id', predicate))
 
+
     try:
         _states = qs.distinct('id')
         bool(_states)    # Force evaluation... oh I don't know.
         return _states
     except NotImplementedError:
         return qs
+
+
+def group_relations(relations, by='predicate'):
+    _key = lambda o: o.predicate
+    return [(predicate, [r for r in group]) for predicate, group in groupby(sorted(relations, key=_key), key=_key)]

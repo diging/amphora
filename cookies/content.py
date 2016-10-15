@@ -495,4 +495,5 @@ def handle_bulk(file_path, form_data, file_name):
                                     target=target,
                                     public=form_data.get('public'),
                                     created_by=form_data.get('created_by'),)
+        collection.save()   # Trigger auth changes, etc.
     return {'view': 'collection', 'id': collection.id}

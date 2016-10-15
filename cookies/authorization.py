@@ -6,9 +6,11 @@ from django.db.models import Q
 from django.http import HttpResponseForbidden
 from django.utils.decorators import available_attrs
 
-from guardian.shortcuts import get_perms, remove_perm, assign_perm
+from guardian.shortcuts import (get_perms, remove_perm, assign_perm,
+                                get_objects_for_user)
 
 from collections import defaultdict
+from itertools import chain
 
 
 AUTHORIZATIONS = [
@@ -28,7 +30,22 @@ COLLECTION_AUTHORIZATIONS = [
 ]
 
 
-is_owner = lambda user, obj: getattr(obj, 'created_by', None) == user or user.is_superuser
+def is_owner(user, obj):
+    """
+    Evaluates whether or not ``user`` is the owner of ``obj``. At the moment
+    this just means that the user is the creator of the object, but we may
+    switch to something more explicit later on.
+
+    Parameters
+    ----------
+    user : :class:`django.contrib.auth.models.User`
+    obj : Instance of :class:`django.models.Model` subclass.
+
+    Returns
+    -------
+    bool
+    """
+    return getattr(obj, 'created_by', None) == user or user.is_superuser
 
 
 def check_authorization(auth, user, obj):
@@ -42,18 +59,37 @@ def check_authorization(auth, user, obj):
     return user.is_superuser or is_owner(user, obj) or user.has_perm(auth, obj)
 
 
-# TODO: build this out.
-def get_auth_filter(auth, user):
-    """
-    """
-    return ~Q(created_by=user)
-
-
-def update_authorizations(auths, user, obj):
+def update_authorizations(auths, user, obj, by_user=None):
     for auth in set(get_perms(user, obj)) - set(auths):
         remove_perm(auth, user, obj)
     for auth in set(auths) - set(get_perms(user, obj)):
         assign_perm(auth, user, obj)
+
+    if by_user is None:
+        return
+
+    if type(obj).__name__ == 'Collection':
+        resource_auths = [auth.replace('collection', 'resource') for auth in auths]
+        for resource in apply_filter(by_user, 'change_authorizations', obj.resources.all()):
+            update_authorizations(resource_auths, user, resource, by_user=by_user)
+    elif type(obj).__name__ == 'Resource':
+        relation_auths = [auth.replace('resource', 'relation') for auth in auths]
+
+        relations_from = apply_filter(by_user, 'change_authorizations', obj.relations_from.all())
+        relations_to = apply_filter(by_user, 'change_authorizations', obj.relations_to.all())
+
+        for relation in chain(relations_from, relations_to):
+            update_authorizations(relation_auths, user, relation, by_user=by_user)
+    elif type(obj).__name__ == 'Relation':
+        entity_auths = [auth.replace('relation', 'conceptentity')
+                        if auth != 'view_relation' else 'view_entity'
+                        for auth in auths]
+        for field in ['source', 'target']:
+            related_obj = getattr(obj, field)
+            if type(related_obj).__name__ == 'ConceptEntity' and by_user.has_perm('change_authorizations', related_obj):
+                update_authorizations(entity_auths, user, related_obj, by_user=by_user)
+
+
 
 
 def list_authorizations(obj, user=None):
@@ -96,3 +132,25 @@ def authorization_required(perm, fn=None, login_url=None, raise_exception=False)
             return view_func(request, *args, **kwargs)
         return _wrapped_view
     return decorator
+
+
+def apply_filter(user, permission, queryset):
+    """
+    Limit ``queryset`` to those objects for which ``user`` has ``permission``.
+
+    Parameters
+    ----------
+    user : :class:`django.contrib.auth.models.User`
+    permission : str
+    queryset : :class:`django.db.models.QuerySet`
+
+    Returns
+    -------
+    :class:`django.db.models.QuerySet`
+
+    """
+    if user.is_superuser:
+        return queryset
+    if permission == 'is_owner':
+        return queryset.filter(created_by_id=user.id)
+    return get_objects_for_user(user, permission, queryset)

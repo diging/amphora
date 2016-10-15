@@ -11,6 +11,7 @@ from django.conf import settings
 
 
 import iso8601, json, sys, six, logging, rest_framework, jsonpickle
+from cookies import authorization
 from uuid import uuid4
 
 logging.basicConfig()
@@ -44,38 +45,35 @@ class Entity(models.Model):
     updated = models.DateTimeField(auto_now=True)
 
     entity_type = models.ForeignKey('Type', blank=True, null=True,
-                                    verbose_name='type', help_text=help_text(
-        """
-        Specifying a type helps to determine what metadata fields are
-        appropriate for this resource, and can help with searching. Note that
-        type-specific filtering of metadata fields will only take place after
-        this resource has been saved.
-        """))
-    name = models.CharField(max_length=255, help_text=help_text(
-        """
-        Names are unique accross ALL entities in the system.
-        """))
+                                    verbose_name='type',
+                                    help_text="Specifying a type helps to"
+                                    " determine what metadata fields are"
+                                    " appropriate for this resource, and can"
+                                    " help with searching. Note that type-"
+                                    "specific filtering of metadata fields"
+                                    " will only take place after this resource"
+                                    " has been saved.")
 
-    hidden = models.BooleanField(default=False, help_text=help_text(
-        """
-        If a resource is hidden it will not appear in search results and will
-        not be accessible directly, even for logged-in users.
-        """))
+    name = models.CharField(max_length=255)
 
-    public = models.BooleanField(default=True, help_text=help_text(
-        """
-        If a resource is not public it will only be accessible to logged-in
-        users and will not appear in public search results. If this option is
-        selected, you affirm that you have the right to upload and distribute
-        this resource.
-        """))
+    hidden = models.BooleanField(default=False)
+    """
+    If a resource is hidden it will not appear in search results and will
+    not be accessible directly, even for logged-in users.
+    """
+
+    public = models.BooleanField(default=True, help_text="If a resource is not"
+                                 " public it will only be accessible to"
+                                 " logged-in users and will not appear in"
+                                 " public search results. If this option is"
+                                 " selected, you affirm that you have the right"
+                                 " to upload and distribute this resource.")
 
     namespace = models.CharField(max_length=255, blank=True, null=True)
-    uri = models.CharField(max_length=255, verbose_name='URI', help_text=help_text(
-       """
-       You may provide your own URI, or allow the system to assign one
-       automatically (recommended).
-       """))
+    uri = models.CharField(max_length=255, verbose_name='URI',
+                           help_text="You may provide your own URI, or allow"
+                           " the system to assign one automatically"
+                           " (recommended).")
 
 
     relations_from = GenericRelation('Relation',
@@ -136,11 +134,17 @@ class ResourceBase(Entity):
         return reverse("cookies.views.resource", args=(self.id,))
 
     @property
-    def local(self):
+    def is_local(self):
         if self.file:
             return True
         elif self.location:
             return False
+
+    def save(self, *args, **kwargs):
+        super(ResourceBase, self).save(*args, **kwargs)
+        anonymous, _ = User.objects.get_or_create(username=u'AnonymousUser')
+        auths = ['view_resource'] if self.public else []
+        authorization.update_authorizations(auths, anonymous, self)
 
     class Meta:
         permissions = (
@@ -152,11 +156,14 @@ class ResourceBase(Entity):
 
 
 class Resource(ResourceBase):
+    DEFAULT_AUTHS = ['change_resource', 'view_resource',
+                     'delete_resource', 'change_authorizations',
+                     'view_authorizations']
+
     next_page = models.OneToOneField('Resource', related_name='previous_page',
                                      blank=True, null=True)
 
     is_part = models.BooleanField(default=False)
-
     is_external = models.BooleanField(default=False)
 
     GILES = 'GL'
@@ -174,6 +181,11 @@ class Resource(ResourceBase):
             if self.file:
                 return self.file.url
             return self.location
+
+    @property
+    def is_remote(self):
+        return not self.is_local and not self.is_external
+
 
 
 class ContentRelation(models.Model):
@@ -195,6 +207,9 @@ class Collection(ResourceBase):
     """
     A set of :class:`.Entity` instances.
     """
+    DEFAULT_AUTHS = ['change_collection', 'view_resource',
+                     'delete_collection', 'change_authorizations',
+                     'view_authorizations']
 
     resources = models.ManyToManyField('Resource', related_name='part_of',
                                         blank=True, null=True  )
@@ -205,6 +220,7 @@ class Collection(ResourceBase):
     @property
     def size(self):
         return self.resources.count()
+
 
 
 ### Types and Fields ###
@@ -312,6 +328,10 @@ class Value(models.Model):
     def __unicode__(self):
         return unicode(self.name)
 
+    @property
+    def uri(self):
+        return u'Literal: ' + self.__unicode__()
+
 
 ### Relations ###
 
@@ -326,6 +346,9 @@ class Relation(Entity):
     predicate's :attr:`.Field.range` (unless the ``range`` is empty, in which
     case anything goes).
     """
+    DEFAULT_AUTHS = ['change_relation', 'view_relation',
+                     'delete_relation', 'change_authorizations',
+                     'view_authorizations']
 
     source_type = models.ForeignKey(ContentType, related_name='relations_from',
                                     on_delete=models.CASCADE)
@@ -343,20 +366,37 @@ class Relation(Entity):
 
     class Meta:
         verbose_name = 'metadata relation'
+        permissions = (
+            ('view_relation', 'View relation'),
+            ('change_authorizations', 'Change authorizations'),
+            ('view_authorizations', 'View authorizations'),
+        )
 
     def save(self, *args, **kwargs):
         self.name = uuid4()
         super(Relation, self).save(*args, **kwargs)
 
 
+
 ### Actions and Events ###
 
 
 class ConceptEntity(Entity):
+    DEFAULT_AUTHS = ['change_conceptentity', 'view_entity',
+                     'delete_conceptentity', 'change_authorizations',
+                     'view_authorizations']
+
     concept = models.ForeignKey('concepts.Concept', null=True, blank=True)
 
     def get_absolute_url(self):
         return reverse('entity-details', args=(self.id,))
+
+    class Meta:
+        permissions = (
+            ('view_entity', 'View entity'),
+            ('change_authorizations', 'Change authorizations'),
+            ('view_authorizations', 'View authorizations'),
+        )
 
 
 class ConceptType(Type):

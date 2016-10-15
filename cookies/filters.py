@@ -30,7 +30,7 @@ class ConceptEntityFilter(django_filters.FilterSet):
 class ResourceFilter(django_filters.FilterSet):
     name = django_filters.MethodFilter(action='lookup_name_in_parts')
     content = django_filters.CharFilter(name='indexable_content',
-                                        lookup_type='icontains')
+                                        lookup_type='icontains')    
 
     entity_type = django_filters.ModelChoiceFilter(queryset=Type.objects.annotate(num_instances=Count('resource')).filter(num_instances__gt=0))
 
