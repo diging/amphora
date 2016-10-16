@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.files import File
 from django.db.models.fields.files import FieldFile
 from django.db import IntegrityError
@@ -9,8 +10,9 @@ import mimetypes, jsonpickle, os, zipfile, magic, urllib
 
 from cookies.models import *
 from cookies.ingest import read
-from cookies import giles
+from cookies import giles, authorization
 from cookies.operations import add_creation_metadata
+logger = settings.LOGGER
 
 
 xml_mime_types = [
@@ -487,13 +489,16 @@ def handle_bulk(file_path, form_data, file_name):
 
         collection.resources.add(localresource)
 
+        created_by = form_data.get('created_by')
         for field, target in resource_metadata:
             if type(field) is not Field:
                 continue
+
             Relation.objects.create(source=localresource,
                                     predicate=field,
                                     target=target,
                                     public=form_data.get('public'),
-                                    created_by=form_data.get('created_by'),)
-        collection.save()   # Trigger auth changes, etc.
+                                    created_by=created_by,)
+        authorization.update_authorizations(Collection.DEFAULT_AUTHS, created_by, collection, propagate=True)
+
     return {'view': 'collection', 'id': collection.id}

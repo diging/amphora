@@ -1,0 +1,5 @@
+{
+  "provider" : "GITHUB",
+  "errorCode" : "401",
+  "errorMsg" : "Missing or invalid token."
+}

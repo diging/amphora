@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.files import File
 
 from cookies.models import *
+from cookies.exceptions import *
 
 import requests, os
 from collections import defaultdict
@@ -18,30 +19,103 @@ def _get_file_data(raw_data):
     return files
 
 
-def check_upload_status(creator, checkURL, giles=settings.GILES, get=settings.GET):
-    response = get(checkURL + '?accessToken=' + creator.social_auth.get(provider='github').extra_data['access_token'])
-    return response.status_code, response.json()
+def handle_status_exception(func):
+    def wrapper(user, *args, **kwargs):
+        response = func(user, *args, **kwargs)
+        if response.status_code == 600:    # Auth token expired.
+            get_auth_token(user, **kwargs)
+            user.refresh_from_db()
+            # TODO: we could put some Exception handling here.
+            return func(user, *args, **kwargs)
+        elif response.status_code != requests.codes.ok and response.status_code != 202:
+            message = 'Status %i, content: %s' % (response.status_code, response.content)
+            print message
+            logger.debug(message)
+            raise StatusException(response)
+        return response
+    return wrapper
 
 
-def process_file_upload(resource, creator, raw_data, session_id, giles=settings.GILES):
-    session = GilesSession.objects.get(pk=session_id)
-
-    file_details = _get_file_data(raw_data)
-    session.file_ids = [o['uploadId'] for o in raw_data]
-    session.file_details = file_details
-    session.save()
-
-    for document_id, file_data in session.file_details.iteritems():
-        _process_document_data(session, file_data, creator, resource=resource, giles=giles)
+def api_request(func):
+    def wrapper(user, *args, **kwargs):
+        response = func(user, *args, **kwargs)
+        return response.status_code, response.json()
+    return wrapper
 
 
-def send_to_giles(file_name, creator, resource=None, public=True,
-                  giles=settings.GILES, post=settings.POST):
+def _create_auth_header(user, **kwargs):
+    provider = kwargs.get('provider', settings.GILES_DEFAULT_PROVIDER)
+    # token = user.social_auth.get(provider=provider).extra_data['access_token']
+    token = get_user_auth_token(user)
+    return {'Authorization': 'token %s' % token}
+
+
+def get_user_auth_token(user, **kwargs):
+    """
+    Get the current auth token for a :class:`.User`\.
+
+    If the user has no auth token, retrieve one and store it.
+
+    Supports dependency injection.
+
+    Parameters
+    ----------
+    user : :class:`django.contrib.auth.User`
+    kwargs : kwargs
+
+    Returns
+    -------
+    str
+        Giles authorization token for ``user``.
+    """
+    fresh = kwargs.get('fresh', False)
+    try:
+        if user.giles_token and not fresh:
+            return user.giles_token.token
+    except AttributeError:    # RelatedObjectDoesNotExist.
+        pass    # Will proceed to retrieve token.
+
+    try:
+        status_code, data = get_auth_token(user, **kwargs)
+        user.giles_token =  GilesToken.objects.create(for_user=user, token=data["token"])
+        user.save()
+        return user.giles_token.token
+    except Exception as E:
+        template = "Failed to retrieve access token for user {u}: {m}"
+        msg = template.format(u=user.username, m=data.get('errorMsg', 'nope'))
+        if kwargs.get('raise_exception', False):
+            raise E
+        logger.error(msg)
+
+
+@api_request
+@handle_status_exception
+def get_auth_token(user, **kwargs):
+    """
+    Obtain and store a short-lived authorization token from Giles.
+
+    See https://diging.atlassian.net/wiki/display/GIL/REST+Authentication.
+    """
+    giles = kwargs.get('giles', settings.GILES)
+    post = kwargs.get('post', settings.POST)
+    provider = kwargs.get('provider', settings.GILES_DEFAULT_PROVIDER)
+    app_token = kwargs.get('app_token', settings.GILES_APP_TOKEN)
+
+    path = '/'.join([giles, 'rest', 'token'])
+    provider_token = user.social_auth.get(provider=provider)\
+                                     .extra_data.get('access_token')
+    return post(path, data={'providerToken': provider_token},
+                headers={'Authorization': 'token %s' % app_token})
+
+
+@api_request
+@handle_status_exception
+def send_to_giles(user, file_name, resource=None, public=True, **kwargs):
     """
 
     Parameters
     ----------
-    creator : :class:`.User`
+    user : :class:`.User`
     file_obj : file-like object
     giles : str
         Giles endpoint.
@@ -59,38 +133,127 @@ def send_to_giles(file_name, creator, resource=None, public=True,
     :class:`.Resource`
 
     """
-    social = creator.social_auth.get(provider='github')
+    giles = kwargs.get('giles', settings.GILES)
+    post = kwargs.get('post', settings.POST)
 
-    path = '/'.join([giles, 'rest', 'files', 'upload']) + '?accessToken=' + social.extra_data['access_token']
-    headers = {
-        'content-type': 'multipart/form-data',
-    }
+    path = '/'.join([giles, 'rest', 'files', 'upload'])
+    headers = _create_auth_header(user, **kwargs)
+    headers.update({
+        # 'Content-Type': 'multipart/form-data',
+    })
+    print headers
+    logger.debug(str(headers))
 
-    data = {    # Maybe someday we will send several files at once.
-        'accessToken': social.extra_data['access_token'],
-        'access': 'PUBLIC' if public else 'PRIVATE',
-    }
-
-
-    # TODO: Giles should respond with a token for each upload, which we should
-    #  check periodically for completion (OCR takes longer than the Apache
-    #  timeout).
-    # return
-
-
-    session = GilesSession.objects.create(created_by_id=creator.id)
+    data = {'access': 'PUBLIC' if public else 'PRIVATE',}
 
     # POST request.
-    files = {'files': (file_name, File(open(os.path.join(settings.MEDIA_ROOT, file_name), 'rb')), 'application/pdf')}
-    response = post(path, files=files, data=data)
+    files = {
+        'files': (
+            file_name,
+              File(open(os.path.join(settings.MEDIA_ROOT, file_name), 'rb')),
+              'application/pdf'
+          )
+    }
+    print files
+    logger.debug(str(files))
 
-    if response.status_code != requests.codes.ok:
-        raise RuntimeError('Call to giles failed with %i: %s' % \
-                           (response.status_code, response.content))
-    return response.status_code, response.json(), session
+    # Giles should respond with a token for each upload, which we should
+    #  check periodically for completion (OCR takes longer than the Apache
+    #  timeout).
+    # import httplib as http_client
+    # http_client.HTTPConnection.debuglevel = 1
+    # requests_log = logging.getLogger("requests.packages.urllib3")
+    # requests_log.setLevel(logging.DEBUG)
+    # requests_log.propagate = True
+    return post(path, headers=headers, files=files, data=data)
 
 
-def _create_content_resource(parent_resource, resource_type, creator, uri, url, public=True, **meta):
+@api_request
+@handle_status_exception
+def check_upload_status(user, checkURL, **kwargs):
+    """
+    Poll Giles for the status of a POSTed upload.
+    """
+    giles = kwargs.get('giles', settings.GILES)
+    get = kwargs.get('get', settings.GET)
+    return get(checkURL, headers=_create_auth_header(user, **kwargs))
+
+
+def get_file_details(user, upload_id, **kwargs):
+    """
+    Calls Giles back with ``uploadIds`` observed in
+    :func:`.handle_giles_callback`\, and retrieves details about images that
+    the user has uploaded to Giles.
+
+    Parameters
+    ----------
+    user : :class:`.User`
+    upload_id : str
+        A unique ID generated by Giles that refers to a single uploaded.
+        It is possible that the upload contained several images (e.g. pages
+        extracted from a PDF).
+
+    Optional
+    --------
+    giles : str
+        Location of the Giles REST endpoint.
+    get : callable
+        Function for executing an HTTP GET request. Must return an object with
+        properties ``status_code`` and ``content``, and method ``json()``.
+    post : callable
+        Function for executing an HTTP POST request. Must return an object with
+        properties ``status_code`` and ``content``, and method ``json()``.
+    app_token : str
+        Application token provided by Giles.
+    provider : str
+        Third-party auth token provider to user for Giles authorization.
+    raise_exception : bool
+        If False, exceptions will be passed to logging at ERROR level.
+
+    Returns
+    -------
+    dict
+        Giles image file details. Keys are ``documentId``s (generated by Giles),
+        values are lists of dicts, each containing details about an image
+        file in that document.
+
+    """
+    giles = kwargs.get('giles', settings.GILES)
+    get = kwargs.get('get', settings.GET)
+
+    token = get_user_auth_token(user, **kwargs)
+
+    path = '/'.join([giles, 'rest', 'files', 'upload', upload_id])
+    response = get(path)
+    if response.status_code == 600:
+        retrieve_auth_token(user, **kwargs)
+        return get_file_details(user, upload_id, **kwargs)
+    elif response.status_code != requests.codes.ok:
+        msg = 'Call to giles failed with %i: %s' (response.status_code,
+                                                  response.content)
+        if kwargs.get('raise_exception', False):
+            raise RuntimeError(msg)
+        logger.error(msg)
+
+    return _get_file_data(response.json())
+
+
+def process_file_upload(resource, creator, raw_data, session_id, **kwargs):
+    giles = kwargs.get('giles', settings.GILES)
+    session = GilesSession.objects.get(pk=session_id)
+
+    file_details = _get_file_data(raw_data)
+    session.file_ids = [o['uploadId'] for o in raw_data]
+    session.file_details = file_details
+    session.save()
+
+    for document_id, file_data in session.file_details.iteritems():
+        _process_document_data(session, file_data, creator, resource=resource, **kwargs)
+
+
+
+def _create_content_resource(parent_resource, resource_type, creator, uri, url,
+                             public=True, **meta):
     """
 
     Parameters
@@ -190,8 +353,9 @@ def _create_page_resource(parent_resource, page_nr, resource_type, creator, uri,
     return resource
 
 
-def _process_document_data(session, data, creator, resource=None, giles=settings.GILES):
+def _process_document_data(session, data, creator, resource=None, **kwargs):
 
+    giles = kwargs.get('giles', settings.GILES)
     __text__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Text')
     __image__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Image')
     __document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
@@ -236,9 +400,9 @@ def _process_document_data(session, data, creator, resource=None, giles=settings
         text_uri = '%s/files/%s' % (giles, text_data.get('id'))
         session.content_resources.add(
             _create_content_resource(resource, __text__, creator, text_uri,
-                                     _fix_url(text_data.get('url')), public=public,
-                                     content_type=text_content_type)
-        )
+                                     _fix_url(text_data.get('url')),
+                                     public=public,
+                                     content_type=text_content_type))
 
     # Keep track of page resources so that we can populate ``next_page``.
     pages = defaultdict(dict)
@@ -265,7 +429,8 @@ def _process_document_data(session, data, creator, resource=None, giles=settings
             page_fmt_uri = '%s/files/%s' % (giles, fmt_data.get('id'))
             pages[page_nr][fmt] = _create_content_resource(page_resource,
                                      __image__ if fmt == 'image' else __text__,
-                                     creator, page_fmt_uri, _fix_url(fmt_data.get('url')),
+                                     creator, page_fmt_uri,
+                                     _fix_url(fmt_data.get('url')),
                                      public=public,
                                      content_type=fmt_data.get('content-type'),
                                      name='%s (%s)' % (page_resource.name, fmt))
@@ -282,7 +447,7 @@ def _process_document_data(session, data, creator, resource=None, giles=settings
     return resource
 
 
-def process_resources(user, session, giles=settings.GILES):
+def process_resources(user, session, **kwargs):
     """
     Once details have been retrieved concerning images uploaded to Giles, we
     need to create the appropriate metadata records (Resources). This function
@@ -301,10 +466,13 @@ def process_resources(user, session, giles=settings.GILES):
     """
 
     for document_id, file_data in session.file_details.iteritems():
-        _process_document_data(session, file_data, user, giles=giles)
+        _process_document_data(session, file_data, user, **kwargs)
 
 
-def handle_giles_callback(request, giles=settings.GILES, get=settings.GET):
+
+
+
+def handle_giles_callback(request, **kwargs):
     """
     When a user has uploaded images to Giles, they may visit a callback URL that
     includes an ``uploadIds`` parameter. In order to obtain information about
@@ -325,6 +493,7 @@ def handle_giles_callback(request, giles=settings.GILES, get=settings.GET):
     :class:`.GilesSession`
         This is used to track the provenance of Giles images.
     """
+
     upload_ids = request.GET.getlist('uploadids') + request.GET.getlist('uploadIds')
     if not upload_ids:
         raise ValueError('No upload ids in request')
@@ -334,7 +503,7 @@ def handle_giles_callback(request, giles=settings.GILES, get=settings.GET):
 
     file_details = {}
     for uid in upload_ids:
-        file_details.update(get_file_details(request.user, uid, giles=giles, get=get))
+        file_details.update(get_file_details(request.user, uid, **kwargs))
 
     session.file_ids = upload_ids
     session.file_details = file_details
@@ -342,41 +511,3 @@ def handle_giles_callback(request, giles=settings.GILES, get=settings.GET):
 
     process_resources(request.user, session)
     return session
-
-
-def get_file_details(user, upload_id, giles=settings.GILES, get=settings.GET):
-    """
-    Calls Giles back with ``uploadIds`` observed in
-    :func:`.handle_giles_callback`\, and retrieves details about images that
-    the user has uploaded to Giles.
-
-    Parameters
-    ----------
-    user : :class:`.User`
-    upload_id : str
-        A unique ID generated by Giles that refers to a single uploaded.
-        It is possible that the upload contained several images (e.g. pages
-        extracted from a PDF).
-    giles : str
-        Location of the Giles REST endpoint.
-    get : callable
-        Function for executing an HTTP GET request. Must return an object with
-        properties ``status_code`` and ``content``, and method ``json()``.
-
-    Returns
-    -------
-    dict
-        Giles image file details. Keys are ``documentId``s (generated by Giles),
-        values are lists of dicts, each containing details about an image
-        file in that document.
-    """
-    social = user.social_auth.get(provider='github')
-    path = '/'.join([giles, 'rest', 'files', 'upload', upload_id])
-    path += '?accessToken=' + social.extra_data['access_token']
-    print path
-    response = get(path)
-    if response.status_code != requests.codes.ok:
-        raise RuntimeError('Call to giles failed with %i: %s' % \
-                           (response.status_code, response.content))
-
-    return _get_file_data(response.json())
