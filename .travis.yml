@@ -4,6 +4,7 @@ python:
 env:
   global:
     - DJANGO_SETTINGS_MODULE=jars.settings
+    - BACKEND='postgres'
 before_script:
   - createuser -d -U postgres jars_tests;
   - psql -c 'create database jars_tests;' -U postgres
