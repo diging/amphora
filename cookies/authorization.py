@@ -154,7 +154,7 @@ def authorization_required(perm, fn=None, login_url=None, raise_exception=False)
     return decorator
 
 
-def apply_filter(user, permission, queryset):
+def apply_filter(user, auth, queryset):
     """
     Limit ``queryset`` to those objects for which ``user`` has ``permission``.
 
@@ -172,8 +172,8 @@ def apply_filter(user, permission, queryset):
 
     if user.is_superuser:
         return queryset
-    if permission == 'is_owner':
-        if type(queryset) is list:
-            return [obj for obj in queryset if check_authorization(permission, user, obj)]
+    if type(queryset) is list:
+        return [obj for obj in queryset if check_authorization(auth, user, obj)]
+    if auth == 'is_owner':
         return queryset.filter(created_by_id=user.id)
-    return get_objects_for_user(user, permission, queryset)
+    return get_objects_for_user(user, auth, queryset)
