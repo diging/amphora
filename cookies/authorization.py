@@ -68,11 +68,9 @@ def update_authorizations(auths, user, obj, by_user=None, propagate=True):
     """
 
     if type(obj) is QuerySet:
-        obj_perm_model = get_user_obj_perms_model(obj.model)
-
         for auth in auths:
-            obj_perm_model.objects.bulk_assign_perm(auth, user, obj)
-            # assign_perm(auth, user, obj)
+            assign_perm(auth, user, obj)
+        return
     else:
         for auth in set(get_perms(user, obj)) - set(auths):
             remove_perm(auth, user, obj)
