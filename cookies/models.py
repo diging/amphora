@@ -33,7 +33,7 @@ def _resource_file_name(instance, filename):
     Generates a file name for Files added to a :class:`.LocalResource`\.
     """
 
-    return '/'.join([instance.id, 'content', filename])
+    return '/'.join([str(instance.id), 'content', filename])
 
 
 class Entity(models.Model):
