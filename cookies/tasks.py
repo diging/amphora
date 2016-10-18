@@ -50,7 +50,8 @@ def send_to_giles(file_name, creator, resource=None, public=True):
     result = giles.send_to_giles(creator, file_name, resource=resource,
                                  public=public)
     session = GilesSession.objects.create(created_by_id=creator.id)
-    status_code, response_data = result
+
+    stat_sucode, response_data = result
 
     try:
         check_giles_upload.delay(resource, creator, response_data['id'],

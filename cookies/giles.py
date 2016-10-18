@@ -22,8 +22,10 @@ def _get_file_data(raw_data):
 def handle_status_exception(func):
     def wrapper(user, *args, **kwargs):
         response = func(user, *args, **kwargs)
-        if response.status_code == 600:    # Auth token expired.
-            get_auth_token(user, **kwargs)
+        if response.status_code == 401:    # Auth token expired.
+            print '401!'
+            user.giles_token.delete()
+            get_user_auth_token(user, **kwargs)
             user.refresh_from_db()
             # TODO: we could put some Exception handling here.
             return func(user, *args, **kwargs)
@@ -39,6 +41,7 @@ def handle_status_exception(func):
 def api_request(func):
     def wrapper(user, *args, **kwargs):
         response = func(user, *args, **kwargs)
+        print response.status_code, response.json()
         return response.status_code, response.json()
     return wrapper
 
@@ -88,14 +91,16 @@ def get_user_auth_token(user, **kwargs):
         logger.error(msg)
 
 
+
+# @handle_status_exception
 @api_request
-@handle_status_exception
 def get_auth_token(user, **kwargs):
     """
     Obtain and store a short-lived authorization token from Giles.
 
     See https://diging.atlassian.net/wiki/display/GIL/REST+Authentication.
     """
+    print 'get auth token'
     giles = kwargs.get('giles', settings.GILES)
     post = kwargs.get('post', settings.POST)
     provider = kwargs.get('provider', settings.GILES_DEFAULT_PROVIDER)
@@ -225,7 +230,7 @@ def get_file_details(user, upload_id, **kwargs):
 
     path = '/'.join([giles, 'rest', 'files', 'upload', upload_id])
     response = get(path)
-    if response.status_code == 600:
+    if response.status_code == 401:
         retrieve_auth_token(user, **kwargs)
         return get_file_details(user, upload_id, **kwargs)
     elif response.status_code != requests.codes.ok:

@@ -117,5 +117,6 @@ class TestGetUserAuthorization(unittest.TestCase):
         self.assertEqual(token, token_again)
 
 
+
 if __name__ == '__main__':
     unittest.main()

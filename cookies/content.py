@@ -10,8 +10,9 @@ import mimetypes, jsonpickle, os, zipfile, magic, urllib
 
 from cookies.models import *
 from cookies.ingest import read
-from cookies import giles, authorization
+from cookies import giles, authorization, operations
 from cookies.operations import add_creation_metadata
+
 logger = settings.LOGGER
 
 
@@ -68,6 +69,18 @@ def _handle_resource(resource):
 
 
 def _resources_from_zip(file, type_instance):
+    """
+    Extract files from a ZIP archive.
+
+    Parameters
+    ----------
+    file : File
+    type_instance : :class:`.Type`
+
+    Returns
+    -------
+    list
+    """
     # The user has uploaded a zip file.
     # TODO: handle exceptions (e.g. not a zip file).
     z = zipfile.ZipFile(file)
@@ -382,6 +395,42 @@ def _get_content_resources(resource, creator):
             content_metadata = []
             content_resources.append(_process_metadata(content_metadata, file_data, creator))
     return content_resources
+
+
+def bulk_ingest_pdfs(file_path, user, collection=None):
+    __document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
+
+    rdata = _resources_from_zip(file_path, None)
+    resources = []
+    for datum in rdata:
+        resource = Resource.objects.create(
+            name = datum['name'],
+            entity_type = __document__,
+            created_by = user,
+        )
+        content_resource = Resource.objects.create(
+            name = datum['name'],
+            entity_type = __document__,
+            created_by = user,
+            content_resource = True,
+        )
+        operations.add_creation_metadata(resource, user)
+        operations.add_creation_metadata(content_resource, user)
+        with open(datum['file'], 'r') as f:
+            content_resource.file.save(datum['name'], File(f), True)
+            content_type, content_encoding = mimetypes.guess_type(content_resource.file.name)
+
+        ContentRelation.objects.create(**{
+            'for_resource': resource,
+            'content_resource': content_resource,
+            'content_type': content_type,
+            'content_encoding': content_encoding,
+            'created_by': user,
+        })
+        if collection:
+            collection.resources.add(resource)
+        resources.append(resource)
+    return resources
 
 
 def handle_bulk(file_path, form_data, file_name):
