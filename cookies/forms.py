@@ -125,8 +125,6 @@ class BulkResourceForm(forms.Form):
             raise forms.ValidationError("Please enter a name for your new collection")
 
 
-
-
 class ResourceForm(forms.ModelForm):
     class Meta:
         model = Resource
@@ -156,11 +154,11 @@ class UserResourceForm(forms.Form):
                    + u' generate a URI for you.',
         'label': 'URI',
     })
-    namespace = forms.CharField(**{
-        'help_text': u'Use this field if you wish to explicitly specify a' \
-                   + u' namespace for this resource.',
-        'required': False,
-    })
+    # namespace = forms.CharField(**{
+    #     'help_text': u'Use this field if you wish to explicitly specify a' \
+    #                + u' namespace for this resource.',
+    #     'required': False,
+    # })
     collection = forms.ModelChoiceField(**{
         'queryset': Collection.objects.all().order_by('name'),
         'required': False
@@ -263,7 +261,7 @@ class MetadatumForm(forms.Form):
 
 class AuthorizationForm(forms.Form):
     for_user = forms.ModelChoiceField(queryset=User.objects.all().order_by('-username'))
-    authorizations = forms.MultipleChoiceField(choices=authorization.AUTHORIZATIONS)
+    authorizations = forms.MultipleChoiceField(choices=authorization.AUTHORIZATIONS, required=False)
 
 
 class CollectionAuthorizationForm(forms.Form):
@@ -278,4 +276,23 @@ class ConceptEntityForm(forms.ModelForm):
 
 
 class ConceptEntityLinkForm(forms.Form):
-    uri = forms.CharField(max_length=255, help_text='Manually enter a ConceptPower URI', label='URI')
+    uri = forms.CharField(max_length=255, help_text='You may manually enter a ConceptPower URI', label='URI')
+
+
+class UserAddCollectionForm(forms.ModelForm):
+
+    """
+    Form for allowing Curator to create a collection from
+    the collection list view.
+    """
+
+    uri = forms.CharField(**{
+        'required': False,
+    })
+
+    class Meta:
+        model = Collection
+        fields = ['name', 'public', 'uri', 'content_type', 'content_resource']
+
+    def __init__(self, *args, **kwargs):
+        super(UserAddCollectionForm, self).__init__(*args, **kwargs)

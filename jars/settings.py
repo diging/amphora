@@ -92,6 +92,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework_xml.renderers.XMLRenderer',
+        'rest_framework.renderers.JSONRenderer',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         # 'rest_framework.authentication.BasicAuthentication',
@@ -110,12 +111,24 @@ WSGI_APPLICATION = 'jars.wsgi.application'
 
 # Database.
 if DEVELOP or TEST:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+    if os.environ.get('BACKEND', 'sqlite') == 'postgres':
+        DATABASES = {
+           'default': {
+               'ENGINE': 'django.db.backends.postgresql_psycopg2',
+               'NAME': 'jars',
+               'USER': 'jars',
+               'PASSWORD': 'jars',
+               'HOST': 'localhost',
+               'PORT': '5432',
+           }
         }
-    }
+    else:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+            }
+        }
 else:
     DATABASES = {
         'default': {
@@ -178,8 +191,16 @@ GILES = os.environ.get('GILES', 'https://diging.asu.edu/giles')
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 GET = requests.get
 POST = requests.post
+GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
+GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
 
 # Metadata globals.
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
 URI_NAMESPACE = 'http://diging.asu.edu/amphora'
+
+LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
+import logging
+logging.basicConfig()
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(LOGLEVEL)

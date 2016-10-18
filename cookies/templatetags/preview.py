@@ -6,7 +6,8 @@ register = template.Library()
 
 from django.utils.safestring import mark_safe
 
-from cookies.models import Field
+from cookies.models import Field, Resource
+from cookies import giles
 
 
 tablist_template = """
@@ -94,7 +95,7 @@ import urlparse, urllib
 @register.filter(name='preview')
 def preview(resource, request):
     page_field = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
-
+    user = resource.created_by
     content_relations = resource.content.all()
     page_relations = resource.relations_to.filter(predicate=page_field)
 
@@ -109,25 +110,28 @@ def preview(resource, request):
         if content_relations.count() > 0:     # Get content from linked resources.
 
             for i, relation in enumerate(content_relations.all()):
-                print relation.content_resource.location, relation.content_resource.local
                 preview_elem = relation.content_resource.content_location
-                if relation.content_resource.content_type in images and not relation.content_resource.local:
+                if relation.content_resource.content_type in images and not relation.content_resource.is_local:
                     image_location = relation.content_resource.content_location
                     # if not relation.content_resource.public:
                     if image_location.startswith(settings.GILES):
-                        social = request.user.social_auth.get(provider='github')
-                        image_location += '&accessToken=' + social.extra_data['access_token']
+                        image_location += '&accessToken=' + giles.get_user_auth_token(user)
                         image_location += '&dw=400'    # We can let page scripts change this after rendering.
                     preview_elem = image_preview_template.format(src=image_location)
-                elif (resource.content_type == 'application/xpdf' or (relation.content_resource.content_location and relation.content_resource.content_location.lower().endswith('.pdf'))) and relation.content_resource.local:
+                elif (resource.content_type == 'application/xpdf' or (relation.content_resource.content_location and relation.content_resource.content_location.lower().endswith('.pdf'))) and relation.content_resource.is_local:
                     preview_elem = pdf_preview_template.format(**{
                         'src': relation.content_resource.content_location,
                         "page_id": str(relation.content_resource.id),
                     }) + pdf_preview_fragment
-                elif not relation.content_resource.local:
-                    preview_elem = external_link_template.format(**{
-                        'href': relation.content_resource.location
-                    })
+                elif not relation.content_resource.is_local:
+                    if relation.content_resource.external_source == Resource.GILES and relation.content_resource.content_type == 'text/plain':
+                        preview_elem = iframe_template.format(**{
+                            'href': relation.content_resource.location + '?accessToken=' + giles.get_user_auth_token(user)
+                        })
+                    else:
+                        preview_elem = external_link_template.format(**{
+                            'href': relation.content_resource.location
+                        })
                 elif relation.content_resource.content_type in images:
                     preview_elem = image_preview_template.format(**{
                         'src': relation.content_resource.file.url
@@ -157,8 +161,7 @@ def preview(resource, request):
                 if content_resource.content_type in images:
                     image_location = content_resource.content_location
                     if image_location.startswith(settings.GILES):
-                        social = request.user.social_auth.get(provider='github')
-                        image_location += '&accessToken=' + social.extra_data['access_token'] + '&dw=300'
+                        image_location += '&accessToken=' + giles.get_user_auth_token(user)+ '&dw=300'
 
                     preview_elem += image_preview_template.format(src=image_location)
                 elif content_resource.content_type == 'application/xpdf' or content_resource.content_location.lower().endswith('.pdf'):
@@ -166,13 +169,13 @@ def preview(resource, request):
 
                 tabpanes.append(tabpane_template.format(**{
                     "class": "active" if i == 0 and len(tabs) == 0 else "",
-                    "page_id": str(relation.target.id),
+                    "page_id": str(content_resource.id),
                     "preview": preview_elem,
                 }))
 
                 tabs.append(tab_template.format(**{
                     "class": "active" if i == 0 and len(tabs) == 0 else "",
-                    "page_id": str(relation.target.id),
+                    "page_id": str(content_resource.id),
                     "page": u"Page %s" % str(i + 1)
                 }))
 

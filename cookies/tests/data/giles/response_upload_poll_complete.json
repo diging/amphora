@@ -1,0 +1,131 @@
+[ {
+  "documentId" : "DOC11CLcQieIzeW",
+  "uploadId" : "UPlwa7DGIawkIX",
+  "uploadedDate" : "2016-10-16T09:57:46.495Z",
+  "access" : "PRIVATE",
+  "uploadedFile" : {
+    "filename" : "Tuesday notes - LDA.pdf",
+    "id" : "FILEZFUeIE1HyCsa",
+    "url" : "https://diging-dev.asu.edu/giles-review/rest/files/FILEZFUeIE1HyCsa/content",
+    "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf",
+    "content-type" : "application/pdf",
+    "size" : 1289368
+  },
+  "extractedText" : {
+    "filename" : "Tuesday notes - LDA.pdf.txt",
+    "id" : "FILEi0B8TXqhRA1A",
+    "url" : "https://diging-dev.asu.edu/giles-review/rest/files/FILEi0B8TXqhRA1A/content",
+    "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.txt",
+    "content-type" : "text/plain",
+    "size" : 5869
+  },
+  "pages" : [ {
+    "nr" : 0,
+    "image" : {
+      "filename" : "Tuesday notes - LDA.pdf.0.tiff",
+      "id" : "FILEuDCzFy6XZneO",
+      "url" : "https://diging-dev.asu.edu/giles-review/rest/digilib?fn=erickpeirson_github%2FUPlwa7DGIawkIX%2FDOC11CLcQieIzeW%2FTuesday+notes+-+LDA.pdf.0.tiff",
+      "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.0.tiff",
+      "content-type" : "image/tiff",
+      "size" : 1145040
+    },
+    "text" : {
+      "filename" : "Tuesday notes - LDA.pdf.0.txt",
+      "id" : "FILEAWPgaajVgJcv",
+      "url" : "https://diging-dev.asu.edu/giles-review/rest/files/FILEAWPgaajVgJcv/content",
+      "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.0.txt",
+      "content-type" : "text/plain",
+      "size" : 854
+    }
+  }, {
+    "nr" : 1,
+    "image" : {
+      "filename" : "Tuesday notes - LDA.pdf.1.tiff",
+      "id" : "FILE6WJbK4c9OZIe",
+      "url" : "https://diging-dev.asu.edu/giles-review/rest/digilib?fn=erickpeirson_github%2FUPlwa7DGIawkIX%2FDOC11CLcQieIzeW%2FTuesday+notes+-+LDA.pdf.1.tiff",
+      "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.1.tiff",
+      "content-type" : "image/tiff",
+      "size" : 766293
+    },
+    "text" : {
+      "filename" : "Tuesday notes - LDA.pdf.1.txt",
+      "id" : "FILEq9YsIU503gy3",
+      "url" : "https://diging-dev.asu.edu/giles-review/rest/files/FILEq9YsIU503gy3/content",
+      "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.1.txt",
+      "content-type" : "text/plain",
+      "size" : 536
+    }
+  }, {
+    "nr" : 2,
+    "image" : {
+      "filename" : "Tuesday notes - LDA.pdf.2.tiff",
+      "id" : "FILEXNUb1fL7pqZ3",
+      "url" : "https://diging-dev.asu.edu/giles-review/rest/digilib?fn=erickpeirson_github%2FUPlwa7DGIawkIX%2FDOC11CLcQieIzeW%2FTuesday+notes+-+LDA.pdf.2.tiff",
+      "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.2.tiff",
+      "content-type" : "image/tiff",
+      "size" : 1035868
+    },
+    "text" : {
+      "filename" : "Tuesday notes - LDA.pdf.2.txt",
+      "id" : "FILEYzd8vYk8dBeK",
+      "url" : "https://diging-dev.asu.edu/giles-review/rest/files/FILEYzd8vYk8dBeK/content",
+      "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.2.txt",
+      "content-type" : "text/plain",
+      "size" : 489
+    }
+  }, {
+    "nr" : 3,
+    "image" : {
+      "filename" : "Tuesday notes - LDA.pdf.3.tiff",
+      "id" : "FILEA9J8QGHBLWja",
+      "url" : "https://diging-dev.asu.edu/giles-review/rest/digilib?fn=erickpeirson_github%2FUPlwa7DGIawkIX%2FDOC11CLcQieIzeW%2FTuesday+notes+-+LDA.pdf.3.tiff",
+      "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.3.tiff",
+      "content-type" : "image/tiff",
+      "size" : 716484
+    },
+    "text" : {
+      "filename" : "Tuesday notes - LDA.pdf.3.txt",
+      "id" : "FILE9iWc3yhtjmBJ",
+      "url" : "https://diging-dev.asu.edu/giles-review/rest/files/FILE9iWc3yhtjmBJ/content",
+      "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.3.txt",
+      "content-type" : "text/plain",
+      "size" : 1313
+    }
+  }, {
+    "nr" : 4,
+    "image" : {
+      "filename" : "Tuesday notes - LDA.pdf.4.tiff",
+      "id" : "FILEBYJ59ybHqS0o",
+      "url" : "https://diging-dev.asu.edu/giles-review/rest/digilib?fn=erickpeirson_github%2FUPlwa7DGIawkIX%2FDOC11CLcQieIzeW%2FTuesday+notes+-+LDA.pdf.4.tiff",
+      "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.4.tiff",
+      "content-type" : "image/tiff",
+      "size" : 718808
+    },
+    "text" : {
+      "filename" : "Tuesday notes - LDA.pdf.4.txt",
+      "id" : "FILE03UeXMoHhBHN",
+      "url" : "https://diging-dev.asu.edu/giles-review/rest/files/FILE03UeXMoHhBHN/content",
+      "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.4.txt",
+      "content-type" : "text/plain",
+      "size" : 1435
+    }
+  }, {
+    "nr" : 5,
+    "image" : {
+      "filename" : "Tuesday notes - LDA.pdf.5.tiff",
+      "id" : "FILEC30VPjivf4wZ",
+      "url" : "https://diging-dev.asu.edu/giles-review/rest/digilib?fn=erickpeirson_github%2FUPlwa7DGIawkIX%2FDOC11CLcQieIzeW%2FTuesday+notes+-+LDA.pdf.5.tiff",
+      "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.5.tiff",
+      "content-type" : "image/tiff",
+      "size" : 698224
+    },
+    "text" : {
+      "filename" : "Tuesday notes - LDA.pdf.5.txt",
+      "id" : "FILEIICqtlBLfYXm",
+      "url" : "https://diging-dev.asu.edu/giles-review/rest/files/FILEIICqtlBLfYXm/content",
+      "path" : "erickpeirson_github/UPlwa7DGIawkIX/DOC11CLcQieIzeW/Tuesday notes - LDA.pdf.5.txt",
+      "content-type" : "text/plain",
+      "size" : 1242
+    }
+  } ]
+} ]

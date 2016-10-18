@@ -15,7 +15,7 @@ django-celery==3.1.17
 django-cors-headers==1.1.0
 django-extensions==1.6.3
 django-filter==0.10.0
-django-guardian==1.4.4
+django-guardian==1.4.6
 django-oauth-plus==2.2.8
 django-oauth-toolkit==0.9.0
 django-oauth2==1.1
@@ -54,3 +54,4 @@ jsonpickle
 -e git://github.com/erickpeirson/django-pagination.git#egg=django-pagination
 python-social-auth
 pyoai==2.4.5
+python-Levenshtein==0.12.0

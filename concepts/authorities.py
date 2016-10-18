@@ -11,6 +11,7 @@ logger.setLevel('DEBUG')
 class AuthorityManager(object):
     pass
 
+
 class ConceptpowerAuthority(AuthorityManager, Conceptpower):
     __name__ = 'ConceptpowerAuthority'
 
@@ -21,6 +22,7 @@ class ConceptpowerAuthority(AuthorityManager, Conceptpower):
 authority_managers = (
     ConceptpowerAuthority,
 )
+
 
 def searchall(query):
     return [ concept_from_result(result, manager.__name__) for manager in authority_managers  for result in manager().search(query) ]

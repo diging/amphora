@@ -15,7 +15,17 @@
 
 {% block content %}
 {% autopaginate filtered_objects.qs 10 as resources %}
-<div class="h2">Resources</div>
+<div class="row">
+    <div class="col-xs-4">
+        <span class="h2">Resources</span>
+    </div>
+    <div class="col-xs-4">
+        <span class="text-center">
+            {% paginate %}
+        </span>
+    </div>
+    <div class="col-xs-4"></div>
+</div>
 
 <div class="panel-group">
     <div class="panel panel-default">
@@ -52,22 +62,52 @@
     </div>
 </div>
 
-<div class="collection_resources">
-    <div class="pagination container text-center">
-        {% paginate %}
+<div class="row">
+    <div class="col-sm-3">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+              <span class="h5">Collections</span>
+            </div>
+            <div class="panel-body">
+                {% for collection in collections %}
+                <a href="{{ collection.get_absolute_url }}"
+                    class="list-group-item">{{ collection.name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
     </div>
-    <ul class="list-group">
-        {% for resource in resources %}
-        <a class="list-group-item"
-            href="{{ resource.get_absolute_url }}">
-            <span class="label label-primary">{{ resource.entity_type }}</span> {{ resource.name }}
-            <br><small class="text-info">{{ resource.created_by }}</small>
-        </a>
-        {% endfor %}
-    </ul>
-    <div class="pagination container text-center">
-        {% paginate %}
+    <div class="col-sm-9">
+        <div class="collection_resources">
+            <ul class="list-group">
+                {% for resource in resources %}
+                <a class="list-group-item"
+                    href="{{ resource.get_absolute_url }}">
+                    <span class="label label-primary">{{ resource.entity_type }}</span> {{ resource.name }}
+                    <span class="pull-right">Updated: {{ resource.updated.date }}</span>
+                    <div>
+                        Creator: <span class="text-info">{{ resource.created_by }}</span>
+                        <span class="pull-right btn-group">
+                            {% if resource.has_local_content %}
+                            <span class="btn-xs">
+                                <i class="fa fa-database"></i>
+                            </span>
+                            {% endif %}
+                            {% if resource.has_giles_content %}
+                            <span class="btn-xs">
+                                <img style="height: 12px;" src="{% static "cookies/img/giles_logo.png" %}" />
+                            </span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </a>
+                {% endfor %}
+            </ul>
+        </div>
     </div>
+</div>
+<div class="pagination container text-center">
+    {% paginate %}
 </div>
 
 {% if user.is_staff %}

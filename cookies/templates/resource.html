@@ -15,11 +15,17 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-sm-6">
+    <div class="col-md-7">
         <div class="resource_summary">
             <div class="h2 resource_name">
                 {{ resource.name }}
+
                 <span class="pull-right btn-group">
+                    {% if resource.has_giles_content %}
+                    <span class="btn">
+                        <img style="height: 15px;" src="{% static "cookies/img/giles_logo.png" %}" />
+                    </span>
+                    {% endif %}
                     {% is_authorized "change_resource" user resource as can_edit_resource %}
                     {% if can_edit_resource %}
                     <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
@@ -56,13 +62,14 @@
                 <dt class="resource_content">Content</dt>
                 {% for content_relation in resource.content.all %}
                 <dd>
+                    {% if content_relation.content_resource.is_local and not resource.has_giles_content %}<a class="btn btn-xs glyphicon glyphicon-plus" href="{% url "trigger-giles-submission" resource.id content_relation.id %}"></a>{% endif %}
                     <a href="{{ content_relation.content_resource.content_location }}">
                         {{ content_relation.content_resource.content_location|truncatechars:50 }}
                     </a>&nbsp;
                     {% if content_relation.content_type %}
-                    <label class="label label-primary">
+                    <span class="text-warning">
                         {{ content_relation.content_type }}
-                    </label>
+                    </span>
                     {% endif %}
                 </dd>
                 {% endfor %}
@@ -72,7 +79,7 @@
         <h3>Collections</h2>
         <div class="resource_collections">
             <ul class="list-group">
-                {% for collection in resource.part_of.all %}
+                {% for collection in part_of %}
                 <a href="{% url "collection" collection.id %}"
                     class="list-group-item">
                     {{ collection.name }}
@@ -102,7 +109,7 @@
             </dl>
         </div>
     </div>
-    <div class="col-sm-6">
+    <div class="col-md-5">
         {{ resource|preview:request }}
     </div>
 </div>

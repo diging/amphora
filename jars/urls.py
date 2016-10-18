@@ -16,6 +16,7 @@ router.register(r'resource', views_rest.ResourceViewSet)
 router.register(r'collection', views_rest.CollectionViewSet)
 router.register(r'relation', views_rest.RelationViewSet)
 router.register(r'field', views_rest.FieldViewSet)
+router.register(r'concept', views_rest.ConceptViewSet)
 
 
 urlpatterns = patterns('',
@@ -37,6 +38,7 @@ urlpatterns = patterns('',
     url(r'^resource/create/giles/callback/$', views.handle_giles_upload, name="create-handle-giles"),
     url(r'^resource/merge/$', views.resource_merge, name="resource-merge"),
     url(r'^resource/([0-9]+)/edit/$', views.edit_resource_details, name="edit-resource-details"),
+    url(r'^resource/([0-9]+)/giles/([0-9]+)$', views.trigger_giles_submission, name="trigger-giles-submission"),
     url(r'^resource/([0-9]+)/prune/$', views.resource_prune, name="resource-prune"),
     url(r'^resource/([0-9]+)/edit/([0-9]+)/$', views.edit_resource_metadatum, name="edit-resource-metadatum"),
     url(r'^resource/([0-9]+)/edit/([0-9]+)/delete/$', views.delete_resource_metadatum, name="delete-resource-metadatum"),
@@ -49,6 +51,7 @@ urlpatterns = patterns('',
     url(r'^collection/([0-9]+)/authorizations/([0-9]+)/$', views.collection_authorization_change, name="collection-authorization-change"),
     url(r'^collection/([0-9]+)/authorizations/create/$', views.collection_authorization_create, name="collection-authorization-create"),
     url(r'^collection/$', views.collection_list, name="collections"),
+    url(r'^collection/create/$', views.create_collection, name="create-collection"),
     url(r'^metadata/$', views.list_metadata, name='list-metadata'),
 
     url(r'^entity/$', views.entity_list, name='entity-list'),
@@ -56,6 +59,7 @@ urlpatterns = patterns('',
     url(r'^entity/([0-9]+)/$', views.entity_details, name='entity-details'),
     url(r'^entity/([0-9]+)/change/$', views.entity_change, name='entity-change'),
     url(r'^entity/([0-9]+)/change/concept/$', views.entity_change_concept, name='entity-change-concept'),
+    url(r'^entity/([0-9]+)/prune/$', views.entity_prune, name="entity-prune"),
 
 
     url(r'^task/$', views.jobs, name='jobs'),

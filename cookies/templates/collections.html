@@ -14,7 +14,13 @@
 
 {% block content %}
 {% autopaginate filtered_objects.qs 10 as collections %}
-<h2>Collections</h2>
+<div class="row">
+    <div class="h3 col-xs-4">Collections</div>
+    <div class="col-xs-4 text-center">
+        {% paginate %}
+    </div>
+</div>
+
 <div class="panel-group">
     <div class="panel panel-default">
         <div class="panel-heading">
@@ -51,9 +57,6 @@
 </div>
 
 <div class="resource_collections">
-    <div class="pagination container text-center">
-        {% paginate %}
-    </div>
     <ul class="list-group">
         {% for collection in collections %}
         <a href="{{ collection.get_absolute_url }}"
@@ -61,9 +64,13 @@
         </a>
         {% endfor %}
     </ul>
-    <div class="pagination container text-center">
-        {% paginate %}
-    </div>
+
 </div>
+<div class="pagination container text-center">
+    {% paginate %}
+</div>
+  <div class="text-center">
+      <a class="btn btn-success" href="{% url "create-collection" %}">Create collection</a>
+  </div>
 
 {% endblock %}
