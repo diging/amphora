@@ -419,6 +419,7 @@ def bulk_ingest_pdfs(file_path, user, collection=None):
         with open(datum['file'], 'r') as f:
             content_resource.file.save(datum['name'], File(f), True)
             content_type, content_encoding = mimetypes.guess_type(content_resource.file.name)
+        os.remove(datum['file'])
 
         ContentRelation.objects.create(**{
             'for_resource': resource,

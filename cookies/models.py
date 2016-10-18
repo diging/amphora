@@ -195,6 +195,9 @@ class Resource(ResourceBase):
     def has_local_content(self):
         return self.content.filter(~Q(content_resource__file='')).count() > 0
 
+    def __unicode__(self):
+        return unicode(self.id)
+
 
 
 class ContentRelation(models.Model):
