@@ -13,21 +13,22 @@ logger = settings.LOGGER
 
 
 
-@receiver(post_save, sender=Collection)
-@receiver(post_save, sender=Resource)
-@receiver(post_save, sender=Relation)
-@receiver(post_save, sender=ConceptEntity)
-def set_default_auths_for_collection(sender, **kwargs):
-    instance = kwargs.get('instance', None)
-    created = kwargs.get('created', False)
-    if created and instance.created_by:
-        try:
-            update_authorizations.delay(sender.DEFAULT_AUTHS,
-                                        instance.created_by,
-                                        instance, by_user=instance.created_by)
-        except ConnectionError:
-            logger.error("set_default_auths_for_collection: there was an error"
-                         " connecting to the redis message passing backend.")
+
+# @receiver(post_save, sender=Collection)
+# @receiver(post_save, sender=Resource)
+# @receiver(post_save, sender=Relation)
+# @receiver(post_save, sender=ConceptEntity)
+# def set_default_auths_for_collection(sender, **kwargs):
+#     instance = kwargs.get('instance', None)
+#     created = kwargs.get('created', False)
+#     if created and instance.created_by:
+#         try:
+#             update_authorizations.delay(sender.DEFAULT_AUTHS,
+#                                         instance.created_by,
+#                                         instance, by_user=instance.created_by)
+#         except ConnectionError:
+#             logger.error("set_default_auths_for_collection: there was an error"
+#                          " connecting to the redis message passing backend.")
 
 
 
@@ -41,23 +42,29 @@ def new_users_are_inactive_by_default(sender, **kwargs):
 
 
 # TODO: enable this when Giles is ready for asynchronous uploads.
-#@receiver(post_save, sender=ContentRelation)
+@receiver(post_save, sender=ContentRelation)
 def send_pdfs_and_images_to_giles(sender, **kwargs):
     instance = kwargs.get('instance', None)
     print 'received post_Save for ContentRelation %i' % instance.id
 
-    if instance and kwargs.get('created', False) and instance.content_resource.file.name is not None:
+    import mimetypes
+    try:
+        content_type = instance.content_resource.content_type or mimetypes.guess_type(instance.content_resource.file.name)[0]
+    except:
+        return
+    if instance.content_resource.is_local and instance.content_resource.file.name is not None:
         # PDFs and images should be stored in Digilib via Giles.
-        if instance.content_resource.content_type in ['image/png', 'image/tiff', 'image/jpeg', 'application/pdf']:
+        if content_type in ['image/png', 'image/tiff', 'image/jpeg', 'application/pdf']:
             logger.debug('%s has a ContentResource; sending to Giles' % instance.content_resource.name)
             try:
-                send_to_giles.delay(instance.content_resource.file.name,
+                task = send_to_giles.delay(instance.content_resource.file.name,
                                     instance.for_resource.created_by, resource=instance.for_resource,
                                     public=instance.for_resource.public)
             except ConnectionError:
                 logger.error("send_pdfs_and_images_to_giles: there was an error"
                              " connecting to the redis message passing"
                              " backend.")
+
 
 
 @receiver(post_save, sender=ConceptEntity)

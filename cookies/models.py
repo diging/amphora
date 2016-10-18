@@ -1,4 +1,5 @@
 from django.db import models, IntegrityError, transaction
+from django.db.models.query import Q
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericRelation
@@ -185,6 +186,14 @@ class Resource(ResourceBase):
     @property
     def is_remote(self):
         return not self.is_local and not self.is_external
+
+    @property
+    def has_giles_content(self):
+        return self.content.filter(content_resource__external_source=Resource.GILES).count() > 0
+
+    @property
+    def has_local_content(self):
+        return self.content.filter(~Q(content_resource__file='')).count() > 0
 
 
 
@@ -452,3 +461,15 @@ class GilesUpload(models.Model):
     created_by = models.ForeignKey(User, related_name='giles_uploads')
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
+
+
+class GilesToken(models.Model):
+    """
+    A short-lived auth token for sending content to Giles on behalf of a user.
+
+    See https://diging.atlassian.net/wiki/display/GIL/REST+Authentication.
+    """
+
+    for_user = models.OneToOneField(User, related_name='giles_token')
+    created = models.DateTimeField(auto_now_add=True)
+    token = models.CharField(max_length=255)

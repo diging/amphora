@@ -83,9 +83,23 @@
                 {% for resource in resources %}
                 <a class="list-group-item"
                     href="{{ resource.get_absolute_url }}">
-                <span class="label label-primary">{{ resource.entity_type }}</span> {{ resource.name }}
-                <span class="pull-right">Updated: {{ resource.updated.date }}</span>
-                <br><small class="text-info">{{ resource.created_by }}</small>
+                    <span class="label label-primary">{{ resource.entity_type }}</span> {{ resource.name }}
+                    <span class="pull-right">Updated: {{ resource.updated.date }}</span>
+                    <div>
+                        Creator: <span class="text-info">{{ resource.created_by }}</span>
+                        <span class="pull-right btn-group">
+                            {% if resource.has_local_content %}
+                            <span class="btn-xs">
+                                <i class="fa fa-database"></i>
+                            </span>
+                            {% endif %}
+                            {% if resource.has_giles_content %}
+                            <span class="btn-xs">
+                                <img style="height: 12px;" src="{% static "cookies/img/giles_logo.png" %}" />
+                            </span>
+                            {% endif %}
+                        </span>
+                    </div>
                 </a>
                 {% endfor %}
             </ul>

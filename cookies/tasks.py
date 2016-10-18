@@ -40,15 +40,18 @@ def handle_bulk(file_path, form_data, file_name):
     file_name : str
         Name of the target file at ``file_path``\.
     """
+    print 'handle bulk'
+    logger.debug('handle bulk')
     return content.handle_bulk(file_path, form_data, file_name)
 
 
 @shared_task
 def send_to_giles(file_name, creator, resource=None, public=True):
-    result = giles.send_to_giles(file_name, creator,
-                                 resource=resource,
+    result = giles.send_to_giles(creator, file_name, resource=resource,
                                  public=public)
-    status_code, response_data, session = result
+    session = GilesSession.objects.create(created_by_id=creator.id)
+
+    stat_sucode, response_data = result
 
     try:
         check_giles_upload.delay(resource, creator, response_data['id'],
@@ -60,7 +63,6 @@ def send_to_giles(file_name, creator, resource=None, public=True):
 
 @shared_task(max_retries=None, default_retry_delay=10)
 def check_giles_upload(resource, creator, upload_id, checkURL, session_id):
-
     status, content = giles.check_upload_status(creator, checkURL)
     if status == 202:    # Accepted.
         logger.debug('Accepted, retrying in 30 seconds')
@@ -70,6 +72,8 @@ def check_giles_upload(resource, creator, upload_id, checkURL, session_id):
 
 @shared_task
 def update_authorizations(auths, user, obj, by_user=None):
+    print 'update auth', auths, user, type(obj), by_user
+    logger.debug(', '.join(['update auth', str(auths), str(user), str(type(obj)), str(by_user)]))
     authorization.update_authorizations(auths, user, obj, by_user=by_user)
 
 

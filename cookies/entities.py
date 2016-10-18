@@ -39,4 +39,4 @@ def suggest_similar(entity):
     _count = lambda o: o[1] - distance(name, _normalize(o[0].name))
     if len(suggestions) == 0:
         return []
-    return zip(*sorted(suggestions, key=_count)[::-1])[0]
+    return list(zip(*sorted(suggestions, key=_count)[::-1])[0])

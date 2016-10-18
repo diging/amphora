@@ -19,7 +19,13 @@
         <div class="resource_summary">
             <div class="h2 resource_name">
                 {{ resource.name }}
+
                 <span class="pull-right btn-group">
+                    {% if resource.has_giles_content %}
+                    <span class="btn">
+                        <img style="height: 15px;" src="{% static "cookies/img/giles_logo.png" %}" />
+                    </span>
+                    {% endif %}
                     {% is_authorized "change_resource" user resource as can_edit_resource %}
                     {% if can_edit_resource %}
                     <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
@@ -56,6 +62,7 @@
                 <dt class="resource_content">Content</dt>
                 {% for content_relation in resource.content.all %}
                 <dd>
+                    {% if content_relation.content_resource.is_local and not resource.has_giles_content %}<a class="btn btn-xs glyphicon glyphicon-plus" href="{% url "trigger-giles-submission" resource.id content_relation.id %}"></a>{% endif %}
                     <a href="{{ content_relation.content_resource.content_location }}">
                         {{ content_relation.content_resource.content_location|truncatechars:50 }}
                     </a>&nbsp;

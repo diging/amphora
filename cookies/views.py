@@ -28,8 +28,7 @@ from cookies.forms import *
 from cookies.models import *
 from cookies.filters import *
 from cookies.tasks import *
-from cookies.giles import *
-from cookies import operations, entities
+from cookies import operations, entities, giles
 # import (add_creation_metadata, merge_conceptentities,
 #                                 merge_resources)
 from cookies import metadata, authorization
@@ -295,8 +294,6 @@ def create_resource_url(request):
                                     + u' location. Please check the URL and' \
                                     + u' try again.')
 
-
-
     context.update({'form': form})
     return HttpResponse(template.render(context))
 
@@ -406,7 +403,7 @@ def create_resource_bulk(request):
             if not (file_name.endswith('.rdf') or file_name.endswith('.zip')):
                 form.add_error('upload_file', 'Not a valid RDF document or ZIP archive.')
             else:
-                result = handle_bulk.delay(file_path, safe_data, file_name)##.delay
+                result = handle_bulk(file_path, safe_data, file_name)#delay()
                 job = UserJob.objects.create(**{
                     'created_by': request.user,
                     'result_id': result.id,
@@ -467,7 +464,7 @@ def job_status(request, result_id):
 @login_required
 def handle_giles_upload(request):
     try:
-        session = handle_giles_callback(request)
+        session = giles.handle_giles_callback(request)
     except ValueError:
         return HttpResponseRedirect(reverse('create-resource'))
 
@@ -970,7 +967,7 @@ def entity_merge(request):
     qs = ConceptEntity.objects.filter(pk__in=entity_ids)
     qs = authorization.apply_filter(request.user, 'change_conceptentity', qs)
     # q = authorization.get_auth_filter('merge_conceptentities', request.user)
-    if qs.count() == 0:
+    if qs.count() < 2:
         # TODO: make this pretty and informative.
         return HttpResponseForbidden('Only the owner can do that')
 
@@ -1118,3 +1115,24 @@ def create_collection(request):
         'form': form
     })
     return HttpResponse(template.render(context))
+
+
+@authorization.authorization_required('change_resource', _get_resource_by_id)
+def trigger_giles_submission(request, resource_id, relation_id):
+    resource = _get_resource_by_id(request, resource_id)
+    instance = resource.content.get(pk=relation_id)
+    import mimetypes
+    content_type = instance.content_resource.content_type or mimetypes.guess_type(instance.content_resource.file.name)[0]
+    if instance.content_resource.is_local and instance.content_resource.file.name is not None:
+        # PDFs and images should be stored in Digilib via Giles.
+        if content_type in ['image/png', 'image/tiff', 'image/jpeg', 'application/pdf']:
+            logger.debug('%s has a ContentResource; sending to Giles' % instance.content_resource.name)
+            try:
+                task = send_to_giles.delay(instance.content_resource.file.name,
+                                    instance.for_resource.created_by, resource=instance.for_resource,
+                                    public=instance.for_resource.public)
+            except ConnectionError:
+                logger.error("send_pdfs_and_images_to_giles: there was an error"
+                             " connecting to the redis message passing"
+                             " backend.")
+            return HttpResponse(task)
