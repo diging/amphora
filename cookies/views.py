@@ -403,7 +403,7 @@ def create_resource_bulk(request):
             if not (file_name.endswith('.rdf') or file_name.endswith('.zip')):
                 form.add_error('upload_file', 'Not a valid RDF document or ZIP archive.')
             else:
-                result = handle_bulk.delay(file_path, safe_data, file_name)#delay()
+                result = handle_bulk.delay.delay(file_path, safe_data, file_name)
                 job = UserJob.objects.create(**{
                     'created_by': request.user,
                     'result_id': result.id,
