@@ -131,6 +131,7 @@ class ConceptViewSet(viewsets.ModelViewSet):
         print search
         if search is not None:
             queryset = queryset.filter(label__icontains=search)
+            print queryset
             try:
                 tasks.search_for_concept.delay(search)
             except ConnectionError:

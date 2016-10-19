@@ -203,8 +203,8 @@ def filter_relations(source=None, predicate=None, target=None,
     -------
     :class:`django.db.models.query.QuerySet`
     """
-    if user and not user.is_superuser:
-        qs = authorization.apply_filter(user, 'view_relation', qs)
+    # if user and not user.is_superuser:
+    #     qs = authorization.apply_filter(user, 'view_relation', qs)
 
     for field, qfield, value in [('source', 'source_instance_id', source),
                                  ('target', 'target_instance_id', target)]:
