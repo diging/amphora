@@ -204,3 +204,6 @@ import logging
 logging.basicConfig()
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(LOGLEVEL)
+
+
+CELERYD_TASK_TIME_LIMIT = 300000
