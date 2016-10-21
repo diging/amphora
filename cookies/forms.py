@@ -296,3 +296,13 @@ class UserAddCollectionForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(UserAddCollectionForm, self).__init__(*args, **kwargs)
+
+
+class AddResourcesToCollectiomForm(forms.ModelForm):
+
+    class Meta:
+        model = Collection
+        fields = ['name', 'public', 'uri', 'content_type', 'content_resource', 'resources']
+
+    def __init__(self, *args, **kwargs):
+        super(AddResourcesToCollectiomForm, self).__init__(*args, **kwargs)

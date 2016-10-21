@@ -78,11 +78,27 @@
         </div>
     </div>
     <div class="col-sm-9">
+        <form class="form" action="{% if next %}?next={{ next }}{% else %}.{% endif %}" method="POST">
+        {% csrf_token %}
+        <div>
+          <select id="AddingToCollection">
+            <option value="">-----------------</option>
+            <option value="">Add to collection</option>
+          </select>
+          <select id="collections">
+            <option value="">Collections</option>
+            {% for collection in collections %}
+            <option name="collection" value={{collection.id}}>{{ collection.name }}</option>
+            {% endfor %}
+          </select>
+          <input type="submit" value="Go">
+      </div>
         <div class="collection_resources">
             <ul class="list-group">
                 {% for resource in resources %}
                 <a class="list-group-item"
                     href="{{ resource.get_absolute_url }}">
+                    <input type="checkbox" name="addresources" value={{resource.id}}>
                     <span class="label label-primary">{{ resource.entity_type }}</span> {{ resource.name }}
                     <span class="pull-right">Updated: {{ resource.updated.date }}</span>
                     <div>
@@ -104,6 +120,7 @@
                 {% endfor %}
             </ul>
         </div>
+      </form>
     </div>
 </div>
 <div class="pagination container text-center">

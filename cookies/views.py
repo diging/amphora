@@ -1136,3 +1136,37 @@ def trigger_giles_submission(request, resource_id, relation_id):
                              " connecting to the redis message passing"
                              " backend.")
             return HttpResponse(task)
+
+
+def add_resources_to_collection(request):
+    """
+    Curator can add resources to a collection.
+    """
+
+    collection_id = request.POST.get('collection')
+    collection = get_object_or_404(Collection, pk=collection_id)
+
+    resources = request.POST.getlist('addresources', [])
+
+
+    if request.method == 'GET':
+        form = AddResourcesToCollectiomForm(instance=collection)
+    if request.method == 'POST':
+        if len(resources) < 1:
+            raise ValueError('Need at least one resource')
+        for resource in resources:
+            collection.resources.add(resource)
+            collection.save()
+        context = RequestContext(request, {
+            'collection': collection,
+        })
+
+        form = UserAddResourcesToCollectionForm(request.POST, instance=collection)
+        if form.is_valid():
+            form.save()
+            return HttpResponseRedirect(form.instance.get_absolute_url())
+    template = loader.get_template('collection.html')
+    context.update({
+        'form': form
+    })
+    return HttpResponse(template.render(context))
