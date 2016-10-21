@@ -14,22 +14,20 @@ logger = settings.LOGGER
 
 
 
-# @receiver(post_save, sender=Collection)
-# @receiver(post_save, sender=Resource)
-# @receiver(post_save, sender=Relation)
-# @receiver(post_save, sender=ConceptEntity)
-# def set_default_auths_for_collection(sender, **kwargs):
-#     instance = kwargs.get('instance', None)
-#     created = kwargs.get('created', False)
-#     if created and instance.created_by:
-#         try:
-#             update_authorizations.delay(sender.DEFAULT_AUTHS,
-#                                         instance.created_by,
-#                                         instance, by_user=instance.created_by)
-#         except ConnectionError:
-#             logger.error("set_default_auths_for_collection: there was an error"
-#                          " connecting to the redis message passing backend.")
-
+@receiver(post_save, sender=Collection)
+@receiver(post_save, sender=Resource)
+@receiver(post_save, sender=Relation)
+@receiver(post_save, sender=ConceptEntity)
+def set_default_auths_for_instance(sender, **kwargs):
+    instance = kwargs.get('instance', None)
+    created = kwargs.get('created', False)
+    if created and instance.created_by:
+        update_authorizations(sender.DEFAULT_AUTHS, instance.created_by,
+                              instance, by_user=instance.created_by,
+                              propagate=False)
+        if getattr(instance, 'public', False):
+            anonymous = User.objects.get(username='AnonymousUser')
+            update_authorizations(['view'], anonymous, instance)
 
 
 @receiver(post_save, sender=User)

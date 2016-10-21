@@ -71,10 +71,9 @@ def check_giles_upload(resource, creator, upload_id, checkURL, session_id):
 
 
 @shared_task
-def update_authorizations(auths, user, obj, by_user=None):
-    print 'update auth', auths, user, type(obj), by_user
-    logger.debug(', '.join(['update auth', str(auths), str(user), str(type(obj)), str(by_user)]))
-    authorization.update_authorizations(auths, user, obj, by_user=by_user)
+def update_authorizations(auths, user, obj, by_user=None, propagate=True):
+    authorization.update_authorizations(auths, user, obj, by_user=by_user,
+                                        propagate=propagate)
 
 
 @shared_task

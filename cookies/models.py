@@ -12,7 +12,6 @@ from django.conf import settings
 
 
 import iso8601, json, sys, six, logging, rest_framework, jsonpickle
-from cookies import authorization
 from uuid import uuid4
 
 logging.basicConfig()
@@ -140,12 +139,6 @@ class ResourceBase(Entity):
             return True
         elif self.location:
             return False
-
-    def save(self, *args, **kwargs):
-        super(ResourceBase, self).save(*args, **kwargs)
-        anonymous, _ = User.objects.get_or_create(username=u'AnonymousUser')
-        auths = ['view_resource'] if self.public else []
-        authorization.update_authorizations(auths, anonymous, self)
 
     class Meta:
         permissions = (
