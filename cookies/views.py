@@ -16,6 +16,7 @@ from django.template import RequestContext, loader
 from django.db.models.query import QuerySet
 from django.db.models import Q
 from django.conf import settings
+from rest_framework.pagination import LimitOffsetPagination
 
 from celery.result import AsyncResult
 
@@ -28,11 +29,14 @@ from cookies.forms import *
 from cookies.models import *
 from cookies.filters import *
 from cookies.tasks import *
+from cookies.views_rest import ResourceDetailSerializer, ResourceListSerializer
 from cookies import operations, entities, giles
 # import (add_creation_metadata, merge_conceptentities,
 #                                 merge_resources)
 from cookies import metadata, authorization
 from concepts.models import Concept
+
+from rest_framework import renderers
 
 
 def _get_resource_by_id(request, resource_id, *args):
@@ -68,8 +72,11 @@ def resource(request, obj_id):
     resource = _get_resource_by_id(request, obj_id)
     context = {
         'resource':resource,
+        'request': request,
         'part_of': authorization.apply_filter(request.user, 'view_resource', resource.part_of.all())
     }
+    if request.GET.get('format', None) == 'json':
+        return JsonResponse(ResourceDetailSerializer(context=context).to_representation(resource))
     return render(request, 'resource.html', context)
 
 
@@ -120,8 +127,6 @@ def resource_list(request):
     })
 
     template = loader.get_template('resources.html')
-
-
     return HttpResponse(template.render(context))
 
 
@@ -131,9 +136,11 @@ def collection(request, obj_id):
     resources = collection.resources.filter(content_resource=False, hidden=False)
     resources = authorization.apply_filter(request.user, 'view_resource', resources)
     filtered_objects = ResourceFilter(request.GET, queryset=resources)
+
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
-        'collection': collection
+        'collection': collection,
+        'request': request,
     })
     template = loader.get_template('collection.html')
     return HttpResponse(template.render(context))

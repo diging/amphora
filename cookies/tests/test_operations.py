@@ -78,8 +78,6 @@ class TestPruneRelations(unittest.TestCase):
         self.assertEqual(resource_1.relations_from.count(), 2)
 
 
-
-
 class TestMergeConceptEntities(unittest.TestCase):
     def test_merge_two(self):
         """

@@ -1,8 +1,11 @@
-import unittest, mock, json
+import unittest, mock, json, os
+
+from django.test import Client
 
 from cookies.authorization import *
 from cookies.models import *
 
+os.environ.setdefault('LOGLEVEL', 'ERROR')
 
 class TestIsOwner(unittest.TestCase):
     def setUp(self):
@@ -17,6 +20,141 @@ class TestIsOwner(unittest.TestCase):
 
     def tearDown(self):
         self.u.delete()
+
+
+class TestViewAuthEnforcement(unittest.TestCase):
+    def setUp(self):
+        self.u = User.objects.create(username='Test')
+        self.end_user = User.objects.create_user(
+            username='UnprivelegedUser',
+            password='password')
+        self.anonymous_user = User.objects.get(username='AnonymousUser')
+
+    def test_resource_detail_view_not_public_anonymous(self):
+        """
+        Anonymous users should not be able to view non-public resources.
+        """
+        resource = Resource.objects.create(
+            name='Test',
+            public=False,
+            created_by=self.u)
+
+        path = reverse('resource', args=(resource.id,))
+        client = Client()
+        response = client.get(path)
+        self.assertEqual(response.status_code, 403)
+
+    def test_resource_detail_view_not_public_anonymous(self):
+        """
+        Logged-in users without view auth should not be able to view non-public
+        resources.
+        """
+        resource = Resource.objects.create(
+            name='Test',
+            public=False,
+            created_by=self.u)
+
+        path = reverse('resource', args=(resource.id,))
+        client = Client()
+        client.login(username='UnprivelegedUser')
+        response = client.get(path)
+        self.assertEqual(response.status_code, 403)
+
+    def test_resource_detail_view_not_public_but_authorized(self):
+        """
+        Logged-in users with view auth should able to view non-public
+        resources.
+        """
+        resource = Resource.objects.create(
+            name='Test',
+            public=False,
+            created_by=self.u)
+        update_authorizations(['view'], self.end_user, resource)
+        path = reverse('resource', args=(resource.id,))
+        client = Client()
+        client.login(username='UnprivelegedUser', password='password')
+        response = client.get(path)
+        self.assertEqual(response.status_code, 200)
+
+    def test_resource_detail_view_not_public_deauthorized(self):
+        """
+        Logged-in users with view auth should able to view non-public
+        resources.
+        """
+        resource = Resource.objects.create(
+            name='Test',
+            public=True,
+            created_by=self.u)
+        update_authorizations([], self.anonymous_user, resource)
+        path = reverse('resource', args=(resource.id,))
+        client = Client()
+        response = client.get(path)
+        self.assertEqual(response.status_code, 403)
+
+    def test_collection_detail_view_not_public_anonymous(self):
+        """
+        Anonymous users should not be able to view non-public resources.
+        """
+        collection = Collection.objects.create(
+            name='Test',
+            public=False,
+            created_by=self.u)
+
+        path = reverse('collection', args=(collection.id,))
+        client = Client()
+        response = client.get(path)
+        self.assertEqual(response.status_code, 403)
+
+    def test_collection_detail_view_not_public_anonymous(self):
+        """
+        Logged-in users without view auth should not be able to view non-public
+        collections.
+        """
+        collection = Collection.objects.create(
+            name='Test',
+            public=False,
+            created_by=self.u)
+
+        path = reverse('collection', args=(collection.id,))
+        client = Client()
+        client.login(username='UnprivelegedUser')
+        response = client.get(path)
+        self.assertEqual(response.status_code, 403)
+
+    def test_resource_detail_view_not_public_but_authorized(self):
+        """
+        Logged-in users with view auth should able to view non-public
+        collections.
+        """
+        collection = Collection.objects.create(
+            name='Test',
+            public=False,
+            created_by=self.u)
+        update_authorizations(['view'], self.end_user, collection)
+        path = reverse('collection', args=(collection.id,))
+        client = Client()
+        client.login(username='UnprivelegedUser', password='password')
+        response = client.get(path)
+        self.assertEqual(response.status_code, 200)
+
+    def test_resource_detail_view_not_public_deauthorized(self):
+        """
+        Logged-in users with view auth should able to view non-public
+        collections.
+        """
+        collection = Collection.objects.create(
+            name='Test',
+            public=True,
+            created_by=self.u)
+        update_authorizations([], self.anonymous_user, collection)
+        path = reverse('collection', args=(collection.id,))
+        client = Client()
+        response = client.get(path)
+        self.assertEqual(response.status_code, 403)
+
+    def tearDown(self):
+        self.u.delete()
+        self.end_user.delete()
 
 
 class TestAuthLabel(unittest.TestCase):

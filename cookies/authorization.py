@@ -329,6 +329,7 @@ def authorization_required(perm, fn=None, login_url=None, raise_exception=False)
         @wraps(view_func, assigned=available_attrs(view_func))
         def _wrapped_view(request, *args, **kwargs):
             obj = fn(request, *args, **kwargs) if callable(fn) else fn
+            print ':::', perm, request.user, obj
             if not check_authorization(perm, request.user, obj):
                 if raise_exception:
                     msg = '%s on %s not authorized for %s' % \
