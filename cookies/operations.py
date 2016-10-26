@@ -172,3 +172,32 @@ def merge_resources(resources, master_id=None, delete=True, user=None):
     if delete:
         to_merge.delete()
     return master
+
+def add_resources_to_collection(resources, collection):
+    """
+    Adds selected resources to a collection.
+
+    Number of resources should be greater than or equal to 1.
+    And one collection has to be selected
+
+    Returns the collection after making changes.
+    """
+    if resources.count() < 1 :
+        raise RuntimeError("Need at least one resource to add to collection.")
+
+    if not collection:
+        raise RuntimeError("Need a collection to add resources")
+
+    for resource in resources:
+        if not collection.resources:
+            collection.resources = resource
+        else:
+            collection.resources.add(resource)
+
+        if collection not in resource.part_of.all():
+            resource.part_of.add(collection)
+            resource.save()
+
+    collection.save()
+
+    return collection

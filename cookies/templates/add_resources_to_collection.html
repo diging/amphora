@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+{% load addcss %}
+
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url 'AddToCollection' 'bulk-action-resource' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="h2">Add to collection</div>
+<p class="text-info">
+    You are about to add resources to a collection.
+</p>
+<form class="form" action="{% url "bulk-add-resource-to-collection" %}" method="POST">
+  {% csrf_token %}
+    <div class="text-info">The number of resources selected are: {{number_of_resources}}</div>
+    <ul class="list-group">
+        {% for collection in collections %}
+        <li class="list-group-item">
+            <input type="radio" name="master" value="{{collection.id}}" />
+            <a href="{{ collection.get_absolute_url }}" target="_blank">{{ collection.name }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% for resource in resources %}
+    <input type="hidden" name="addresources" value="{{resource.id}}" />
+    {% endfor %}
+    <input type="submit" class="btn btn-success" />
+</form>
+{% endblock %}

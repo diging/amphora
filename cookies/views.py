@@ -1138,35 +1138,44 @@ def trigger_giles_submission(request, resource_id, relation_id):
             return HttpResponse(task)
 
 
-def add_resources_to_collection(request):
+@login_required
+def bulk_action_resource(request):
     """
-    Curator can add resources to a collection.
+    Curator can perform actions with resources selected
     """
+    resource_ids = request.POST.getlist('addresources', [])
+    qs = Resource.objects.filter(pk__in=resource_ids)
 
-    collection_id = request.POST.get('collection')
-    collection = get_object_or_404(Collection, pk=collection_id)
+    qset_collections = Collection.objects.filter(
+        Q(content_resource=False)\
+        & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id))
+    )
+    collections = CollectionFilter(request.GET, queryset=qset_collections)
 
-    resources = request.POST.getlist('addresources', [])
-
-
-    if request.method == 'GET':
-        form = AddResourcesToCollectiomForm(instance=collection)
-    if request.method == 'POST':
-        if len(resources) < 1:
-            raise ValueError('Need at least one resource')
-        for resource in resources:
-            collection.resources.add(resource)
-            collection.save()
-        context = RequestContext(request, {
-            'collection': collection,
-        })
-
-        form = UserAddResourcesToCollectionForm(request.POST, instance=collection)
-        if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(form.instance.get_absolute_url())
-    template = loader.get_template('collection.html')
-    context.update({
-        'form': form
+    context = RequestContext(request, {
+    'collections': qset_collections,
+    'resources': qs,
+    'number_of_resources': qs.count
     })
+
+    template = loader.get_template('add_resources_to_collection.html')
     return HttpResponse(template.render(context))
+
+
+@login_required
+def bulk_add_resource_to_collection(request):
+    """
+    Curator adds resource to collection
+    """
+    resource_ids = request.POST.getlist('addresources', [])
+    if len(resource_ids) < 1:
+        raise ValueError('Need more than one resource')
+
+    qs = Resource.objects.filter(pk__in=resource_ids)
+
+    master_id = request.POST.get('master', None)
+    if not master_id:
+        raise ValueError('Need to specify a collection')
+    collection = _get_collection_by_id(request, master_id)
+    master = operations.add_resources_to_collection(qs, collection)
+    return HttpResponseRedirect(master.get_absolute_url())
