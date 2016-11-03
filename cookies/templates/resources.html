@@ -81,7 +81,7 @@
         <form class="form" action="{%url "bulk-action-resource" %}" method="POST">
           {% csrf_token %}
           <div>
-            <input type="submit" value="Add to collection">
+            <input type="submit" class="btn btn-primary" value="Add to collection">
           </div>
           <div class="collection_resources">
             <ul class="list-group">

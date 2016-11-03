@@ -1178,8 +1178,10 @@ def bulk_add_resource_to_collection(request):
     qs_resources = Resource.objects.filter(pk__in=resource_ids)
 
     collection_id = request.POST.get('collection', None)
-    if not collection_id:
-        raise ValueError('Need to specify a collection')
-    collection = _get_collection_by_id(request, collection_id)
-    updated_collection = operations.add_resources_to_collection(qs_resources, collection)
-    return HttpResponseRedirect(updated_collection.get_absolute_url())
+    if collection_id:
+        collection = _get_collection_by_id(request, collection_id)
+        updated_collection = operations.add_resources_to_collection(qs_resources, collection)
+        return HttpResponseRedirect(updated_collection.get_absolute_url())
+    else:
+        return HttpResponseBadRequest('Error: Select a collection to add resources.\
+                                      Go back to previous page and select a collection')

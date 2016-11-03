@@ -18,9 +18,12 @@
 <p class="text-info">
     You are about to add resources to a collection.
 </p>
+{% if resources.count > 0 %}
 <form class="form" action="{% url "bulk-add-resource-to-collection" %}" method="POST">
   {% csrf_token %}
     <div class="text-info">The number of resources selected are: {{number_of_resources}}</div>
+    <div class="text-info">Collections:</div>
+    {% if collections.count > 0 %}
     <ul class="list-group">
         {% for collection in collections %}
         <li class="list-group-item">
@@ -29,9 +32,18 @@
         </li>
         {% endfor %}
     </ul>
+    {% else %}
+    <div class="text-warning">There are no collections that have been created</div>
+    <div class="btn btn-primary" href="{% url "create-collection" %}">Create collection</div>
+    {% endif %}
     {% for resource in resources %}
     <input type="hidden" name="addresources" value="{{resource.id}}" />
     {% endfor %}
     <input type="submit" class="btn btn-success" />
 </form>
+{% else %}
+<div class="alert alert-warning">
+  <strong>Warning!</strong> Need to select at least one resource before proceeding. Go to previous page and select resources.
+</div>
+{% endif %}
 {% endblock %}
