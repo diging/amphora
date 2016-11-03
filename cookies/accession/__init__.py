@@ -1,8 +1,12 @@
+from django.conf import settings
+from django.core.files import File
+
+
 import importlib, mimetypes, copy, os
 from cookies.models import *
 from uuid import uuid4
 from cookies import metadata
-from django.conf import settings
+
 logger = settings.LOGGER
 
 from itertools import repeat, imap
@@ -117,7 +121,6 @@ class IngestManager(object):
                 logger.debug('Could not find file at %s; skipping.' % file_path)
                 pass
         if location:
-            print 'location!!', location
             resource.location = location
             resource.save()
         map(self.create_relations, relation_data.keys(), relation_data.values(),
@@ -138,7 +141,6 @@ class IngestManager(object):
                 'content_type': content_type,
                 'content_encoding': content_encoding,
             })
-        print 'content relation', content_resource, ' | ', resource
         return ContentRelation.objects.create(**data)
 
     def create_content_resource(self, content_data, resource):
@@ -153,7 +155,6 @@ class IngestManager(object):
                 relation_data[key] = value
 
         resource_data.update({'content_resource': True})
-        print resource_data
 
         content_resource = self.create_resource(resource_data, relation_data)
         self.create_content_relation(content_resource, resource, content_type)

@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from celery import shared_task
 
 import os, re, rdflib, zipfile, tempfile, codecs, chardet, unicodedata, iso8601
+import shutil
 import xml.etree.ElementTree as ET
 
 from django.conf import settings
@@ -441,3 +442,9 @@ class ZoteroIngest(object):
     @property
     def current(self):
         return EntryWrapper(self.data[-1])
+
+    def __del__(self):
+        """
+        Remove temporary files.
+        """
+        shutil.rmtree(self.dtemp)
