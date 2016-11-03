@@ -180,3 +180,63 @@ class TestMergeConceptEntities(unittest.TestCase):
 
     def tearDown(self):
         ConceptEntity.objects.all().delete()
+
+
+class TestAddResourcesToCollection(unittest.TestCase):
+    def test_add_one(self):
+        """
+        Only one :class:`.Resource` instance should be added to a collection.
+        """
+        resource = Resource.objects.create(name='first_resource')
+        qs_resource = Resource.objects.all()
+        collection_before = Collection.objects.create(name='first_collection')
+        collection_after = operations.add_resources_to_collection(qs_resource, collection_before)
+
+        assert resource in collection_after.resources.all(), "resource not added to collection\
+            add_resources_to_collection operation not performed"
+        self.assertIsInstance(collection_after, Collection,
+                              "add_resources_to_collection method should return a"
+                              " Collection instance")
+
+    def test_add_N(self):
+        """
+        All :class:`.Resource` instances should be added to collection
+        """
+
+        for i in xrange(5):
+            Resource.objects.create(name='resource_%i' % i)
+        resources = Resource.objects.all()
+        collection_before = Collection.objects.create(name='first_collection')
+        collection_after = operations.add_resources_to_collection(resources, collection_before)
+
+        self.assertIsInstance(collection_after, Collection,
+                              "Collection instance should be returned from"
+                              "add_resources_to_collection method")
+        for resource in resources:
+            assert resource in collection_after.resources.all(), "%s not added to collection \
+                add_resources_to_collection operation not performed" %resource.name
+
+    def test_no_resource(self):
+        """
+        Should raise a RuntimeError if no :class:`.ConceptEntity`
+        instance is passed in the QuerySet.
+        """
+        resource = Resource.objects.all()
+        collection = Collection.objects.create(name='first_collection')
+        with self.assertRaises(RuntimeError):
+            operations.add_resources_to_collection(resource, collection)
+
+    def test_invalid_collection(self):
+        """
+        Should raise a RuntimeError if invalid :class:`.Collection`
+        instance is passed.
+        """
+        resource = Resource.objects.create(name='resource_1')
+        qs_resource = Resource.objects.all()
+        collection = resource
+        with self.assertRaises(RuntimeError):
+            operations.add_resources_to_collection(qs_resource, collection)
+
+    def tearDown(self):
+        Resource.objects.all().delete()
+        Collection.objects.all().delete()

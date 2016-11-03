@@ -1141,10 +1141,12 @@ def trigger_giles_submission(request, resource_id, relation_id):
 @login_required
 def bulk_action_resource(request):
     """
-    Curator can perform actions with resources selected
+    Curator can perform actions with resources selected.
+    Input from user- Set of resources.
+    On POST, User is presented with a set of collections to choose from.
     """
     resource_ids = request.POST.getlist('addresources', [])
-    qs = Resource.objects.filter(pk__in=resource_ids)
+    qs_resources = Resource.objects.filter(pk__in=resource_ids)
 
     qset_collections = Collection.objects.filter(
         Q(content_resource=False)\
@@ -1153,9 +1155,9 @@ def bulk_action_resource(request):
     collections = CollectionFilter(request.GET, queryset=qset_collections)
 
     context = RequestContext(request, {
-    'collections': qset_collections,
-    'resources': qs,
-    'number_of_resources': qs.count
+        'collections': qset_collections,
+        'resources': qs_resources,
+        'number_of_resources': qs_resources.count
     })
 
     template = loader.get_template('add_resources_to_collection.html')
@@ -1165,17 +1167,19 @@ def bulk_action_resource(request):
 @login_required
 def bulk_add_resource_to_collection(request):
     """
-    Curator adds resource to collection
+    Curator adds resource to collection.
+    Input from user- collection to add the resources to.
+    On success, the user is presented with the collection detail view.
     """
     resource_ids = request.POST.getlist('addresources', [])
     if len(resource_ids) < 1:
         raise ValueError('Need more than one resource')
 
-    qs = Resource.objects.filter(pk__in=resource_ids)
+    qs_resources = Resource.objects.filter(pk__in=resource_ids)
 
-    master_id = request.POST.get('master', None)
-    if not master_id:
+    collection_id = request.POST.get('collection', None)
+    if not collection_id:
         raise ValueError('Need to specify a collection')
-    collection = _get_collection_by_id(request, master_id)
-    master = operations.add_resources_to_collection(qs, collection)
-    return HttpResponseRedirect(master.get_absolute_url())
+    collection = _get_collection_by_id(request, collection_id)
+    updated_collection = operations.add_resources_to_collection(qs_resources, collection)
+    return HttpResponseRedirect(updated_collection.get_absolute_url())
