@@ -6,6 +6,39 @@ from itertools import chain, groupby
 from django.db.models import Q
 
 
+def field_or_type_from_uri(uri, model=Field):
+    """
+    Attempt to resolve ``uri`` into a :class:`.Field` instance.
+
+    If unsuccessful, create a new :class:`.Field` (and corresponding
+    :class:`.Schema`\, if necessary).
+
+    Parameters
+    ----------
+    uri : str
+
+    Returns
+    -------
+    :class:`.Field`
+    """
+    try:
+        return model.objects.get(uri=uri)
+    except model.DoesNotExist:
+        pass
+
+    name = uri.split('/')[-1].split('#')[-1]
+
+    if '#' in uri:
+        schema_uri = uri.split('#')[0] + u'#'
+    else:
+        schema_uri = u'/'.join(uri.split('/')[:-1]) + u'/'
+
+    # This is kind of hacky, but we need a prefix.
+    prefix = ''.join([c for c in schema_uri.replace('http://', '').replace('www.', '').split('.')[0] if c not in 'aeiouy'])
+    schema, _ = Schema.objects.get_or_create(uri=schema_uri, defaults={'prefix': prefix.upper(), 'name': schema_uri})
+    return model.objects.create(name=name.title(), uri=uri, schema=schema, namespace=schema_uri)
+
+
 def prepend_to_results(pre_value):
     """
     Prepend a value to each tuple in an iterable of tuples returned by the
