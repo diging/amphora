@@ -34,7 +34,7 @@
     </ul>
     {% else %}
     <div class="text-warning">There are no collections that have been created</div>
-    <div class="btn btn-primary" href="{% url "create-collection" %}">Create collection</div>
+    <a class="btn btn-primary" href="{% url "create-collection" %}">Create collection</a>
     {% endif %}
     {% for resource in resources %}
     <input type="hidden" name="addresources" value="{{resource.id}}" />
