@@ -2,15 +2,8 @@ from __future__ import absolute_import
 
 from celery import shared_task
 
-import os
-import re
+import os, re, rdflib, zipfile, tempfile, codecs, chardet, unicodedata, iso8601
 import xml.etree.ElementTree as ET
-import iso8601
-import rdflib
-import zipfile
-import codecs
-import chardet
-import unicodedata
 
 import logging
 logging.basicConfig()
@@ -57,14 +50,19 @@ PARTOF_TYPES = [
     (JOURNAL, 'journal'),
 ]
 
+from rdflib import Graph, Literal, BNode, Namespace, RDF, URIRef
+from rdflib.namespace import DC, FOAF, DCTERMS
+
+BIB = Namespace('http://purl.org/net/biblio#')
+RSS = Namespace('http://purl.org/rss/1.0/modules/link/')
+ZOTERO = Namespace('http://www.zotero.org/namespaces/export#')
+
 RESOURCE_CLASSES = [
-    'bib:Illustration', 'bib:Recording', 'bib:Legislation', 'bib:Document',
-    'bib:BookSection', 'bib:Book', 'bib:Data', 'bib:Letter', 'bib:Report',
-    'bib:Article', 'bib:Thesis', 'bib:Manuscript', 'bib:Image',
-    'bib:ConferenceProceedings',
+    BIB.Illustration, BIB.Recording, BIB.Legislation, BIB.Document,
+    BIB.BookSection, BIB.Book, BIB.Data, BIB.Letter, BIB.REPORT,
+    BIB.Article, BIB.Thesis, BIB.Manuscript, BIB.Image,
+    BIB.ConferenceProceedings,
 ]
-
-
 
 class dobject(object):
     pass
@@ -89,7 +87,24 @@ def _cast(value):
             return value
 
 
-class ZoteroZipIngest(object):
+class EntryWrapper(object):
+    """
+    Convenience wrapper for entries in :class:`.ZoteroIngest`\.
+    """
+    def __init__(self, entry):
+        self.entry = entry
+
+    def get(self, key, default=None):
+        return self.entry.get(key, default)
+
+    def __getitem__(self, key):
+        return self.entry[key]
+
+    def __setitem__(self, key, value):
+        self.entry[key] = value
+
+
+class ZoteroIngest(object):
     """
     Ingest Zotero RDF and attachments contained in a zip archive.
 
@@ -98,124 +113,351 @@ class ZoteroZipIngest(object):
     path : str
         Location of ZIP archive containing Zotero RDF and attachments.
     """
-    def __init__(self, path):
+    handlers = [
+        (DC.date, 'date'),
+        (DCTERMS.dateSubmitted, 'date'),
+        (DC.identifier, 'identifier'),
+        (DCTERMS.abstract, 'abstract'),
+        (BIB.authors, 'name'),
+        (ZOTERO.seriesEditors, 'name'),
+        (BIB.editors, 'name'),
+        (BIB.contributors, 'name'),
+        (ZOTERO.translators, 'name'),
+        (RSS.link, 'link'),
+        (DC.title, 'title'),
+        (DCTERMS.isPartOf, 'isPartOf'),
+        (BIB.pages, 'pages'),
+        (ZOTERO.itemType, 'documentType')
+    ]
+
+    def __init__(self, path, classes=RESOURCE_CLASSES):
+        if path.endswith('.zip'):
+            self._unpack_zipfile(path)
+        else:
+            self.rdf = path
+            self.zipfile = None
+
+        self._correct_zotero_violation()
+        self._init_graph(self.rdf, classes=classes)
+        self.data = []    # All results will go here.
+
+    def _unpack_zipfile(self, path):
+        """
+        Extract all files in the zipfile at ``path`` into a temporary directory.
+        """
         self.zipfile = zipfile.ZipFile(path)
+        self._init_dtemp()
+
         self.paths = []
         for file_path in self.zipfile.namelist():
             if path.startswith('.'):
                 continue
-            self.paths.append(file_path)
-            if file_path.endswith('.rdf'):
-                self.rdf = file_path
-        self._init_graph(self.rdf)
+            temp_path = self.zipfile.extract(file_path, self.dtemp)
 
-    def _init_graph(self, classes=RESOURCE_CLASSES):
+            if temp_path.endswith('.rdf'):
+                self.rdf = temp_path
+
+    def _correct_zotero_violation(self):
+        """
+        Zotero produces invalid RDF, so we need to directly intervene before
+        parsing the RDF document.
+        """
+        with open(self.rdf, 'r') as f:
+            corrected = f.read().replace('rdf:resource rdf:resource',
+                                         'link:link rdf:resource')
+        with open(self.rdf, 'w') as f:
+            f.write(corrected)
+
+    def _init_graph(self, rdf_path, classes=RESOURCE_CLASSES):
         """
         Load the RDF document as a :class:`rdflib.Graph`\.
         """
         self.graph = rdflib.Graph()
-        self.graph.parse(self.path)
+        self.graph.parse(rdf_path)
         self.entries = []
 
         self.classes = classes
         self.current_class = None
         self.current_entries = None
 
-    def _query(self, class_name):
+    def _init_dtemp(self):
+        self.dtemp = tempfile.mkdtemp()
+
+    def _get_resources_nodes(self, resource_class):
         """
-        Perform a Sparql query for all objects from class ``class_name``.
+        Retrieve all nodes in the graph with type ``resource_class``.
 
         Parameters
         ----------
-        class_name : str
+        resource_class : :class:`rdflib.URIRef`
 
         Returns
         -------
-        list
+        generator
+            Yields nodes.
         """
-        return self.graph.query('SELECT * WHERE { ?p a %s }' % class_name)
+        return self.graph.subjects(RDF.type, resource_class)
 
-    def handle_identifier(self, value, commit=True):
+    def _new_entry(self):
         """
-
+        Start work on a new entry in the dataset.
         """
+        self.data.append({})
 
-        identifier = unicode(self.graph.value(subject=value, predicate=VALUE_ELEM))
-        ident_type = self.graph.value(subject=value, predicate=TYPE_ELEM)
-        if ident_type == URI_ELEM and commit:
-            self.set_value('uri', identifier)
+    def _set_value(self, predicate, new_value):
+        """
+        Assign ``new_value`` to key ``predicate`` in the current entry.
+
+        For the sake of consistency, each predicate in the entry corresponds to
+        a list of values, even if only one value is present.
+        """
+        if not predicate:
             return
-        return (ident_type, identifier)
 
-    def handle_link(self, value, identifier=IDENTIFIER, uri_type=URI_ELEM):
+        try:
+            current_value = self.current.get(predicate, [])
+        except IndexError:
+            raise RuntimeError("_new_entry() must be called before values"
+                               " can be set.")
+        current_value.append(new_value)
+        self.current[predicate] = current_value
+
+    def _get_handler(self, predicate):
+        """
+        Retrieve the handler defined for ``predicate``, if there is one.
+        Otherwise, returns a callable that coerces any passed arguments to
+        native Python types.
+
+        Parameters
+        ----------
+        predicate : :class:`rdflib.URIRef` or str
+
+        Returns
+        -------
+        instancemethod or lambda
+            Callable that accepts a pair of positional arguments (presumed to
+            be predicate and value) and returns a (predicate, value) tuple.
+        """
+        predicate = dict(self.handlers).get(predicate, predicate)
+        handler_name = 'handle_{predicate}'.format(predicate=predicate)
+
+        # If there is no defined handler, we minimally want to end up with
+        #  native Python types. Returning a callable here avoids extra code.
+        generic = lambda *args: map(self._to_python, args)
+        return getattr(self, handler_name, generic)
+
+    def _to_python(self, obj):
+        """
+        Ensure that any :class:`rdflib.URIRef` instances are coerced to a
+        native Python type.
+        """
+        return obj.toPython() if hasattr(obj, 'toPython') else obj
+
+    def handle(self, predicate, value):
+        """
+        Farm out any defined processing logic for a predicate/value pair.
+
+        Parameters
+        ----------
+        predicate : :class:`rdflib.URIRef` or str
+        value : :class:`.URIRef` or :class:`.BNode` or :class:`.Literal`
+
+        Returns
+        -------
+        tuple
+            Predicate, value.
+        """
+        predicate, value = self._get_handler(predicate)(predicate, value)
+        return self._to_python(predicate), self._to_python(value)
+
+    def handle_isPartOf(self, predicate, node):
+        """
+        Unpack DCTERMS.isPartOf relations, to extract journals names, books,
+        etc.
+
+        Parameters
+        ----------
+        predicate : :class:`rdflib.URIRef` or str
+        value : :class:`.URIRef` or :class:`.BNode` or :class:`.Literal`
+
+        Returns
+        -------
+        tuple
+
+        """
+        parent_document = []
+        for p, o in self.graph.predicate_objects(node):
+            if p == IDENT:
+                # Zotero (in all of its madness) makes some identifiers, like
+                #  DOIs, properties of Journals rather than the Articles to
+                #  which they belong. The predicate for these relations
+                #  is identifier, and the object contains both the identifier
+                #  type and the identifier itself, eg.
+                #       "DOI 10.1017/S0039484"
+                try:
+                    name, ident_value = tuple(unicode(o).split(' '))
+                    if name.upper() in ['ISSN', 'ISBN']:
+                        parent_document.append((unicode(p), unicode(o)))
+                    elif name.upper() == 'DOI':
+                        self._set_value(*self.handle(p, o))
+                except ValueError:
+                    pass
+            elif p in [DC.title, DCTERMS.alternative, RDF.type]:
+                parent_document.append(self.handle(p, o))
+        return predicate, dict(parent_document)
+
+    def handle_documentType(self, predicate, node):
+        """
+        ZOTERO.itemType should be used to populate Resource.entity_type.
+
+        Parameters
+        ----------
+        predicate : :class:`rdflib.URIRef` or str
+        value : :class:`.URIRef`
+
+        Returns
+        -------
+        tuple
+            Predicate, value.
+        """
+        return 'entity_type', node
+
+    def handle_title(self, predicate, node):
+        """
+        DC.title should be used to populate Resource.name.
+
+        Parameters
+        ----------
+        predicate : :class:`rdflib.URIRef` or str
+        value : :class:`.URIRef`
+
+        Returns
+        -------
+        tuple
+            Predicate, value.
+        """
+        return 'name', node
+
+    def handle_identifier(self, predicate, node):
+        """
+        Parse an ``DC.identifier`` node.
+
+        If the identifier is an URI, we pull this out an assign it with a
+        non-URI predicate; this will directly populate the ``Resource.uri``
+        field in the database.
+
+        Parameters
+        ----------
+        predicate : :class:`rdflib.URIRef`
+        node : :class:`rdflib.BNode`
+
+        Returns
+        -------
+        tuple
+            Predicate and value.
+        """
+
+        identifier = self.graph.value(subject=node, predicate=RDF.value)
+        ident_type = self.graph.value(subject=node, predicate=RDF.type)
+        if ident_type == DC.URI:
+            return 'uri', identifier
+        return ident_type, identifier
+
+    def handle_link(self, predicate, node):
         """
         rdf:link rdf:resource points to the resource described by a record.
+
+        Parameters
+        ----------
+        predicate : :class:`rdflib.URIRef`
+        node : :class:`rdflib.BNode`
+
+        Returns
+        -------
+        tuple
+            Predicate and value.
         """
         link_data = []
-        for s, p, o in self.graph.triples((value, None, None)):
-            if p == identifier:
-                identifier_type, identifier_value = self.handle_identifier(o, commit=False)
-                if identifier_type == uri_type:
-                    link_data.append(('url', identifier_value))
-            elif p == LINK_ELEM:
-                link_data.append(('link', unicode(o).replace('file://', '')))
+        for p, o in self.graph.predicate_objects(node):
+            if p == DC.identifier:
+                p, o = self.handle_identifier(p, o)
+                p = 'url' if p == 'uri' else p
+            elif p == RSS.link:
+                link_path =  self._to_python(o).replace('file://', '')
+                p, o = 'link', link_path
             else:
-                link_data.append((p, o))
-        self.set_value('file', link_data)
+                p, o = self.handle(p, o)
+            link_data.append((self._to_python(p), self._to_python(o)))
+        return 'file', dict(link_data)
 
-    def handle_date(self, value):
+    def handle_date(self, predicate, node):
         """
-        Attempt to coerced date to ISO8601.
+        Attempt to coerce date to ISO8601.
         """
+        node = node.toPython()
         try:
-            return iso8601.parse_date(unicode(value))
+            return predicate, iso8601.parse_date(node)
         except iso8601.ParseError:
             for datefmt in ("%B %d, %Y", "%Y-%m", "%Y-%m-%d", "%m/%d/%Y"):
                 try:
                     # TODO: remove str coercion.
-                    return datetime.strptime(unicode(value), datefmt).date()
+                    return predicate, datetime.strptime(node, datefmt).date()
                 except ValueError:
-                    return value
+                    return predicate, node
+
+    def handle_name(self, predicate, node):
+        """
+        Extract a concise surname, forename tuple from a composite person.
+
+        Parameters
+        ----------
+        predicate : :class:`rdflib.URIRef`
+        node : :class:`rdflib.BNode`
+
+        Returns
+        -------
+        tuple
+            Predicate and value.
+        """
+        forename_iter = self.graph.objects(node, FOAF.givenname)
+        surname_iter = self.graph.objects(node, FOAF.surname)
+        norm = lambda s: unicode(s).upper().replace('.', '')
+
+        forename = u' '.join(map(norm, forename_iter))
+        surname = u' '.join(map(norm, surname_iter))
+        return predicate, (surname, forename)
 
     def process(self, entry):
-        for s, p, o in self.graph.triples((entry, None, None)):
+        """
+        Process all predicate/value pairs for a single ``entry``
+        :class:`rdflib.BNode` representing a resource.
+        """
 
-        handler = self._get_handler(tag)
+        if entry is None:
+            raise RuntimeError('entry must be a specific node')
 
-        if handler is not None:
-            data = handler(data)
-        #
-        # if tag in self.tags:
-        #     tag_for_handler = self.tags[tag]
-
-        if data is not None:
-            # Multiline fields are represented as lists of values.
-            if hasattr(self.data[-1], tag):
-                value = getattr(self.data[-1], tag)
-                if tag in self.concat_fields:
-                    value = ' '.join([value, data])
-                elif type(value) is list:
-                    value.append(data)
-                elif value not in [None, '']:
-                    value = [value, data]
-            else:
-                value = data
-
-            if type(value) is rdflib.term.Literal:
-                value = value.toPython()
-            setattr(self.data[-1], tag, value)
-
+        map(lambda p_o: self._set_value(*self.handle(*p_o)),
+            self.graph.predicate_objects(entry))
 
     def next(self):
-        if not self.current_entries:
-            if not self.classes:
-                raise StopIteration()
-            self.current_class = self.classes.pop()
-            while not self.current_entries:
-                self.current_entries = self._query(self.current_class)
+        next_entry = None
+        while next_entry is None:
+            try:
+                next_entry = self.current_entries.next()
+            except (StopIteration, AttributeError):
+                try:
+                    self.current_class = self.classes.pop()
+                except IndexError:    # Out of classes.
+                    raise StopIteration()
+                self.current_entries = self._get_resources_nodes(self.current_class)
 
-        self.process(self.current_entries.pop())
+        self._new_entry()
+        self.process(next_entry)
+        return self.current.entry
 
+    @property
+    def current(self):
+        return EntryWrapper(self.data[-1])
 
 
 class BaseParser(object):
@@ -501,64 +743,7 @@ class ZoteroParser(RDFParser):
 
         super(ZoteroParser, self).open()
 
-    def handle_identifier(self, value, commit=True):
-        """
 
-        """
-
-        identifier = unicode(self.graph.value(subject=value, predicate=VALUE_ELEM))
-        ident_type = self.graph.value(subject=value, predicate=TYPE_ELEM)
-        if ident_type == URI_ELEM and commit:
-            self.set_value('uri', identifier)
-            return
-        return (ident_type, identifier)
-
-    def handle_link(self, value):
-        """
-        rdf:link rdf:resource points to the resource described by a record.
-        """
-        link_data = []
-        for s, p, o in self.graph.triples((value, None, None)):
-            if p == IDENTIFIER:
-                identifier_type, identifier_value = self.handle_identifier(o, commit=False)
-                print identifier_type, identifier_value
-                if identifier_type == URI_ELEM:
-                    print 'YES'
-                    link_data.append(('url', identifier_value))
-            elif p == LINK_ELEM:
-                link_data.append(('link', unicode(o).replace('file://', '')))
-            else:
-                link_data.append((p, o))
-        self.set_value('file', link_data)
-
-    def handle_date(self, value):
-        """
-        Attempt to coerced date to ISO8601.
-        """
-        try:
-            return iso8601.parse_date(unicode(value))
-        except iso8601.ParseError:
-            for datefmt in ("%B %d, %Y", "%Y-%m", "%Y-%m-%d", "%m/%d/%Y"):
-                try:
-                    # TODO: remove str coercion.
-                    return datetime.strptime(unicode(value), datefmt).date()
-                except ValueError:
-                    return value
-
-    def handle_documentType(self, value):
-        """
-
-        Parameters
-        ----------
-        value
-
-        Returns
-        -------
-        value.toPython()
-        Basically, RDF literals are casted to their corresponding Python data types.
-        """
-        self.set_value('entity_type', value)
-        return value
 
     def handle_authors_full(self, value):
         authors = [self.handle_author(o) for s, p, o
@@ -580,47 +765,6 @@ class ZoteroParser(RDFParser):
         """
         return value.toPython()
 
-    def handle_title(self, value):
-        """
-        Title handler
-        Parameters
-        ----------
-        value
-
-        Returns
-        -------
-        title.toPython()
-
-        """
-        self.set_value('name', value.toPython())
-        return value.toPython()
-
-
-    def handle_author(self, value):
-        forename_iter = self.graph.triples((value, FORENAME_ELEM, None))
-        surname_iter = self.graph.triples((value, SURNAME_ELEM, None))
-        norm = lambda s: unicode(s).upper().replace('.', '')
-
-
-
-        # TODO: DRY this out.
-        try:
-            forename = norm([e[2] for e in forename_iter][0])
-        except IndexError:
-            forename = ''
-
-        try:
-
-            surname_data = [e[2] for e in surname_iter][0]
-            if surname_data.startswith('http'):
-                return surname_data, ''
-            surname = norm(surname_data)
-        except IndexError:
-            surname = ''
-
-        if surname == '' and forename == '':
-            return
-        return surname, forename
 
     def handle_editors(self, value):
         return self.handle_authors_full(value)
@@ -634,30 +778,7 @@ class ZoteroParser(RDFParser):
     def handle_translators(self, value):
         return self.handle_authors_full(value)
 
-    def handle_isPartOf(self, value):
-        parent_document = []
-        for s, p, o in self.graph.triples((value, None, None)):
-            if p == IDENT:
-                # Zotero (in all of its madness) makes some identifiers, like
-                #  DOIs, properties of Journals rather than the Articles to
-                #  which they belong. The predicate for these relations
-                #  is identifier, and the object contains both the identifier
-                #  type and the identifier itself, eg.
-                #       "DOI 10.1017/S0039484"
-                try:
-                    name, ident_value = tuple(unicode(o).split(' '))
-                    if name in ['ISSN', 'ISBN']:
-                        parent_document.append((unicode(p), unicode(o)))
-                except ValueError:
-                    self.set_value(unicode(p), unicode(o))
-            elif p in [TITLE,
-                       rdflib.URIRef('http://purl.org/dc/terms/alternative'),
-                       rdflib.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type')]:
-                parent_document.append((unicode(p), unicode(o)))
-            else:
-                self.set_value(unicode(p), unicode(o))
 
-        return parent_document
 
     def postprocess_pages(self, entry):
         if type(entry.pages) not in [tuple, list]:
