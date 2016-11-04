@@ -28,7 +28,7 @@ class TestViewAuthEnforcement(unittest.TestCase):
         self.end_user = User.objects.create_user(
             username='UnprivelegedUser',
             password='password')
-        self.anonymous_user = User.objects.get(username='AnonymousUser')
+        self.anonymous_user, _ = User.objects.get_or_create(username='AnonymousUser')
 
     def test_resource_detail_view_not_public_anonymous(self):
         """
@@ -389,7 +389,7 @@ class TestPublicBehaviour(unittest.TestCase):
             name='Test',
             public=True,
             created_by=self.u)
-        anonymous = User.objects.get(username='AnonymousUser')
+        anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
         self.assertTrue(check_authorization('view', anonymous, resource))
         self.assertFalse(check_authorization('change', anonymous, resource))
 
@@ -398,7 +398,7 @@ class TestPublicBehaviour(unittest.TestCase):
             name='Test',
             public=False,
             created_by=self.u)
-        anonymous = User.objects.get(username='AnonymousUser')
+        anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
         self.assertFalse(check_authorization('view', anonymous, resource))
         self.assertFalse(check_authorization('change', anonymous, resource))
 

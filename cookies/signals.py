@@ -26,7 +26,7 @@ def set_default_auths_for_instance(sender, **kwargs):
                               instance, by_user=instance.created_by,
                               propagate=False)
         if getattr(instance, 'public', False):
-            anonymous = User.objects.get(username='AnonymousUser')
+            anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
             update_authorizations(['view'], anonymous, instance)
 
 

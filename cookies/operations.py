@@ -152,7 +152,7 @@ def merge_resources(resources, master_id=None, delete=True, user=None):
         raise RuntimeError("Cannot merge content and non-content resources")
 
     if user is None:
-        user = User.objects.get(username='AnonymousUser')
+        user, _ = User.objects.get_or_create(username='AnonymousUser')
 
     if master_id:
         master = resources.get(pk=master_id)
