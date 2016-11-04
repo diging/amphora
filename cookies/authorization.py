@@ -380,4 +380,4 @@ def make_nonpublic(obj):
     """
     obj.update(public=False)
     anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
-    update_authorizations([], anonyomous, obj)
+    update_authorizations([], anonymous, obj)
