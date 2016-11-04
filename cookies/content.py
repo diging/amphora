@@ -1,3 +1,8 @@
+"""
+DEPRECATED. This module is on the way out. What's left is here for reference
+purposes only, and will be deleted in the not-so-distant future.
+"""
+
 from django.conf import settings
 from django.core.files import File
 from django.db.models.fields.files import FieldFile
