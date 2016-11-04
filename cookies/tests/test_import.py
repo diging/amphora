@@ -38,7 +38,7 @@ class TestImport(unittest.TestCase):
 
 class TestHandleBulkWithZotero(unittest.TestCase):
     def setUp(self):
-        User.objects.create(username='AnonymousUser')
+        User.objects.get_or_create(username='AnonymousUser')
         self.user = User.objects.create(username='Test User')
         self.form_data = {
             'name': 'A New Collection',
@@ -70,7 +70,7 @@ class TestZoteroIngesterWithManager(unittest.TestCase):
         self.resource_data = {
             'created_by': User.objects.create(username='TestUser')
         }
-        User.objects.create(username='AnonymousUser')
+        User.objects.get_or_create(username='AnonymousUser')
 
     def test_ingest(self):
 
@@ -99,7 +99,7 @@ class TestZoteroIngesterWithManagerZIP(unittest.TestCase):
         self.resource_data = {
             'created_by': User.objects.create(username='TestUser')
         }
-        User.objects.create(username='AnonymousUser')
+        User.objects.get_or_create(username='AnonymousUser')
 
     def test_ingest(self):
         factory = IngesterFactory()
