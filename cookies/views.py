@@ -455,16 +455,11 @@ def job_status(request, result_id):
     })
     template = loader.get_template('job_status.html')
 
-    if job.result or async_result.status == 'SUCCESS' or async_result.status == 'FAILURE':
-        if async_result.status == 'SUCCESS':
-            result = async_result.get()
-            job.result = jsonpickle.encode(result)
-            job.save()
-        else:
-            try:
-                result = jsonpickle.decode(job.result)
-            except:
-                return HttpResponse(template.render(context))
+    if getattr(job, 'result', None) or getattr(async_result, 'status', None) in ['SUCCESS', 'FAILURE']:
+        try:
+            result = jsonpickle.decode(job.result)
+        except:
+            return HttpResponse(template.render(context))
 
         return HttpResponseRedirect(reverse(result['view'], args=(result['id'], )))
 

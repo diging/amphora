@@ -13,8 +13,9 @@ icons = {
 
 @register.filter(name='get_status')
 def get_status(job):
-    result = AsyncResult(job.result_id)
-    return result.status
+    if job.result_id:
+        return AsyncResult(job.result_id).status
+    return 'FAILURE'
 
 
 @register.filter(name='get_status_icon')

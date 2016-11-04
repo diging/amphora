@@ -424,7 +424,9 @@ class UserJob(models.Model):
         return self.progress * 100.
 
     def get_absolute_url(self):
-        return reverse('job-status', args=(self.result_id,))
+        if self.result_id:
+            return reverse('job-status', args=(self.result_id,))
+        return reverse('jobs')
 
 
 class GilesSession(models.Model):

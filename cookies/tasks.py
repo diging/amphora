@@ -11,6 +11,8 @@ from cookies.accession import IngesterFactory
 from cookies.exceptions import *
 logger = settings.LOGGER
 
+import jsonpickle
+
 
 @shared_task
 def handle_content(obj, commit=True):
@@ -66,6 +68,9 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
     # User can indicate a default Type to assign to each new Resource.
     default_type = form_data.pop('default_type', None)
     ingester = IngesterFactory().get(ingester)(file_path)
+    ingester.Resource = authorization.apply_filter(creator, 'change_resource', ingester.Resource)
+    ingester.Collection = authorization.apply_filter(creator, 'change_collection', ingester.Collection)
+    ingester.ConceptEntity = authorization.apply_filter(creator, 'change_conceptentity', ingester.ConceptEntity)
     ingester.set_resource_defaults(entity_type=default_type,
                                    created_by=creator, **form_data)
 
@@ -78,6 +83,9 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
         if job:
             job.progress += 1./N
             job.save()
+    job.result = jsonpickle.encode({'view': 'collection', 'id': collection.id})
+    job.save()
+
     return {'view': 'collection', 'id': collection.id}
 
 

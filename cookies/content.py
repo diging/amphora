@@ -14,7 +14,6 @@ from uuid import uuid4
 import mimetypes, jsonpickle, os, zipfile, magic, urllib
 
 from cookies.models import *
-from cookies.ingest import read
 from cookies import giles, authorization, operations
 from cookies.operations import add_creation_metadata
 
