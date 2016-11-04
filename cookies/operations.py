@@ -172,3 +172,40 @@ def merge_resources(resources, master_id=None, delete=True, user=None):
     if delete:
         to_merge.delete()
     return master
+
+def add_resources_to_collection(resources, collection):
+    """
+    Adds selected resources to a collection.
+
+    Number of resources should be greater than or equal to 1.
+    And one collection has to be selected
+    Returns the collection after making changes.
+
+    Parameters
+    -------------
+    resources : ``QuerySet``
+        The :class:`.Resource` instances that will be added to ``collection``.
+    collection : :class:`.Collection`
+        The :class:`.Collection` instance to which ``resources`` will be added.
+
+    Returns
+    ---------
+    collection : :class:`.Collection`
+        Updated :class:`.Collection` instance.
+
+    Raises
+    ------
+    RuntimeError
+        If less than one :class:`.Resource` instance is in queryset
+        or if collection is not a :class:`.ConceptEntity` instance
+    """
+    if resources.count() < 1 :
+        raise RuntimeError("Need at least one resource to add to collection.")
+
+    if not isinstance(collection, Collection):
+        raise RuntimeError("Invalid collection to add resources to.")
+
+    collection.resources.add(*resources)
+    collection.save()
+
+    return collection

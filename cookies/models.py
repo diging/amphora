@@ -28,7 +28,7 @@ def help_text(text):
 
 
 
-
+def _resource_file_name(instance, filename):
     """
     Generates a file name for Files added to a :class:`.LocalResource`\.
     """

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+{% load addcss %}
+
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url 'AddToCollection' 'bulk-action-resource' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="h2">Add to collection</div>
+<p class="text-info">
+    You are about to add resources to a collection.
+</p>
+{% if resources.count > 0 %}
+<form class="form" action="{% url "bulk-add-resource-to-collection" %}" method="POST">
+  {% csrf_token %}
+    <div class="text-info">The number of resources selected are: {{number_of_resources}}</div>
+    <div class="text-info">Collections:</div>
+    {% if collections.count > 0 %}
+    <ul class="list-group">
+        {% for collection in collections %}
+        <li class="list-group-item">
+            <input type="radio" name="collection" value="{{collection.id}}" />
+            <a href="{{ collection.get_absolute_url }}" target="_blank">{{ collection.name }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div class="text-warning">There are no collections that have been created</div>
+    <a class="btn btn-primary" href="{% url "create-collection" %}">Create collection</a>
+    {% endif %}
+    {% for resource in resources %}
+    <input type="hidden" name="addresources" value="{{resource.id}}" />
+    {% endfor %}
+    <input type="submit" class="btn btn-success" />
+</form>
+{% else %}
+<div class="alert alert-warning">
+  <strong>Warning!</strong> Need to select at least one resource before proceeding. Go to previous page and select resources.
+</div>
+{% endif %}
+{% endblock %}
