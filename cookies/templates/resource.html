@@ -29,7 +29,7 @@
                     {% is_authorized "change_resource" user resource as can_edit_resource %}
                     {% if can_edit_resource %}
                     <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
-                        href="{% url "edit-resource-details" resource.id %}?next={{ request.path }}"
+                        href="{% url "edit-resource-details" resource.id %}{% if request %}?next={{ request.path }}{% endif %}"
                         data-toggle="tooltip"
                         data-title="Edit record"></a>
                     <a class="btn glyphicon glyphicon-compressed" aria-hidden="true"
@@ -40,7 +40,7 @@
                     {% is_authorized "view_authorizations" user resource as can_view_authorizations %}
                     {% if can_view_authorizations %}
                     <a class="btn glyphicon glyphicon-lock" aria-hidden="true"
-                        href="{% url "resource-authorization-list" resource.id %}?next={{ request.path }}"
+                        href="{% url "resource-authorization-list" resource.id %}{% if request %}?next={{ request.path }}{% endif %}"
                         data-toggle="tooltip"
                         data-title="Authorizations"></a>
                     {% endif %}

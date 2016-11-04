@@ -23,7 +23,6 @@ def handle_status_exception(func):
     def wrapper(user, *args, **kwargs):
         response = func(user, *args, **kwargs)
         if response.status_code == 401:    # Auth token expired.
-            print '401!'
             user.giles_token.delete()
             get_user_auth_token(user, **kwargs)
             user.refresh_from_db()
@@ -31,7 +30,6 @@ def handle_status_exception(func):
             return func(user, *args, **kwargs)
         elif response.status_code != requests.codes.ok and response.status_code != 202:
             message = 'Status %i, content: %s' % (response.status_code, response.content)
-            print message
             logger.debug(message)
             raise StatusException(response)
         return response
@@ -41,7 +39,6 @@ def handle_status_exception(func):
 def api_request(func):
     def wrapper(user, *args, **kwargs):
         response = func(user, *args, **kwargs)
-        print response.status_code, response.json()
         return response.status_code, response.json()
     return wrapper
 
@@ -100,7 +97,6 @@ def get_auth_token(user, **kwargs):
 
     See https://diging.atlassian.net/wiki/display/GIL/REST+Authentication.
     """
-    print 'get auth token'
     giles = kwargs.get('giles', settings.GILES)
     post = kwargs.get('post', settings.POST)
     provider = kwargs.get('provider', settings.GILES_DEFAULT_PROVIDER)
@@ -146,7 +142,6 @@ def send_to_giles(user, file_name, resource=None, public=True, **kwargs):
     headers.update({
         # 'Content-Type': 'multipart/form-data',
     })
-    print headers
     logger.debug(str(headers))
 
     data = {'access': 'PUBLIC' if public else 'PRIVATE',}
@@ -159,7 +154,6 @@ def send_to_giles(user, file_name, resource=None, public=True, **kwargs):
               'application/pdf'
           )
     }
-    print files
     logger.debug(str(files))
 
     # Giles should respond with a token for each upload, which we should

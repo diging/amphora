@@ -14,12 +14,12 @@ logger = settings.LOGGER
 
 
 def add_creation_metadata(resource, user):
-    PROVENANCE = Field.objects.get(uri='http://purl.org/dc/terms/provenance')
+    __provenance__, _ = Field.objects.get_or_create(uri='http://purl.org/dc/terms/provenance')
     now = str(datetime.datetime.now())
     creation_message = u'Added by %s on %s' % (user.username, now)
     Relation.objects.create(**{
         'source': resource,
-        'predicate': PROVENANCE,
+        'predicate': __provenance__,
         'target': Value.objects.create(**{
             '_value': jsonpickle.encode(creation_message),
         })
@@ -152,7 +152,7 @@ def merge_resources(resources, master_id=None, delete=True, user=None):
         raise RuntimeError("Cannot merge content and non-content resources")
 
     if user is None:
-        user = User.objects.get(username='AnonymousUser')
+        user, _ = User.objects.get_or_create(username='AnonymousUser')
 
     if master_id:
         master = resources.get(pk=master_id)

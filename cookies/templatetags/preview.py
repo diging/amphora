@@ -94,7 +94,7 @@ import urlparse, urllib
 
 @register.filter(name='preview')
 def preview(resource, request):
-    page_field = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
+    page_field = Field.objects.get_or_create(uri='http://purl.org/dc/terms/isPartOf')[0]
     user = resource.created_by
     content_relations = resource.content.all()
     page_relations = resource.relations_to.filter(predicate=page_field)

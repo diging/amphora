@@ -14,22 +14,20 @@ logger = settings.LOGGER
 
 
 
-# @receiver(post_save, sender=Collection)
-# @receiver(post_save, sender=Resource)
-# @receiver(post_save, sender=Relation)
-# @receiver(post_save, sender=ConceptEntity)
-# def set_default_auths_for_collection(sender, **kwargs):
-#     instance = kwargs.get('instance', None)
-#     created = kwargs.get('created', False)
-#     if created and instance.created_by:
-#         try:
-#             update_authorizations.delay(sender.DEFAULT_AUTHS,
-#                                         instance.created_by,
-#                                         instance, by_user=instance.created_by)
-#         except ConnectionError:
-#             logger.error("set_default_auths_for_collection: there was an error"
-#                          " connecting to the redis message passing backend.")
-
+@receiver(post_save, sender=Collection)
+@receiver(post_save, sender=Resource)
+@receiver(post_save, sender=Relation)
+@receiver(post_save, sender=ConceptEntity)
+def set_default_auths_for_instance(sender, **kwargs):
+    instance = kwargs.get('instance', None)
+    created = kwargs.get('created', False)
+    if created and instance.created_by:
+        update_authorizations(sender.DEFAULT_AUTHS, instance.created_by,
+                              instance, by_user=instance.created_by,
+                              propagate=False)
+        if getattr(instance, 'public', False):
+            anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
+            update_authorizations(['view'], anonymous, instance)
 
 
 @receiver(post_save, sender=User)
@@ -42,7 +40,7 @@ def new_users_are_inactive_by_default(sender, **kwargs):
 
 
 # TODO: enable this when Giles is ready for asynchronous uploads.
-@receiver(post_save, sender=ContentRelation)
+# @receiver(post_save, sender=ContentRelation)
 def send_pdfs_and_images_to_giles(sender, **kwargs):
     instance = kwargs.get('instance', None)
     print 'received post_Save for ContentRelation %i' % instance.id

@@ -3,10 +3,8 @@ from .models import Concept, Type
 from conceptpower import Conceptpower
 from urlparse import urlparse
 
-import logging
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logger.setLevel('DEBUG')
+from django.conf import settings
+logger = settings.LOGGER
 
 class AuthorityManager(object):
     pass

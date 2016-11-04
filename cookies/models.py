@@ -12,7 +12,6 @@ from django.conf import settings
 
 
 import iso8601, json, sys, six, logging, rest_framework, jsonpickle
-from cookies import authorization
 from uuid import uuid4
 
 logging.basicConfig()
@@ -33,7 +32,7 @@ def _resource_file_name(instance, filename):
     Generates a file name for Files added to a :class:`.LocalResource`\.
     """
 
-    return '/'.join([instance.id, 'content', filename])
+    return '/'.join([str(instance.id), 'content', filename])
 
 
 class Entity(models.Model):
@@ -141,12 +140,6 @@ class ResourceBase(Entity):
         elif self.location:
             return False
 
-    def save(self, *args, **kwargs):
-        super(ResourceBase, self).save(*args, **kwargs)
-        anonymous, _ = User.objects.get_or_create(username=u'AnonymousUser')
-        auths = ['view_resource'] if self.public else []
-        authorization.update_authorizations(auths, anonymous, self)
-
     class Meta:
         permissions = (
             ('view_resource', 'View resource'),
@@ -194,6 +187,9 @@ class Resource(ResourceBase):
     @property
     def has_local_content(self):
         return self.content.filter(~Q(content_resource__file='')).count() > 0
+
+    def __unicode__(self):
+        return unicode(self.id)
 
 
 
@@ -419,11 +415,18 @@ class UserJob(models.Model):
     created_by = models.ForeignKey(User, related_name='jobs')
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
-    result_id = models.CharField(max_length=255)
+    result_id = models.CharField(max_length=255, null=True, blank=True)
     result = models.TextField()
+    progress = models.FloatField(default=0.0)
+
+    @property
+    def percent(self):
+        return self.progress * 100.
 
     def get_absolute_url(self):
-        return reverse('job-status', args=(self.result_id,))
+        if self.result_id:
+            return reverse('job-status', args=(self.result_id,))
+        return reverse('jobs')
 
 
 class GilesSession(models.Model):

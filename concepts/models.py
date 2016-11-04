@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
 
@@ -33,6 +34,26 @@ class HeritableObject(models.Model):
 
     class Meta:
         abstract = True
+
+
+class ExternalConcept(models.Model):
+    uri = models.CharField(max_length=255)
+    VIAF = 'VIAF'
+    SOURCES = [
+        (VIAF, 'VIAF'),
+    ]
+    source = models.CharField(max_length=4, choices=SOURCES)
+    label = models.CharField(max_length=255)
+    description = models.TextField()
+    created = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, related_name='external_concepts')
+
+
+class IdentityRelation(models.Model):
+    concept = models.ForeignKey('Concept', related_name='external_identities')
+    external = models.ForeignKey('Concept', related_name='internal_concepts')
+    created = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, related_name='identity_relations')
 
 
 class Concept(HeritableObject):

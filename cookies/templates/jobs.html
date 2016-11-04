@@ -66,6 +66,19 @@
             <span class="text-muted">{{ task.result_id }}</span> created on&nbsp;
             <strong>{{ task.created }}</strong> by&nbsp;
             <span class="text-warning">{{ task.created_by }}</span>
+            <div class="col-xs-2 pull-right">
+                <div class="progress">
+                    <div class="progress-bar"
+                        role="progressbar"
+                        aria-valuenow="{{ task.percent }}"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        style="width:{{ task.percent }}%"
+                        >
+                        <span class="sr-only">{{ task.percent }}% Complete</span>
+                    </div>
+                </div>
+            </div>
         </a>
         {% endfor %}
     </ul>
