@@ -271,5 +271,5 @@ def filter_relations(source=None, predicate=None, target=None,
 
 
 def group_relations(relations, by='predicate'):
-    _key = lambda o: o.predicate
-    return [(predicate, [r for r in group]) for predicate, group in groupby(sorted(relations, key=_key), key=_key)]
+    _key = lambda o: o.predicate.id
+    return [[r for r in group] for predicate, group in groupby(sorted(relations, key=_key), key=_key)]

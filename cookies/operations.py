@@ -69,13 +69,13 @@ def prune_relations(resource, user=None):
 
     fields = ['predicate_id', 'target_type', 'target_instance_id', 'id']
     relations_from = resource.relations_from.all()
-    if user:
+    if user and type(resource) is Resource:
         relations_from = authorization.apply_filter(user, 'delete_relation', relations_from)
     _search_and_destroy(relations_from.order_by(*fields).values_list(*fields))
 
     fields = ['predicate_id', 'source_type', 'source_instance_id', 'id']
     relations_to = resource.relations_to.all()
-    if user:
+    if user and type(resource) is Resource:
         relations_to = authorization.apply_filter(user, 'delete_relation', relations_to)
     _search_and_destroy(relations_to.order_by(*fields).values_list(*fields))
 

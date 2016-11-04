@@ -241,6 +241,10 @@ def _propagate_to_children(auths, user, obj, **kwargs):
     elif isinstance(obj, Relation):
         logger.debug('Relation -> ConceptEntity')
         _propagate_to_entities(auths, user, obj,  **kwargs)
+    elif isinstance(obj, ConceptEntity):
+        logger.debug('ConceptEntity -> Relation')
+        kwargs.pop('propagate', None)
+        _propagate_to_relations(auths, user, obj, **kwargs)
 
 
 def update_authorizations(auths, user, obj, **kwargs):

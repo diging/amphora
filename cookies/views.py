@@ -785,13 +785,17 @@ def entity_details(request, entity_id):
     similar_entities = entities.suggest_similar(entity)
     similar_entities = authorization.apply_filter(request.user, 'is_owner', similar_entities)
 
+    relations_from = metadata.filter_relations(qs=entity.relations_from.all(), user=request.user)
+    relations_from = [(g[0].predicate, g) for g in metadata.group_relations(relations_from)]
+    relations_to = metadata.filter_relations(qs=entity.relations_to.all(), user=request.user)
+    relations_to = [(g[0].predicate, g) for g in metadata.group_relations(relations_to)]
     context = RequestContext(request, {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
         'entity': entity,
         'similar_entities': similar_entities,
         'entity_type': ContentType.objects.get_for_model(ConceptEntity),
-        'relations_from': metadata.group_relations(metadata.filter_relations(qs=entity.relations_from.all(), user=request.user)),
-        'relations_to': metadata.group_relations(metadata.filter_relations(qs=entity.relations_to.all(), user=request.user)),
+        'relations_from': relations_from,
+        'relations_to': relations_to,
     })
     return HttpResponse(template.render(context))
 
