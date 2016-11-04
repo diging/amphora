@@ -23,7 +23,11 @@ def handle_status_exception(func):
     def wrapper(user, *args, **kwargs):
         response = func(user, *args, **kwargs)
         if response.status_code == 401:    # Auth token expired.
-            user.giles_token.delete()
+            try:
+                user.giles_token.delete()
+            except AssertionError:
+                pass
+                
             get_user_auth_token(user, **kwargs)
             user.refresh_from_db()
             # TODO: we could put some Exception handling here.
