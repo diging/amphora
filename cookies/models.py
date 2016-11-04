@@ -415,8 +415,13 @@ class UserJob(models.Model):
     created_by = models.ForeignKey(User, related_name='jobs')
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
-    result_id = models.CharField(max_length=255)
+    result_id = models.CharField(max_length=255, null=True, blank=True)
     result = models.TextField()
+    progress = models.FloatField(default=0.0)
+
+    @property
+    def percent(self):
+        return self.progress * 100.
 
     def get_absolute_url(self):
         return reverse('job-status', args=(self.result_id,))

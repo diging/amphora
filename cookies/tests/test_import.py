@@ -11,6 +11,7 @@ from cookies.accession import IngesterFactory, IngestManager
 from cookies.tests.mocks import MockFile, MockIngester
 from cookies.models import *
 from cookies.accession.zotero import ZoteroIngest
+from cookies import tasks
 
 
 class TestImport(unittest.TestCase):
@@ -33,6 +34,34 @@ class TestImport(unittest.TestCase):
         self.assertIsInstance(ingester, IngestManager)
         self.assertIsInstance(ingester.next(), Resource)
         self.assertEqual(mock_file.read.call_count, 1)
+
+
+class TestHandleBulkWithZotero(unittest.TestCase):
+    def setUp(self):
+        User.objects.create(username='AnonymousUser')
+        self.user = User.objects.create(username='Test User')
+        self.form_data = {
+            'name': 'A New Collection',
+            'created_by': self.user,
+        }
+        self.file_path = "test_data/TestRDF.rdf"
+        self.file_name = "TestRDF.rdf"
+        self.job = UserJob.objects.create(**{
+            'created_by': self.user,
+        })
+
+    def test_handle_bulk(self):
+        collection = tasks.handle_bulk(self.file_path, self.form_data, self.file_name, self.job)
+        self.assertIsInstance(collection, Collection)
+        self.assertEqual(collection.resources.count(), 20)
+
+    def tearDown(self):
+        User.objects.all().delete()
+        ConceptEntity.objects.all().delete()
+        Resource.objects.all().delete()
+        Relation.objects.all().delete()
+        Collection.objects.all().delete()
+        ContentRelation.objects.all().delete()
 
 
 class TestZoteroIngesterWithManager(unittest.TestCase):
@@ -60,6 +89,8 @@ class TestZoteroIngesterWithManager(unittest.TestCase):
         ConceptEntity.objects.all().delete()
         Resource.objects.all().delete()
         Relation.objects.all().delete()
+        Collection.objects.all().delete()
+        ContentRelation.objects.all().delete()
 
 
 class TestZoteroIngesterWithManagerZIP(unittest.TestCase):

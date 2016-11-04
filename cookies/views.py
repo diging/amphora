@@ -408,14 +408,13 @@ def create_resource_bulk(request):
             file_path = uploaded_file.temporary_file_path()
             file_name = request.FILES['upload_file'].name
             if not (file_name.endswith('.rdf') or file_name.endswith('.zip')):
-                form.add_error('upload_file', 'Not a valid RDF document or ZIP archive.')
+                form.add_error('upload_file',
+                               'Not a valid RDF document or ZIP archive.')
             else:
-                result = handle_bulk.delay(file_path, safe_data, file_name)
                 job = UserJob.objects.create(**{
                     'created_by': request.user,
-                    'result_id': result.id,
                 })
-
+                result = handle_bulk.delay(file_path, safe_data, file_name, job)
                 return HttpResponseRedirect(reverse('job-status', args=(result.id,)))
 
 
@@ -443,8 +442,13 @@ def jobs(request):
 
 @login_required
 def job_status(request, result_id):
-    job = get_object_or_404(UserJob, result_id=result_id)
-    async_result = AsyncResult(result_id)
+    try:
+        job = UserJob.objects.get(result_id=result_id)
+        async_result = AsyncResult(result_id)
+    except UserJob.DoesNotExist:
+        job = {'percent': 0.}
+        async_result = {'status': 'PENDING', 'id': result_id}
+
     context = RequestContext(request, {
         'job': job,
         'async_result': async_result,

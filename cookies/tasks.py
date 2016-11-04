@@ -2,11 +2,12 @@ from __future__ import absolute_import
 
 from django.conf import settings
 
-from celery import shared_task
+from celery import shared_task, task
 
-from cookies import content, giles, authorization
+from cookies import content, giles, authorization, operations
 from cookies.models import *
 from concepts import authorities
+from cookies.accession import IngesterFactory
 from cookies.exceptions import *
 logger = settings.LOGGER
 
@@ -25,8 +26,9 @@ def handle_content(obj, commit=True):
     return content.handle_content(obj, commit)
 
 
-@shared_task
-def handle_bulk(file_path, form_data, file_name):
+@task(name='jars.tasks.handle_bulk', bind=True)
+def handle_bulk(self, file_path, form_data, file_name, job=None,
+                ingester='cookies.accession.zotero.ZoteroIngest'):
     """
     Process resource data in a RDF document.
 
@@ -39,10 +41,44 @@ def handle_bulk(file_path, form_data, file_name):
         Valid data from a :class:`cookies.forms.BulkResourceForm`\.
     file_name : str
         Name of the target file at ``file_path``\.
+    job : :class:`.UserJob`
+        Used to update progress.
     """
-    print 'handle bulk'
+    if job:
+        job.result_id = self.request.id
+        job.save()
+
     logger.debug('handle bulk')
-    return content.handle_bulk(file_path, form_data, file_name)
+    creator = form_data.pop('created_by')
+
+    # The user can either add these new records to an existing collection, or
+    #  create a new one.
+    collection = form_data.pop('collection', None)
+    collection_name = form_data.pop('name', None)
+    if not collection:
+        collection = Collection.objects.create(**{
+            'name': collection_name,
+            'created_by': creator,
+        })
+
+    operations.add_creation_metadata(collection, creator)
+
+    # User can indicate a default Type to assign to each new Resource.
+    default_type = form_data.pop('default_type', None)
+    ingester = IngesterFactory().get(ingester)(file_path)
+    ingester.set_resource_defaults(entity_type=default_type,
+                                   created_by=creator, **form_data)
+
+    N = len(ingester)
+    for resource in ingester:
+        collection.resources.add(resource)
+        operations.add_creation_metadata(resource, creator)
+        authorization.update_authorizations(Resource.DEFAULT_AUTHS, creator,
+                                            resource, propagate=True)
+        if job:
+            job.progress += 1./N
+            job.save()
+    return {'view': 'collection', 'id': collection.id}
 
 
 @shared_task

@@ -443,6 +443,9 @@ class ZoteroIngest(object):
     def current(self):
         return EntryWrapper(self.data[-1])
 
+    def __len__(self):
+        return sum([len(list(self._get_resources_nodes(cl))) for cl in self.classes])
+
     def __del__(self):
         """
         Remove temporary files.

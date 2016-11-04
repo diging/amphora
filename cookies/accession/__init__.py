@@ -91,7 +91,7 @@ class IngestManager(object):
         resource_data : kwargs
             Keys should be model field names. E.g. ``created_by``\.
         """
-        self.resource_data = resource_data
+        self.resource_data = {k: v for k, v in resource_data.iteritems() if k in self.model_fields}
 
     def _handle_uri_ref(self, predicate, data):
         """
@@ -186,6 +186,7 @@ class IngestManager(object):
             name = value.pop('name', None)
             if entity_type:
                 entity_type = metadata.field_or_type_from_uri(entity_type, Type)
+                defaults.update({'entity_type': entity_type})
             if not name:
                 name = 'Unnamed %s: %s' % (entity_type.name, unicode(uuid4()))
             defaults.update({'name': name})
@@ -194,8 +195,7 @@ class IngestManager(object):
                 instance = self._get_or_create_entity(value, entity_type,
                                                       **defaults)
             else:
-                instance = ConceptEntity.objects.create(entity_type=entity_type,
-                                                        **defaults)
+                instance = ConceptEntity.objects.create(**defaults)
             if len(value) > 0:
                 n = len(value)
                 map(self.create_relations, value.keys(), value.values(),
@@ -291,6 +291,7 @@ class IngestManager(object):
                     'content_type': ctype[0],
                     'content_encoding': ctype[1],
                 })
+        data.pop('entity_type', None)    # ContentRelation is not an Entity.
         return ContentRelation.objects.create(**data)
 
     def create_content_resource(self, content_data, resource):
@@ -340,6 +341,9 @@ class IngestManager(object):
         else:
             field, _ = Field.objects.get_or_create(uri=uri, defaults=pred_data)
         return field
+
+    def __len__(self):
+        return len(self.wraps)
 
     def __iter__(self):
         return self
