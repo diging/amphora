@@ -62,7 +62,7 @@ class Entity(models.Model):
     not be accessible directly, even for logged-in users.
     """
 
-    public = models.BooleanField(default=True, help_text="If a resource is not"
+    public = models.BooleanField(default=False, help_text="If a resource is not"
                                  " public it will only be accessible to"
                                  " logged-in users and will not appear in"
                                  " public search results. If this option is"
@@ -189,7 +189,7 @@ class Resource(ResourceBase):
         return self.content.filter(~Q(content_resource__file='')).count() > 0
 
     def __unicode__(self):
-        return unicode(self.id)
+        return self.name
 
 
 

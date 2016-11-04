@@ -103,22 +103,28 @@ def resource_list(request):
                                              hidden=False)
 
     qset_resources = authorization.apply_filter(request.user, 'view_resource',
-                                          qset_resources)
+                                                qset_resources)
     predicate_ids = request.GET.getlist('predicate')
     target_ids = request.GET.getlist('target')
     target_type_ids = request.GET.getlist('target_type')
     if predicate_ids and target_ids and target_type_ids:
         for p, t, y in zip(predicate_ids, target_ids, target_type_ids):
-            qset_resources = qset_resources.filter(relations_from__predicate_id=p, relations_from__target_instance_id=t, relations_from__target_type_id=y)
+            qset_resources = qset_resources.filter(
+                relations_from__predicate_id=p,
+                relations_from__target_instance_id=t,
+                relations_from__target_type_id=y
+            )
     # For now we use filters to achieve search functionality. At some point we
     #  should use a real search backend.
     #
     # TODO: implement a real search backend.
     filtered_objects = ResourceFilter(request.GET, queryset=qset_resources)
     qset_collections = Collection.objects.filter(
-        Q(content_resource=False)\
-        & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id))
+        Q(content_resource=False) & Q(hidden=False)
     )
+    qset_collections = authorization.apply_filter(request.user,
+                                                  'view_collection',
+                                                  qset_collections)
     collections = CollectionFilter(request.GET, queryset=qset_collections)
 
     context = RequestContext(request, {
@@ -862,16 +868,20 @@ def resource_authorization_change(request, resource_id, user_id):
             if form.cleaned_data.get('for_user') != user:
                 raise RuntimeError('Whoops, someone f***ed with the user.')
 
+            # Synchronously update the Resource itself, so that the user sees
+            #  the effect immediately.
             authorization.update_authorizations(
                 form.cleaned_data.get('authorizations'),
                 form.cleaned_data.get('for_user'),
                 resource,
             )
+            # Asynchronously update any downstream resources and entities.
             update_authorizations.delay(
                 form.cleaned_data.get('authorizations'),
                 form.cleaned_data.get('for_user'),
                 resource,
-                by_user=request.user
+                by_user=request.user,
+                propagate=True,
             )
             return HttpResponseRedirect(reverse('resource-authorization-list', args=(resource.id,)))
 
@@ -924,8 +934,9 @@ def collection_authorization_change(request, collection_id, user_id):
 
             authorizations = form.cleaned_data.get('authorizations')
             for_user = form.cleaned_data.get('for_user')
+            propagate = form.cleaned_data.get('propagate', False)
             authorization.update_authorizations(
-                authorizations, for_user, collection
+                authorizations, for_user, collection, propagate=propagate,
             )
             update_authorizations.delay(
                 authorizations, for_user, collection, request.user
@@ -1155,9 +1166,12 @@ def bulk_action_resource(request):
     qs_resources = Resource.objects.filter(pk__in=resource_ids)
 
     qset_collections = Collection.objects.filter(
-        Q(content_resource=False)\
-        & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id))
+        Q(content_resource=False) & Q(hidden=False)
     )
+    qset_collections = authorization.apply_filter(request.user,
+                                                  'view_collection',
+                                                  qset_collections)
+
     collections = CollectionFilter(request.GET, queryset=qset_collections)
 
     context = RequestContext(request, {
