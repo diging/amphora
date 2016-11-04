@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from celery import shared_task
 
 import os, re, rdflib, zipfile, tempfile, codecs, chardet, unicodedata, iso8601
-import shutil
+import shutil, copy
 import xml.etree.ElementTree as ET
 
 from django.conf import settings
@@ -27,7 +27,7 @@ ZOTERO = Namespace('http://www.zotero.org/namespaces/export#')
 
 RESOURCE_CLASSES = [
     BIB.Illustration, BIB.Recording, BIB.Legislation, BIB.Document,
-    BIB.BookSection, BIB.Book, BIB.Data, BIB.Letter, BIB.REPORT,
+    BIB.BookSection, BIB.Book, BIB.Data, BIB.Letter, BIB.Report,
     BIB.Article, BIB.Thesis, BIB.Manuscript, BIB.Image,
     BIB.ConferenceProceedings,
 ]
@@ -92,7 +92,7 @@ class ZoteroIngest(object):
         (RSS.type, 'content_type'),
     ]
 
-    def __init__(self, path, classes=RESOURCE_CLASSES):
+    def __init__(self, path, classes=copy.deepcopy(RESOURCE_CLASSES)):
         if path.endswith('.zip'):
             self._unpack_zipfile(path)
         else:
@@ -138,7 +138,7 @@ class ZoteroIngest(object):
         self.graph.parse(rdf_path)
         self.entries = []
 
-        self.classes = classes
+        self.classes = copy.deepcopy(classes)
         self.current_class = None
         self.current_entries = None
 
@@ -447,4 +447,5 @@ class ZoteroIngest(object):
         """
         Remove temporary files.
         """
-        shutil.rmtree(self.dtemp)
+        if hasattr(self, 'dtemp'):
+            shutil.rmtree(self.dtemp)

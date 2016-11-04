@@ -43,12 +43,17 @@ class TestZoteroIngesterWithManager(unittest.TestCase):
         User.objects.create(username='AnonymousUser')
 
     def test_ingest(self):
+
         factory = IngesterFactory()
         ingest_class = factory.get('cookies.accession.zotero.ZoteroIngest')
         ingester = ingest_class("test_data/TestRDF.rdf")
+
         ingester.set_resource_defaults(**self.resource_data)
+        N = 0
         for resource in ingester:
             self.assertIsInstance(resource, Resource)
+            N += 1
+        self.assertEqual(N, 20, "Should create 20 resources from this RDF.")
 
     def tearDown(self):
         User.objects.all().delete()
@@ -69,9 +74,14 @@ class TestZoteroIngesterWithManagerZIP(unittest.TestCase):
         ingest_class = factory.get('cookies.accession.zotero.ZoteroIngest')
         ingester = ingest_class("test_data/TestRDF.zip")
         ingester.set_resource_defaults(**self.resource_data)
+
+        N = 0
         for resource in ingester:
             self.assertIsInstance(resource, Resource)
-            print resource.content.first().content_resource.content_location
+            self.assertGreater(resource.content.count(), 0,
+                "Each resource in this RDF should have some form of content.")
+            N += 1
+        self.assertEqual(N, 20, "Should create 20 resources from this RDF.")
 
     def tearDown(self):
         User.objects.all().delete()
@@ -109,7 +119,7 @@ class TestZoteroIngesterWithLinks(unittest.TestCase):
         self.g.add((self.doc, DC.title, Literal("PubMed Central Link")))
         self.g.add((self.doc, RSS.type, Literal("text/html")))
 
-        self.g.add((self.ident, RDF.type, DC.URI))
+        self.g.add((self.ident, RDF.type, DCTERMS.URI))
         self.g.add((self.ident, RDF.value, URIRef(self.location)))
 
         self.g.add((self.doc2, RSS.link, Literal(self.link)))
@@ -157,7 +167,7 @@ class TestZoteroIngester(unittest.TestCase):
         self.g.add((self.doc, DC.title, Literal("A T\xc3\xa9st Title".decode('utf-8'))))
         self.g.add((self.doc, RSS.link, Literal(u"http://asdf.com")))
         self.g.add((self.doc, DC.identifier, self.ident))
-        self.g.add((self.ident, RDF.type, DC.URI))
+        self.g.add((self.ident, RDF.type, DCTERMS.URI))
         self.g.add((self.ident, RDF.value, URIRef(self.test_uri)))
         self.g.add((self.doc, DC.identifier, self.ident2))
         self.g.add((self.ident2, RDF.type, BIB.doi))
@@ -250,7 +260,7 @@ class TestZoteroIngester(unittest.TestCase):
         self.assertIsInstance(result, tuple,
             "Handlers should return tuples.")
         self.assertEqual(result[0], 'uri',
-            "DC.URI identifiers should be used as first-class URIs.")
+            "DCTERMS.URI identifiers should be used as first-class URIs.")
         self.assertEqual(result[1].toPython(), self.test_uri)
 
         result = ingester.handle_identifier(DC.identifier, self.ident2)

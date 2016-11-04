@@ -12,18 +12,15 @@ import codecs
 import chardet
 import unicodedata
 
-import logging
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logger.setLevel('DEBUG')
-
+from django.conf import settings
 from datetime import datetime
 
 from cookies.models import *
 
+logger = settings.LOGGER
 
-# rdflib complains a lot.
-logging.getLogger("rdflib").setLevel(logging.ERROR)
+# rdflib complains a LOT.
+logging.getLogger("rdflib").setLevel('ERROR')
 
 # RDF terms.
 RDF = u'http://www.w3.org/1999/02/22-rdf-syntax-ns#'

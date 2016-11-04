@@ -4,10 +4,9 @@ from django.dispatch import receiver
 from .authorities import resolve
 from .models import Concept, Type
 
-import logging
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logger.setLevel('DEBUG')
+from django.conf import settings
+
+logger = settings.LOGGER
 
 ### Handle Concept and Type signals. ###
 
@@ -15,7 +14,7 @@ logger.setLevel('DEBUG')
 def concept_post_save_receiver(sender, **kwargs):
     """
     When a :class:`.Concept` is saved, attempt to resolve it using one of the
-    registered :class:`.AuthorityManager` classes if the :class:`.Concept` is 
+    registered :class:`.AuthorityManager` classes if the :class:`.Concept` is
     not already :prop:`.resolved`\.
     """
     instance = kwargs.get('instance', None)
