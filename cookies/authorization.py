@@ -241,6 +241,10 @@ def _propagate_to_children(auths, user, obj, **kwargs):
     elif isinstance(obj, Relation):
         logger.debug('Relation -> ConceptEntity')
         _propagate_to_entities(auths, user, obj,  **kwargs)
+    elif isinstance(obj, ConceptEntity):
+        logger.debug('ConceptEntity -> Relation')
+        kwargs.pop('propagate', None)
+        _propagate_to_relations(auths, user, obj, **kwargs)
 
 
 def update_authorizations(auths, user, obj, **kwargs):
@@ -356,6 +360,10 @@ def apply_filter(user, auth, queryset):
     :class:`django.db.models.QuerySet`
 
     """
+    # TODO: implement a more general way to correct these legacy auth names.
+    if getattr(queryset, 'model', None) == Collection \
+        and auth == 'view_collection':
+        auth = 'view_resource'
 
     if user.is_superuser:
         return queryset
@@ -364,3 +372,12 @@ def apply_filter(user, auth, queryset):
     if auth == 'is_owner':
         return queryset.filter(created_by_id=user.id)
     return get_objects_for_user(user, auth, queryset)
+
+
+def make_nonpublic(obj):
+    """
+    Convenience function for revoking public access all at once.
+    """
+    obj.update(public=False)
+    anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
+    update_authorizations([], anonyomous, obj)

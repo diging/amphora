@@ -26,18 +26,47 @@
         {% for error in form.non_field_errors %}
         <div class="alert alert-warning">{{ error }}</div>
         {% endfor %}
-        {% for field in form %}
-        <div class="form-group">
-            {% for error in field.errors %}
-            <div class="alert alert-warning">{{ error }}</div>
-            {% endfor %}
-            {% if field.label != 'For user' %}<label>{{ field.label }}</label>{% endif %}
+        <div class="row">
+            <div class="col-xs-6">
+                {% with form.for_user as field %}
+                <div class="form-group">
+                    {% for error in field.errors %}
+                    <div class="alert alert-warning">{{ error }}</div>
+                    {% endfor %}
+                    {% if field.label != 'For user' %}<label>{{ field.label }}</label>{% endif %}
 
-            {{ field|addcss:"form-control" }}
-            <p class="text-muted">{{ field.help_text }}</p>
+                    {{ field|addcss:"form-control" }}
+                    <p class="text-muted">{{ field.help_text }}</p>
+                </div>
+                {% endwith %}
+
+                {% with form.authorizations as field %}
+                <div class="form-group">
+                    {% for error in field.errors %}
+                    <div class="alert alert-warning">{{ error }}</div>
+                    {% endfor %}
+                    {% if field.label != 'For user' %}<label>{{ field.label }}</label>{% endif %}
+
+                    {{ field|addcss:"form-control" }}
+                    <p class="text-muted">{{ field.help_text }}</p>
+                </div>
+                {% endwith %}
+            </div>
+            <div class="col-xs-6">
+                {% with form.propagate as field %}
+                <div class="form-group">
+                    {% for error in field.errors %}
+                    <div class="alert alert-warning">{{ error }}</div>
+                    {% endfor %}
+                    {% if field.label != 'For user' %}<label>{{ field.label }}</label>{% endif %}
+
+                    {{ field|addcss:"form-control" }}
+                    <p class="text-muted">{{ field.help_text }}</p>
+                </div>
+                {% endwith %}
+            </div>
         </div>
 
-        {% endfor %}
     <input type="submit" class="btn btn-success" value="Submit" />
     </form>
 </div>

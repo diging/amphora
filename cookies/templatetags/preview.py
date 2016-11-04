@@ -137,7 +137,7 @@ def preview(resource, request):
                         'src': relation.content_resource.file.url
                     })
                 else:
-                    preview_elem =iframe_template.format(**{
+                    preview_elem =external_link_template.format(**{
                         'href': relation.content_resource.file.url
                     })
 
