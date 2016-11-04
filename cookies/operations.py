@@ -14,12 +14,12 @@ logger = settings.LOGGER
 
 
 def add_creation_metadata(resource, user):
-    PROVENANCE = Field.objects.get(uri='http://purl.org/dc/terms/provenance')
+    __provenance__, _ = Field.objects.get_or_create(uri='http://purl.org/dc/terms/provenance')
     now = str(datetime.datetime.now())
     creation_message = u'Added by %s on %s' % (user.username, now)
     Relation.objects.create(**{
         'source': resource,
-        'predicate': PROVENANCE,
+        'predicate': __provenance__,
         'target': Value.objects.create(**{
             '_value': jsonpickle.encode(creation_message),
         })
@@ -69,13 +69,13 @@ def prune_relations(resource, user=None):
 
     fields = ['predicate_id', 'target_type', 'target_instance_id', 'id']
     relations_from = resource.relations_from.all()
-    if user:
+    if user and type(resource) is Resource:
         relations_from = authorization.apply_filter(user, 'delete_relation', relations_from)
     _search_and_destroy(relations_from.order_by(*fields).values_list(*fields))
 
     fields = ['predicate_id', 'source_type', 'source_instance_id', 'id']
     relations_to = resource.relations_to.all()
-    if user:
+    if user and type(resource) is Resource:
         relations_to = authorization.apply_filter(user, 'delete_relation', relations_to)
     _search_and_destroy(relations_to.order_by(*fields).values_list(*fields))
 
@@ -152,7 +152,7 @@ def merge_resources(resources, master_id=None, delete=True, user=None):
         raise RuntimeError("Cannot merge content and non-content resources")
 
     if user is None:
-        user = User.objects.get(username='AnonymousUser')
+        user, _ = User.objects.get_or_create(username='AnonymousUser')
 
     if master_id:
         master = resources.get(pk=master_id)
@@ -172,3 +172,40 @@ def merge_resources(resources, master_id=None, delete=True, user=None):
     if delete:
         to_merge.delete()
     return master
+
+def add_resources_to_collection(resources, collection):
+    """
+    Adds selected resources to a collection.
+
+    Number of resources should be greater than or equal to 1.
+    And one collection has to be selected
+    Returns the collection after making changes.
+
+    Parameters
+    -------------
+    resources : ``QuerySet``
+        The :class:`.Resource` instances that will be added to ``collection``.
+    collection : :class:`.Collection`
+        The :class:`.Collection` instance to which ``resources`` will be added.
+
+    Returns
+    ---------
+    collection : :class:`.Collection`
+        Updated :class:`.Collection` instance.
+
+    Raises
+    ------
+    RuntimeError
+        If less than one :class:`.Resource` instance is in queryset
+        or if collection is not a :class:`.ConceptEntity` instance
+    """
+    if resources.count() < 1 :
+        raise RuntimeError("Need at least one resource to add to collection.")
+
+    if not isinstance(collection, Collection):
+        raise RuntimeError("Invalid collection to add resources to.")
+
+    collection.resources.add(*resources)
+    collection.save()
+
+    return collection

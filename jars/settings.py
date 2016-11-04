@@ -200,6 +200,7 @@ LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
 URI_NAMESPACE = 'http://diging.asu.edu/amphora'
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
+# LOGLEVEL = 'ERROR'
 import logging
 logging.basicConfig()
 LOGGER = logging.getLogger(__name__)

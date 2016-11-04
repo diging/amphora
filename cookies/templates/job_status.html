@@ -2,6 +2,9 @@
 {% load i18n %}
 {% load addcss %}
 
+{% block extrahead %}
+<meta http-equiv="refresh" content="3"/>
+{% endblock %}
 
 {% load breadcrumbs %}
 {% block breadcrumbs %}
@@ -26,5 +29,16 @@
     Your upload is currently being processed. Depending on the size of your upload, this
     may take a little while. Please check back in a little while.
 </p>
+<div class="progress">
+    <div class="progress-bar"
+        role="progressbar"
+        aria-valuenow="{{ job.percent }}"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        style="width:{{ job.percent }}%"
+        >
+        <span class="sr-only">{{ job.percent }}% Complete</span>
+    </div>
+</div>
 {% endif %}
 {% endblock %}

@@ -16,6 +16,7 @@ from django.template import RequestContext, loader
 from django.db.models.query import QuerySet
 from django.db.models import Q
 from django.conf import settings
+from rest_framework.pagination import LimitOffsetPagination
 
 from celery.result import AsyncResult
 
@@ -28,11 +29,14 @@ from cookies.forms import *
 from cookies.models import *
 from cookies.filters import *
 from cookies.tasks import *
+from cookies.views_rest import ResourceDetailSerializer, ResourceListSerializer
 from cookies import operations, entities, giles
 # import (add_creation_metadata, merge_conceptentities,
 #                                 merge_resources)
 from cookies import metadata, authorization
 from concepts.models import Concept
+
+from rest_framework import renderers
 
 
 def _get_resource_by_id(request, resource_id, *args):
@@ -68,8 +72,11 @@ def resource(request, obj_id):
     resource = _get_resource_by_id(request, obj_id)
     context = {
         'resource':resource,
+        'request': request,
         'part_of': authorization.apply_filter(request.user, 'view_resource', resource.part_of.all())
     }
+    if request.GET.get('format', None) == 'json':
+        return JsonResponse(ResourceDetailSerializer(context=context).to_representation(resource))
     return render(request, 'resource.html', context)
 
 
@@ -96,22 +103,28 @@ def resource_list(request):
                                              hidden=False)
 
     qset_resources = authorization.apply_filter(request.user, 'view_resource',
-                                          qset_resources)
+                                                qset_resources)
     predicate_ids = request.GET.getlist('predicate')
     target_ids = request.GET.getlist('target')
     target_type_ids = request.GET.getlist('target_type')
     if predicate_ids and target_ids and target_type_ids:
         for p, t, y in zip(predicate_ids, target_ids, target_type_ids):
-            qset_resources = qset_resources.filter(relations_from__predicate_id=p, relations_from__target_instance_id=t, relations_from__target_type_id=y)
+            qset_resources = qset_resources.filter(
+                relations_from__predicate_id=p,
+                relations_from__target_instance_id=t,
+                relations_from__target_type_id=y
+            )
     # For now we use filters to achieve search functionality. At some point we
     #  should use a real search backend.
     #
     # TODO: implement a real search backend.
     filtered_objects = ResourceFilter(request.GET, queryset=qset_resources)
     qset_collections = Collection.objects.filter(
-        Q(content_resource=False)\
-        & Q(hidden=False) & (Q(public=True) | Q(created_by_id=request.user.id))
+        Q(content_resource=False) & Q(hidden=False)
     )
+    qset_collections = authorization.apply_filter(request.user,
+                                                  'view_collection',
+                                                  qset_collections)
     collections = CollectionFilter(request.GET, queryset=qset_collections)
 
     context = RequestContext(request, {
@@ -120,8 +133,6 @@ def resource_list(request):
     })
 
     template = loader.get_template('resources.html')
-
-
     return HttpResponse(template.render(context))
 
 
@@ -131,9 +142,11 @@ def collection(request, obj_id):
     resources = collection.resources.filter(content_resource=False, hidden=False)
     resources = authorization.apply_filter(request.user, 'view_resource', resources)
     filtered_objects = ResourceFilter(request.GET, queryset=resources)
+
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
-        'collection': collection
+        'collection': collection,
+        'request': request,
     })
     template = loader.get_template('collection.html')
     return HttpResponse(template.render(context))
@@ -401,14 +414,13 @@ def create_resource_bulk(request):
             file_path = uploaded_file.temporary_file_path()
             file_name = request.FILES['upload_file'].name
             if not (file_name.endswith('.rdf') or file_name.endswith('.zip')):
-                form.add_error('upload_file', 'Not a valid RDF document or ZIP archive.')
+                form.add_error('upload_file',
+                               'Not a valid RDF document or ZIP archive.')
             else:
-                result = handle_bulk.delay(file_path, safe_data, file_name)
                 job = UserJob.objects.create(**{
                     'created_by': request.user,
-                    'result_id': result.id,
                 })
-
+                result = handle_bulk.delay(file_path, safe_data, file_name, job)
                 return HttpResponseRedirect(reverse('job-status', args=(result.id,)))
 
 
@@ -436,24 +448,24 @@ def jobs(request):
 
 @login_required
 def job_status(request, result_id):
-    job = get_object_or_404(UserJob, result_id=result_id)
-    async_result = AsyncResult(result_id)
+    try:
+        job = UserJob.objects.get(result_id=result_id)
+        async_result = AsyncResult(result_id)
+    except UserJob.DoesNotExist:
+        job = {'percent': 0.}
+        async_result = {'status': 'PENDING', 'id': result_id}
+
     context = RequestContext(request, {
         'job': job,
         'async_result': async_result,
     })
     template = loader.get_template('job_status.html')
 
-    if job.result or async_result.status == 'SUCCESS' or async_result.status == 'FAILURE':
-        if async_result.status == 'SUCCESS':
-            result = async_result.get()
-            job.result = jsonpickle.encode(result)
-            job.save()
-        else:
-            try:
-                result = jsonpickle.decode(job.result)
-            except:
-                return HttpResponse(template.render(context))
+    if getattr(job, 'result', None) or getattr(async_result, 'status', None) in ['SUCCESS', 'FAILURE']:
+        try:
+            result = jsonpickle.decode(job.result)
+        except:
+            return HttpResponse(template.render(context))
 
         return HttpResponseRedirect(reverse(result['view'], args=(result['id'], )))
 
@@ -773,13 +785,17 @@ def entity_details(request, entity_id):
     similar_entities = entities.suggest_similar(entity)
     similar_entities = authorization.apply_filter(request.user, 'is_owner', similar_entities)
 
+    relations_from = metadata.filter_relations(qs=entity.relations_from.all(), user=request.user)
+    relations_from = [(g[0].predicate, g) for g in metadata.group_relations(relations_from)]
+    relations_to = metadata.filter_relations(qs=entity.relations_to.all(), user=request.user)
+    relations_to = [(g[0].predicate, g) for g in metadata.group_relations(relations_to)]
     context = RequestContext(request, {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
         'entity': entity,
         'similar_entities': similar_entities,
         'entity_type': ContentType.objects.get_for_model(ConceptEntity),
-        'relations_from': metadata.group_relations(metadata.filter_relations(qs=entity.relations_from.all(), user=request.user)),
-        'relations_to': metadata.group_relations(metadata.filter_relations(qs=entity.relations_to.all(), user=request.user)),
+        'relations_from': relations_from,
+        'relations_to': relations_to,
     })
     return HttpResponse(template.render(context))
 
@@ -856,16 +872,20 @@ def resource_authorization_change(request, resource_id, user_id):
             if form.cleaned_data.get('for_user') != user:
                 raise RuntimeError('Whoops, someone f***ed with the user.')
 
+            # Synchronously update the Resource itself, so that the user sees
+            #  the effect immediately.
             authorization.update_authorizations(
                 form.cleaned_data.get('authorizations'),
                 form.cleaned_data.get('for_user'),
                 resource,
             )
+            # Asynchronously update any downstream resources and entities.
             update_authorizations.delay(
                 form.cleaned_data.get('authorizations'),
                 form.cleaned_data.get('for_user'),
                 resource,
-                by_user=request.user
+                by_user=request.user,
+                propagate=True,
             )
             return HttpResponseRedirect(reverse('resource-authorization-list', args=(resource.id,)))
 
@@ -918,8 +938,9 @@ def collection_authorization_change(request, collection_id, user_id):
 
             authorizations = form.cleaned_data.get('authorizations')
             for_user = form.cleaned_data.get('for_user')
+            propagate = form.cleaned_data.get('propagate', False)
             authorization.update_authorizations(
-                authorizations, for_user, collection
+                authorizations, for_user, collection, propagate=propagate,
             )
             update_authorizations.delay(
                 authorizations, for_user, collection, request.user
@@ -1136,3 +1157,55 @@ def trigger_giles_submission(request, resource_id, relation_id):
                              " connecting to the redis message passing"
                              " backend.")
             return HttpResponse(task)
+
+
+@login_required
+def bulk_action_resource(request):
+    """
+    Curator can perform actions with resources selected.
+    Input from user- Set of resources.
+    On POST, User is presented with a set of collections to choose from.
+    """
+    resource_ids = request.POST.getlist('addresources', [])
+    qs_resources = Resource.objects.filter(pk__in=resource_ids)
+
+    qset_collections = Collection.objects.filter(
+        Q(content_resource=False) & Q(hidden=False)
+    )
+    qset_collections = authorization.apply_filter(request.user,
+                                                  'view_collection',
+                                                  qset_collections)
+
+    collections = CollectionFilter(request.GET, queryset=qset_collections)
+
+    context = RequestContext(request, {
+        'collections': qset_collections,
+        'resources': qs_resources,
+        'number_of_resources': qs_resources.count
+    })
+
+    template = loader.get_template('add_resources_to_collection.html')
+    return HttpResponse(template.render(context))
+
+
+@login_required
+def bulk_add_resource_to_collection(request):
+    """
+    Curator adds resource to collection.
+    Input from user- collection to add the resources to.
+    On success, the user is presented with the collection detail view.
+    """
+    resource_ids = request.POST.getlist('addresources', [])
+    if len(resource_ids) < 1:
+        raise ValueError('Need more than one resource')
+
+    qs_resources = Resource.objects.filter(pk__in=resource_ids)
+
+    collection_id = request.POST.get('collection', None)
+    if collection_id:
+        collection = _get_collection_by_id(request, collection_id)
+        updated_collection = operations.add_resources_to_collection(qs_resources, collection)
+        return HttpResponseRedirect(updated_collection.get_absolute_url())
+    else:
+        return HttpResponseBadRequest('Error: Select a collection to add resources.\
+                                      Go back to previous page and select a collection')

@@ -1,7 +1,7 @@
 from functools import wraps
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 from django.db.models import Q, QuerySet
 from django.http import HttpResponseForbidden
 from django.utils.decorators import available_attrs
@@ -10,6 +10,7 @@ from guardian.shortcuts import (get_perms, remove_perm, assign_perm,
                                 get_objects_for_user)
 from guardian.utils import get_user_obj_perms_model
 
+from cookies.models import *
 from collections import defaultdict
 from itertools import chain
 
@@ -30,6 +31,11 @@ COLLECTION_AUTHORIZATIONS = [
     ('delete_collection', 'Delete collection'),
     ('change_authorizations', 'Change authorizations'),
     ('view_authorizations', 'View authorizations'),
+]
+
+SHARED_AUTHORIZATIONS = [
+    'change_authorizations',
+    'view_authorizations',
 ]
 
 
@@ -54,60 +60,247 @@ def is_owner(user, obj):
 def check_authorization(auth, user, obj):
     """
     Check whether ``user`` is authorized to perform ``auth`` on ``obj``.
+
+    Parameters
+    ----------
+    auth : str
+    user : :class:`.User`
+    obj : Model instance
+
+    Returns
+    -------
+    bool
     """
     if auth == 'is_owner':
         return is_owner(user, obj)
-    if auth == 'view_resource' and getattr(obj, 'public', False):
-        return True
+    auth = auth_label(auth, obj)
     return user.is_superuser or is_owner(user, obj) or user.has_perm(auth, obj)
 
 
-def update_authorizations(auths, user, obj, by_user=None, propagate=True):
+def auth_label(auth, obj):
     """
-    obj can be a queryset
+    Convert a generic auth name to the name of a model-specific authorization.
+
+    For example: ``view`` -> ``view_relation``
+
+    If the auth is already model-specific, or there is no model-specificity for
+    the auth name, returns the auth as passed.
+
+    Parameters
+    ----------
+    auth : str
+    obj : Model instance
+
+    Returns
+    -------
+    str
     """
+    _auth_map = {
+        'view_conceptentity': 'view_entity',
+    }
+    if auth in SHARED_AUTHORIZATIONS or '_' in auth:    # Already labeled.
+        return _auth_map.get(auth, auth)
+    if isinstance(obj, ConceptEntity) and auth == 'view':
+        return 'view_entity'
+    elif isinstance(obj, Collection) and auth == 'view':
+        return 'view_resource'
+    model_label = type(obj).__name__.lower()
+    return '%s_%s' % (auth, model_label)
 
-    if type(obj) is QuerySet:
-        for auth in auths:
-            assign_perm(auth, user, obj)
-        return
-    else:
-        for auth in set(get_perms(user, obj)) - set(auths):
-            remove_perm(auth, user, obj)
-        for auth in set(auths) - set(get_perms(user, obj)):
-            assign_perm(auth, user, obj)
 
-    if not propagate:
-        return
+def _propagate_to_resources(auths, user, obj, **kwargs):
+    """
+    Propagate authorizations from :class:`.Collection` instances to its
+    related :class:`.Resource` instances.
 
-    if type(obj).__name__ == 'Collection':
-        resource_auths = [auth.replace('collection', 'resource') for auth in auths]
-        resources = obj.resources.all()
-        if by_user:
-            resources = apply_filter(by_user, 'change_authorizations', resources)
-        update_authorizations(resource_auths, user, resources, by_user=by_user)
-    elif type(obj).__name__ == 'Resource':
-        relation_auths = [auth.replace('resource', 'relation') for auth in auths]
-        relations_from = obj.relations_from.all()
-        relations_to = obj.relations_to.all()
-        if by_user:
-            relations_from = apply_filter(by_user, 'change_authorizations', relations_from)
-            relations_to = apply_filter(by_user, 'change_authorizations', relations_to)
+    Parameters
+    ----------
+    auths : list
+        A list of authorizations (str). Any authorizations not in this list
+        will be removed from ``obj`` for ``user``.
+    user : :class:`.User`
+    obj : :class:`.Collection`
+    by_user : :class:`.User`
+        If provided, the ``change_authorizations`` auth will be enforced for
+        this user.
+    propagate : bool
+        If ``True`` (default), authorizations will propagate to "children"
+        of ``obj``. i.e. Collection -> Resource -> Relation -> ConceptEntity.
 
-        update_authorizations(relation_auths, user, relations_from, by_user=by_user)
-        update_authorizations(relation_auths, user, relations_to, by_user=by_user)
-    elif type(obj).__name__ == 'Relation':
-        entity_auths = [auth.replace('relation', 'conceptentity')
-                        if auth != 'view_relation' else 'view_entity'
-                        for auth in auths]
-        for field in ['source', 'target']:
-            related_obj = getattr(obj, field)
-            if type(related_obj).__name__ == 'ConceptEntity':
-                if by_user and not by_user.has_perm('change_authorizations', related_obj):
+    Returns
+    -------
+    None
+    """
+    logger.debug('_propagate_to_resources: %s' % ', '.join(auths))
+    by_user = kwargs.get('by_user', None)
+    child_auths = map(lambda a: a.replace('collection', 'resource'), auths)
+    children = obj.resources.all()
+    if by_user:
+        children = apply_filter(by_user, 'change_authorizations', children)
+    logger.debug('child auths %s' % ', '.join(child_auths))
+    update_authorizations(child_auths, user, children, **kwargs)
+
+
+def _propagate_to_relations(auths, user, obj, **kwargs):
+    """
+    Propagate authorizations from :class:`.Resource` instances to its
+    related :class:`.Relation` instances.
+
+    Parameters
+    ----------
+    auths : list
+        A list of authorizations (str). Any authorizations not in this list
+        will be removed from ``obj`` for ``user``.
+    user : :class:`.User`
+    obj : :class:`.Resource`
+    by_user : :class:`.User`
+        If provided, the ``change_authorizations`` auth will be enforced for
+        this user.
+    propagate : bool
+        If ``True`` (default), authorizations will propagate to "children"
+        of ``obj``. i.e. Collection -> Resource -> Relation -> ConceptEntity.
+
+    Returns
+    -------
+    None
+    """
+    by_user = kwargs.get('by_user', None)
+    child_auths = map(lambda a: a.replace('resource', 'relation'), auths)
+    children_from = obj.relations_from.all()
+    children_to = obj.relations_to.all()
+    if by_user:
+        children_from = apply_filter(by_user, 'change_authorizations', children_from)
+        children_to = apply_filter(by_user, 'change_authorizations', children_to)
+
+    update_authorizations(child_auths, user, children_from, **kwargs)
+    update_authorizations(child_auths, user, children_to, **kwargs)
+
+
+def _propagate_to_entities(auths, user, obj, **kwargs):
+    """
+    Propagate authorizations from :class:`.Relation` instances to ``source``
+    and/or ``target`` :class:`.ConceptEntity` instances.
+
+    Parameters
+    ----------
+    auths : list
+        A list of authorizations (str). Any authorizations not in this list
+        will be removed from ``obj`` for ``user``.
+    user : :class:`.User`
+    obj : :class:`.Relation`
+    by_user : :class:`.User`
+        If provided, the ``change_authorizations`` auth will be enforced for
+        this user.
+    propagate : bool
+        If ``True`` (default), authorizations will propagate to "children"
+        of ``obj``. i.e. Collection -> Resource -> Relation -> ConceptEntity.
+
+    Returns
+    -------
+    None
+    """
+    by_user = kwargs.get('by_user', None)
+    child_auths = map(lambda a: a.replace('relation', 'conceptentity'), auths)
+    for field in ['source', 'target']:
+        child = getattr(obj, field)
+        if isinstance(child, ConceptEntity):
+            if by_user:
+                if check_authorization('change_authorizations', by_user, child):
                     continue
-                update_authorizations(entity_auths, user, related_obj, by_user=by_user)
+            update_authorizations(child_auths, user, child, **kwargs)
 
 
+def _propagate_to_children(auths, user, obj, **kwargs):
+    """
+    Propagate authorizations to child objects.
+
+    Parameters
+    ----------
+    auths : list
+        A list of authorizations (str). Any authorizations not in this list
+        will be removed from ``obj`` for ``user``.
+    user : :class:`.User`
+    obj : Model instance or :class:`.QuerySet`
+    by_user : :class:`.User`
+        If provided, the ``change_authorizations`` auth will be enforced for
+        this user.
+    propagate : bool
+        If ``True`` (default), authorizations will propagate to "children"
+        of ``obj``. i.e. Collection -> Resource -> Relation -> ConceptEntity.
+
+    Returns
+    -------
+    None
+    """
+    if isinstance(obj, Collection):
+        logger.debug('Collection -> Resources')
+        _propagate_to_resources(auths, user, obj, **kwargs)
+    elif isinstance(obj, Resource):
+        logger.debug('Resource -> Relation')
+        _propagate_to_relations(auths, user, obj, **kwargs)
+    elif isinstance(obj, Relation):
+        logger.debug('Relation -> ConceptEntity')
+        _propagate_to_entities(auths, user, obj,  **kwargs)
+    elif isinstance(obj, ConceptEntity):
+        logger.debug('ConceptEntity -> Relation')
+        kwargs.pop('propagate', None)
+        _propagate_to_relations(auths, user, obj, **kwargs)
+
+
+def update_authorizations(auths, user, obj, **kwargs):
+    """
+    Replace the current authorizations for ``user`` on ``obj`` with ``auths``.
+
+    Parameters
+    ----------
+    auths : list
+        A list of authorizations (str). Any authorizations not in this list
+        will be removed from ``obj`` for ``user``.
+    user : :class:`.User`
+    obj : Model instance or :class:`.QuerySet`
+    by_user : :class:`.User`
+        If provided, the ``change_authorizations`` auth will be enforced for
+        this user.
+    propagate : bool
+        If ``True`` (default), authorizations will propagate to "children"
+        of ``obj``. i.e. Collection -> Resource -> Relation -> ConceptEntity.
+
+    Returns
+    -------
+    None
+    """
+    logger.debug('update authorizations for %s with %s for %s' % \
+                 (repr(obj), ' '.join(auths), repr(user)))
+
+    # ``auths`` may or may not have model-specific auth labels.
+    labeled_auths = [auth_label(auth, obj) for auth in auths]
+
+    by_user = kwargs.get('by_user', None)
+    if by_user and isinstance(obj, QuerySet):
+        obj = apply_filter(by_user, 'change_authorizations', obj)
+
+    # There may be a variety of authorizations for the objects in the QuerySet,
+    #  so we will visit all of the (few in number) authorizations, and remove
+    #  or add accordingly.
+    for auth in getattr(obj, 'model', obj).DEFAULT_AUTHS:   # obj may be a QS.
+        if auth in labeled_auths:
+            try:
+                logger.debug('assign: %s' % auth)
+                assign_perm(auth, user, obj)
+            except ObjectDoesNotExist:
+                msg = '"%s" not a valid auth for %s' % (auth, repr(obj))
+                raise ValueError(msg)
+        else:
+            try:
+                logger.debug('remove: %s' % auth)
+                remove_perm(auth, user, obj)
+            except ObjectDoesNotExist:
+                msg = '"%s" not a valid auth for %s' % (auth, repr(obj))
+                raise ValueError(msg)
+
+    if kwargs.get('propagate', True):
+        logger.debug('propagate')
+        _propagate_to_children(auths, user, obj, **kwargs)
 
 
 def list_authorizations(obj, user=None):
@@ -167,6 +360,10 @@ def apply_filter(user, auth, queryset):
     :class:`django.db.models.QuerySet`
 
     """
+    # TODO: implement a more general way to correct these legacy auth names.
+    if getattr(queryset, 'model', None) == Collection \
+        and auth == 'view_collection':
+        auth = 'view_resource'
 
     if user.is_superuser:
         return queryset
@@ -175,3 +372,12 @@ def apply_filter(user, auth, queryset):
     if auth == 'is_owner':
         return queryset.filter(created_by_id=user.id)
     return get_objects_for_user(user, auth, queryset)
+
+
+def make_nonpublic(obj):
+    """
+    Convenience function for revoking public access all at once.
+    """
+    obj.update(public=False)
+    anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
+    update_authorizations([], anonyomous, obj)
