@@ -189,7 +189,7 @@ class Resource(ResourceBase):
         return self.content.filter(~Q(content_resource__file='')).count() > 0
 
     def __unicode__(self):
-        return self.id
+        return unicode(self.id)
 
 
 
