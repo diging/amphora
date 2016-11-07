@@ -27,7 +27,7 @@ def handle_status_exception(func):
                 user.giles_token.delete()
             except AssertionError:
                 pass
-                
+
             get_user_auth_token(user, **kwargs)
             user.refresh_from_db()
             # TODO: we could put some Exception handling here.
@@ -85,12 +85,11 @@ def get_user_auth_token(user, **kwargs):
         user.save()
         return user.giles_token.token
     except Exception as E:
-        template = "Failed to retrieve access token for user {u}: {m}"
-        msg = template.format(u=user.username, m=data.get('errorMsg', 'nope'))
+        template = "Failed to retrieve access token for user {u}"
+        msg = template.format(u=user.username)
         if kwargs.get('raise_exception', False):
             raise E
         logger.error(msg)
-
 
 
 # @handle_status_exception
@@ -470,9 +469,6 @@ def process_resources(user, session, **kwargs):
 
     for document_id, file_data in session.file_details.iteritems():
         _process_document_data(session, file_data, user, **kwargs)
-
-
-
 
 
 def handle_giles_callback(request, **kwargs):

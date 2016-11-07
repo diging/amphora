@@ -11,7 +11,7 @@ from cookies.accession import IngesterFactory
 from cookies.exceptions import *
 logger = settings.LOGGER
 
-import jsonpickle
+import jsonpickle, json, datetime
 
 
 @shared_task
@@ -90,12 +90,24 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
 
 
 @shared_task
-def send_to_giles(file_name, creator, resource=None, public=True):
-    result = giles.send_to_giles(creator, file_name, resource=resource,
-                                 public=public)
+def send_to_giles(file_name, creator, resource=None, public=True, gilesupload_id=None):
+    upload = GilesUpload.objects.get(pk=gilesupload_id)
+
+    try:
+        status_code, response_data = giles.send_to_giles(creator, file_name,
+                                                         resource=resource,
+                                                         public=public)
+    except:
+        logger.error("send_to_giles: failing permanently for %i" % upload.id)
+        upload.fail = True
+        upload.save()
+        return
+
     session = GilesSession.objects.create(created_by_id=creator.id)
 
-    stat_sucode, response_data = result
+    upload.upload_id = response_data['id']
+    upload.sent = datetime.datetime.now()
+    upload.save()
 
     try:
         check_giles_upload.delay(resource, creator, response_data['id'],
@@ -105,13 +117,22 @@ def send_to_giles(file_name, creator, resource=None, public=True):
                      " the redis message passing backend.")
 
 
+
 @shared_task(max_retries=None, default_retry_delay=10)
-def check_giles_upload(resource, creator, upload_id, checkURL, session_id):
+def check_giles_upload(resource, creator, upload_id, checkURL, session_id,
+                       gilesupload_id):
     status, content = giles.check_upload_status(creator, checkURL)
     if status == 202:    # Accepted.
         logger.debug('Accepted, retrying in 30 seconds')
         raise check_giles_upload.retry()
+
     giles.process_file_upload(resource, creator, content, session_id)
+
+    upload = GilesUpload.objects.get(pk=gilesupload_id)
+    upload.response = json.dumps(content)
+    upload.resolved = True
+    upload.save()
+
 
 
 @shared_task
@@ -123,3 +144,43 @@ def update_authorizations(auths, user, obj, by_user=None, propagate=True):
 @shared_task
 def search_for_concept(lemma):
     authorities.searchall(lemma)
+
+
+@shared_task
+def send_giles_uploads():
+    """
+    Check for outstanding :class:`.GilesUpload`\s, and send as able.
+    """
+    logger.debug('Checking for outstanding GilesUploads')
+    query = Q(resolved=False) & ~Q(sent=None) & Q(fail=False)
+    outstanding = GilesUpload.objects.filter(query)
+    pending = GilesUpload.objects.filter(resolved=False, sent=None, fail=False)
+
+    # We limit the number of simultaneous requests to Giles.
+    if outstanding.count() >= settings.MAX_GILES_UPLOADS or pending.count() == 0:
+        return
+
+    logger.debug('Found GilesUpload, processing...')
+
+    upload = pending.first()
+    content_resource = upload.content_resource
+    creator = content_resource.created_by
+    resource = content_resource.parent.first().for_resource
+
+    anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
+    public = authorization.check_authorization('view', anonymous, content_resource)
+    result = send_to_giles(content_resource.file.name, creator,
+                           resource=resource, public=public,
+                           gilesupload_id=upload.id)
+
+
+# session = GilesSession.objects.create(created_by_id=creator.id)
+#
+# stat_sucode, response_data = result
+#
+# try:
+#     check_giles_upload.delay(resource, creator, response_data['id'],
+#                              response_data['checkUrl'], session.id)
+# except ConnectionError:
+#     logger.error("send_to_giles: there was an error connecting to"
+#                  " the redis message passing backend.")
