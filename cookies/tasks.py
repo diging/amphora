@@ -111,7 +111,7 @@ def send_to_giles(file_name, creator, resource=None, public=True, gilesupload_id
 
     try:
         check_giles_upload.delay(resource, creator, response_data['id'],
-                                 response_data['checkUrl'], session.id)
+                                 response_data['checkUrl'], session.id, gilesupload_id)
     except ConnectionError:
         logger.error("send_to_giles: there was an error connecting to"
                      " the redis message passing backend.")
