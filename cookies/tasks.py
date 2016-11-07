@@ -154,8 +154,18 @@ def check_giles_uploads(giles=settings.GILES):
     outstanding = GilesUpload.objects.filter(query)
     for upload in outstanding:
         resource = upload.content_resource.parent.first().for_resource
+        status, content = giles.check_upload_status(resource.created_by, checkURL(upload))
+        if status == 202:    # Accepted.
+            continue
+            # raise check_giles_upload.retry()
 
-        check_giles_upload.delay(resource, resource.created_by, upload.id, checkURL(upload), None, upload.id)
+        giles.process_file_upload(resource, resource.created_by, content)
+
+        upload.response = json.dumps(content)
+        upload.resolved = True
+        upload.save()
+
+        # check_giles_upload(resource, , upload.id, , upload.id)
 
 
 @shared_task
