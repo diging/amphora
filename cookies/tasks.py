@@ -185,6 +185,8 @@ def send_giles_uploads():
     logger.debug('Found GilesUpload, processing...')
 
     to_upload = min(settings.MAX_GILES_UPLOADS - pending.count(), pending.count())
+    if to_upload <= 0:
+        return
 
     for upload in pending[:to_upload]:
         content_resource = upload.content_resource
