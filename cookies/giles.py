@@ -240,16 +240,20 @@ def get_file_details(user, upload_id, **kwargs):
     return _get_file_data(response.json())
 
 
-def process_file_upload(resource, creator, raw_data, session_id, **kwargs):
+def process_file_upload(resource, creator, raw_data, session_id=None, **kwargs):
     giles = kwargs.get('giles', settings.GILES)
     session = GilesSession.objects.get(pk=session_id)
 
     file_details = _get_file_data(raw_data)
+
+    if not session_id:
+        session = GilesSession.objects.create(created_by=creator)
+
     session.file_ids = [o['uploadId'] for o in raw_data]
     session.file_details = file_details
     session.save()
 
-    for document_id, file_data in session.file_details.iteritems():
+    for document_id, file_data in file_details.iteritems():
         _process_document_data(session, file_data, creator, resource=resource, **kwargs)
 
 
@@ -381,6 +385,9 @@ def _process_document_data(session, data, creator, resource=None, **kwargs):
                 'is_external': True,
                 'external_source': Resource.GILES,
             })
+
+    if not session:
+        session = GilesSession.objects.create(created_by=creator)
 
     session.resources.add(resource)
 

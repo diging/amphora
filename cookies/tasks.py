@@ -109,12 +109,12 @@ def send_to_giles(file_name, creator, resource=None, public=True, gilesupload_id
     upload.sent = datetime.datetime.now()
     upload.save()
 
-    try:
-        check_giles_upload.delay(resource, creator, response_data['id'],
-                                 response_data['checkUrl'], session.id, gilesupload_id)
-    except ConnectionError:
-        logger.error("send_to_giles: there was an error connecting to"
-                     " the redis message passing backend.")
+    # try:
+    #     check_giles_upload.delay(resource, creator, response_data['id'],
+    #                              response_data['checkUrl'], session.id, gilesupload_id)
+    # except ConnectionError:
+    #     logger.error("send_to_giles: there was an error connecting to"
+    #                  " the redis message passing backend.")
 
 
 
@@ -144,6 +144,18 @@ def update_authorizations(auths, user, obj, by_user=None, propagate=True):
 @shared_task
 def search_for_concept(lemma):
     authorities.searchall(lemma)
+
+
+@shared_task
+def check_giles_uploads(giles=settings.GILES):
+    checkURL = lambda u: '%s/rest/files/upload/check/%s' % (giles, u.upload_id)
+    query = Q(resolved=False) & ~Q(sent=None) & Q(fail=False)
+    outstanding = GilesUpload.objects.filter(query)
+    for upload in outstanding:
+        resource = upload.content_resource.parent.first().for_resource
+        session = GilesSession.objects.create(created_by=resource.created_by)
+        check_giles_upload.delay(resource, resource.created_by, upload.id,
+                                 checkURL(upload), session.id, upload.id)
 
 
 @shared_task

@@ -164,6 +164,10 @@ CELERYBEAT_SCHEDULE = {
     'send_giles_uploads': {
         'task': 'cookies.tasks.send_giles_uploads',
         'schedule': timedelta(seconds=30)
+    },
+    'check_giles_uploads': {
+        'task': 'cookies.tasks.check_giles_uploads',
+        'schedule': timedelta(seconds=60)
     }
 }
 
