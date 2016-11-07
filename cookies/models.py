@@ -429,6 +429,32 @@ class UserJob(models.Model):
         return reverse('jobs')
 
 
+class GilesUpload(models.Model):
+    """
+    Represents a single upload.
+    """
+
+    created = models.DateTimeField(auto_now_add=True)
+    sent = models.DateTimeField(null=True, blank=True)
+    """The datetime when the file was uploaded."""
+
+    upload_id = models.CharField(max_length=255, blank=True, null=True)
+    """Returned by Giles upon upload."""
+
+    content_resource = models.ForeignKey('Resource', related_name='giles_upload')
+    """This is the resource that directly 'owns' the uploaded file."""
+
+    response = models.TextField()
+    """This should be raw JSON."""
+
+    resolved = models.BooleanField(default=False)
+    """When a successful response is received, this should be set ``True``."""
+
+    @property
+    def pending(self):
+        return not self.resolved
+
+
 class GilesSession(models.Model):
     created_by = models.ForeignKey(User, related_name='giles_sessions')
     created = models.DateTimeField(auto_now_add=True)
