@@ -163,15 +163,16 @@ def send_giles_uploads():
     logger.debug('Found GilesUpload, processing...')
 
     upload = pending.first()
-    content_resource = upload.content_resource
-    creator = content_resource.created_by
-    resource = content_resource.parent.first().for_resource
+    for _ in xrange(settings.MAX_GILES_UPLOADS - outstanding.count()):
+        content_resource = upload.content_resource
+        creator = content_resource.created_by
+        resource = content_resource.parent.first().for_resource
 
-    anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
-    public = authorization.check_authorization('view', anonymous, content_resource)
-    result = send_to_giles(content_resource.file.name, creator,
-                           resource=resource, public=public,
-                           gilesupload_id=upload.id)
+        anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
+        public = authorization.check_authorization('view', anonymous, content_resource)
+        result = send_to_giles(content_resource.file.name, creator,
+                               resource=resource, public=public,
+                               gilesupload_id=upload.id)
 
 
 # session = GilesSession.objects.create(created_by_id=creator.id)
