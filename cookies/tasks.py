@@ -148,8 +148,8 @@ def search_for_concept(lemma):
 
 
 @shared_task
-def check_giles_uploads(giles=settings.GILES):
-    checkURL = lambda u: '%s/rest/files/upload/check/%s' % (giles, u.upload_id)
+def check_giles_uploads():
+    checkURL = lambda u: '%s/rest/files/upload/check/%s' % (settings.GILES, u.upload_id)
     query = Q(resolved=False) & ~Q(sent=None) & Q(fail=False)
     outstanding = GilesUpload.objects.filter(query)
     for upload in outstanding:
