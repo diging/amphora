@@ -26,6 +26,7 @@ urlpatterns = patterns('',
     url(r'^logout/$', views.logout_view, name='logout'),
 
     url(r'^resource/([0-9]+)/$', views.resource, name="resource"),
+    url(r'^resource/([0-9]+)/content/$', views.resource_content, name="resource-content"),
     url(r'^resource/([0-9]+)/authorizations/$', views.resource_authorization_list, name="resource-authorization-list"),
     url(r'^resource/([0-9]+)/authorizations/([0-9]+)/$', views.resource_authorization_change, name="resource-authorization-change"),
     url(r'^resource/([0-9]+)/authorizations/create/$', views.resource_authorization_create, name="resource-authorization-create"),

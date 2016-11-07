@@ -101,18 +101,18 @@ def preview(resource, request):
 
     if resource.content_resource:   # This resource is the content resource.
         if resource.content_type in images:
-            return mark_safe(image_preview_template.format(src=resource.content_location))
+            return mark_safe(image_preview_template.format(src=resource.content_view))
         else:
-            return mark_safe(resource.content_location)
+            return mark_safe(resource.content_view)
     else:
         tabs = []
         tabpanes = []
         if content_relations.count() > 0:     # Get content from linked resources.
 
             for i, relation in enumerate(content_relations.all()):
-                preview_elem = relation.content_resource.content_location
+                preview_elem = relation.content_resource.content_view
                 if relation.content_resource.content_type in images and not relation.content_resource.is_local:
-                    image_location = relation.content_resource.content_location
+                    image_location = relation.content_resource.content_view
                     # if not relation.content_resource.public:
                     if image_location.startswith(settings.GILES):
                         image_location += '&accessToken=' + giles.get_user_auth_token(user)
@@ -120,7 +120,7 @@ def preview(resource, request):
                     preview_elem = image_preview_template.format(src=image_location)
                 elif (resource.content_type == 'application/xpdf' or (relation.content_resource.content_location and relation.content_resource.content_location.lower().endswith('.pdf'))) and relation.content_resource.is_local:
                     preview_elem = pdf_preview_template.format(**{
-                        'src': relation.content_resource.content_location,
+                        'src': relation.content_resource.content_view,
                         "page_id": str(relation.content_resource.id),
                     }) + pdf_preview_fragment
                 elif not relation.content_resource.is_local:
@@ -159,13 +159,13 @@ def preview(resource, request):
 
                 preview_elem = page_link_template.format(href=reverse('resource', args=(relation.source.id,)))
                 if content_resource.content_type in images:
-                    image_location = content_resource.content_location
+                    image_location = content_resource.content_view
                     if image_location.startswith(settings.GILES):
                         image_location += '&accessToken=' + giles.get_user_auth_token(user)+ '&dw=300'
 
                     preview_elem += image_preview_template.format(src=image_location)
-                elif content_resource.content_type == 'application/xpdf' or content_resource.content_location.lower().endswith('.pdf'):
-                    preview_elem += pdf_preview_template.format(src=content_resource.content_location, page_id=str(content_resource.id)) + pdf_preview_fragment
+                elif content_resource.content_type == 'application/xpdf' or content_resource.content_view.lower().endswith('.pdf'):
+                    preview_elem += pdf_preview_template.format(src=content_resource.content_view, page_id=str(content_resource.id)) + pdf_preview_fragment
 
                 tabpanes.append(tabpane_template.format(**{
                     "class": "active" if i == 0 and len(tabs) == 0 else "",
