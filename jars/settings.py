@@ -163,7 +163,7 @@ CELERY_DEFAULT_RATE_LIMIT = "100/m"
 CELERYBEAT_SCHEDULE = {
     'send_giles_uploads': {
         'task': 'cookies.tasks.send_giles_uploads',
-        'schedule': timedelta(seconds=5)
+        'schedule': timedelta(seconds=30)
     }
 }
 
@@ -207,7 +207,7 @@ RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
 URI_NAMESPACE = 'http://diging.asu.edu/amphora'
 
-LOGLEVEL = os.environ.get('LOGLEVEL', 'DEBUG')
+LOGLEVEL = os.environ.get('LOGLEVEL', 'ERROR')
 # LOGLEVEL = 'ERROR'
 import logging
 logging.basicConfig()
