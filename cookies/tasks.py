@@ -118,13 +118,14 @@ def send_to_giles(file_name, creator, resource=None, public=True, gilesupload_id
 
 
 
-@shared_task(max_retries=None, default_retry_delay=10)
+@shared_task
 def check_giles_upload(resource, creator, upload_id, checkURL, session_id,
                        gilesupload_id):
     status, content = giles.check_upload_status(creator, checkURL)
     if status == 202:    # Accepted.
         logger.debug('Accepted, retrying in 30 seconds')
-        raise check_giles_upload.retry()
+        return
+        # raise check_giles_upload.retry()
 
     giles.process_file_upload(resource, creator, content, session_id)
 
