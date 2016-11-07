@@ -46,7 +46,7 @@ def send_pdfs_and_images_to_giles(sender, **kwargs):
     be performed.
     """
     instance = kwargs.get('instance', None)
-    print 'received post_Save for ContentRelation %i' % instance.id
+    logger.debug('received post_save for ContentRelation %i' % instance.id)
 
     import mimetypes
     try:

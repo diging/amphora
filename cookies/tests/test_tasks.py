@@ -1,9 +1,12 @@
-import unittest, mock, tempfile, shutil
+import unittest, mock, tempfile, shutil, os
 
 from cookies import tasks
 from cookies.models import *
+from cookies.signals import send_pdfs_and_images_to_giles
+
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.db.models import signals
 
 
 class TestSendToGiles(unittest.TestCase):
@@ -12,6 +15,8 @@ class TestSendToGiles(unittest.TestCase):
         GilesUpload.objects.all().delete()
         Resource.objects.all().delete()
         ContentRelation.objects.all().delete()
+        signals.post_save.disconnect(receiver=send_pdfs_and_images_to_giles,
+                                     sender=ContentRelation)
 
     @mock.patch('cookies.giles.send_to_giles')
     def test_send_to_giles(self, mock_send_to_giles):
@@ -57,6 +62,8 @@ class TestSendGilesUploads(unittest.TestCase):
         GilesUpload.objects.all().delete()
         Resource.objects.all().delete()
         ContentRelation.objects.all().delete()
+        signals.post_save.disconnect(receiver=send_pdfs_and_images_to_giles,
+                                     sender=ContentRelation)
 
     @mock.patch('cookies.tasks.send_to_giles')
     def test_send_giles_uploads_no_pending(self, mock_send_to_giles):
@@ -72,7 +79,7 @@ class TestSendGilesUploads(unittest.TestCase):
         If there are too many outstanding requests, do nothing.
         """
         # Create 20 outstanding requests, so that we are at max.
-        for i in xrange(20):
+        for i in xrange(settings.MAX_GILES_UPLOADS):
             upload = GilesUpload.objects.create()
             upload.sent = upload.created
             upload.save()
@@ -110,7 +117,7 @@ class TestSendGilesUploads(unittest.TestCase):
 
         args, kwargs = mock_send_to_giles.call_args
 
-        self.assertTrue(args[0].endswith(test_filename),
+        self.assertTrue(test_filename.split('.')[0] in args[0],
             "The filename should be preserved.")
         self.assertEqual(args[1], user,
             "The ``creator`` should be the creator of the content resource.")
@@ -121,7 +128,10 @@ class TestSendGilesUploads(unittest.TestCase):
         self.assertEqual(kwargs['gilesupload_id'], upload.id,
             "The ``gilesupload_id`` should be the id of the GilesUpload.")
 
-        shutil.rmtree(args[1].split('/')[0])
+        try:
+            shutil.rmtree(os.path.join(settings.MEDIA_ROOT, args[0].split('/')[0]))
+        except OSError:
+            pass
 
     def tearDown(self):
         User.objects.all().delete()

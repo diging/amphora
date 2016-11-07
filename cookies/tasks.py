@@ -93,15 +93,15 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
 def send_to_giles(file_name, creator, resource=None, public=True, gilesupload_id=None):
     upload = GilesUpload.objects.get(pk=gilesupload_id)
 
-    try:
-        status_code, response_data = giles.send_to_giles(creator, file_name,
-                                                         resource=resource,
-                                                         public=public)
-    except:
-        logger.error("send_to_giles: failing permanently for %i" % upload.id)
-        upload.fail = True
-        upload.save()
-        return
+    # try:
+    status_code, response_data = giles.send_to_giles(creator, file_name,
+                                                     resource=resource,
+                                                     public=public)
+    # except:
+        # logger.error("send_to_giles: failing permanently for %i" % upload.id)
+        # upload.fail = True
+        # upload.save()
+        # return
 
     session = GilesSession.objects.create(created_by_id=creator.id)
 
