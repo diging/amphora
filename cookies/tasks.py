@@ -184,7 +184,7 @@ def send_giles_uploads():
 
     logger.debug('Found GilesUpload, processing...')
 
-    to_upload = min(settings.MAX_GILES_UPLOADS - pending.count(), pending.count())
+    to_upload = min(settings.MAX_GILES_UPLOADS - outstanding.count(), pending.count())
     if to_upload <= 0:
         return
 
