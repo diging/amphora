@@ -154,9 +154,9 @@ def check_giles_uploads(giles=settings.GILES):
     outstanding = GilesUpload.objects.filter(query)
     for upload in outstanding:
         resource = upload.content_resource.parent.first().for_resource
-        session = GilesSession.objects.create(created_by=resource.created_by)
+
         check_giles_upload.delay(resource, resource.created_by, upload.id,
-                                 checkURL(upload), session.id, upload.id)
+                                 checkURL(upload), None, upload.id)
 
 
 @shared_task
