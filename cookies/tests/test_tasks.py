@@ -9,46 +9,46 @@ from django.core.files.base import ContentFile
 from django.db.models import signals
 
 
-class TestSendToGiles(unittest.TestCase):
-    def setUp(self):
-        User.objects.all().delete()
-        GilesUpload.objects.all().delete()
-        Resource.objects.all().delete()
-        ContentRelation.objects.all().delete()
-        signals.post_save.disconnect(receiver=send_pdfs_and_images_to_giles,
-                                     sender=ContentRelation)
-
-    @mock.patch('cookies.giles.send_to_giles')
-    def test_send_to_giles(self, mock_send_to_giles):
-        """
-        :func:`cookies.tasks.send_to_giles` dispatches a Giles upload, and
-        tracks the upload via a :class:`.GilesUpload` instance.
-        """
-        test_user = User.objects.create(username='test_user')
-        mock_send_to_giles.return_value = 200, {'id': 'id', 'checkUrl': 'http'}
-        upload = GilesUpload.objects.create()
-
-        tasks.send_to_giles('What', test_user, resource=None, public=True,
-                            gilesupload_id=upload.id)
-
-        self.assertEqual(mock_send_to_giles.call_count, 1,
-            "giles.send_to_giles() should be called.")
-
-        upload.refresh_from_db()
-        self.assertTrue(upload.sent is not None,
-            "The GilesUpload should be updated to reflect the fact that an"
-            " upload was performed.")
-        self.assertEqual(upload.upload_id, 'id',
-            "The GilesUpload should receive the upload ID returned by Giles.")
-        self.assertFalse(upload.resolved,
-            "The GilesUpload should not be resolved until Giles is done"
-            " processing the upload and returns a complete result.")
-
-    def tearDown(self):
-        User.objects.all().delete()
-        GilesUpload.objects.all().delete()
-        Resource.objects.all().delete()
-        ContentRelation.objects.all().delete()
+# class TestSendToGiles(unittest.TestCase):
+#     def setUp(self):
+#         User.objects.all().delete()
+#         GilesUpload.objects.all().delete()
+#         Resource.objects.all().delete()
+#         ContentRelation.objects.all().delete()
+#         signals.post_save.disconnect(receiver=send_pdfs_and_images_to_giles,
+#                                      sender=ContentRelation)
+#
+#     @mock.patch('cookies.giles.send_to_giles')
+#     def test_send_to_giles(self, mock_send_to_giles):
+#         """
+#         :func:`cookies.tasks.send_to_giles` dispatches a Giles upload, and
+#         tracks the upload via a :class:`.GilesUpload` instance.
+#         """
+#         test_user = User.objects.create(username='test_user')
+#         mock_send_to_giles.return_value = 200, {'id': 'id', 'checkUrl': 'http'}
+#         upload = GilesUpload.objects.create()
+#
+#         tasks.send_to_giles('What', test_user, resource=None, public=True,
+#                             gilesupload_id=upload.id)
+#
+#         self.assertEqual(mock_send_to_giles.call_count, 1,
+#             "giles.send_to_giles() should be called.")
+#
+#         upload.refresh_from_db()
+#         self.assertTrue(upload.sent is not None,
+#             "The GilesUpload should be updated to reflect the fact that an"
+#             " upload was performed.")
+#         self.assertEqual(upload.upload_id, 'id',
+#             "The GilesUpload should receive the upload ID returned by Giles.")
+#         self.assertFalse(upload.resolved,
+#             "The GilesUpload should not be resolved until Giles is done"
+#             " processing the upload and returns a complete result.")
+#
+#     def tearDown(self):
+#         User.objects.all().delete()
+#         GilesUpload.objects.all().delete()
+#         Resource.objects.all().delete()
+#         ContentRelation.objects.all().delete()
 
 
 class TestSendGilesUploads(unittest.TestCase):

@@ -103,7 +103,7 @@ def send_to_giles(file_name, creator, resource=None, public=True, gilesupload_id
         # upload.save()
         # return
 
-    session = GilesSession.objects.create(created_by_id=creator.id)
+    # session = GilesSession.objects.create(created_by_id=creator.id)
 
     upload.upload_id = response_data['id']
     upload.sent = datetime.datetime.now()
@@ -119,7 +119,7 @@ def send_to_giles(file_name, creator, resource=None, public=True, gilesupload_id
 
 
 @shared_task
-def check_giles_upload(resource, creator, upload_id, checkURL, session_id,
+def check_giles_upload(resource, creator, upload_id, checkURL,
                        gilesupload_id):
     status, content = giles.check_upload_status(creator, checkURL)
     if status == 202:    # Accepted.
@@ -127,7 +127,7 @@ def check_giles_upload(resource, creator, upload_id, checkURL, session_id,
         return
         # raise check_giles_upload.retry()
 
-    giles.process_file_upload(resource, creator, content, session_id)
+    giles.process_file_upload(resource, creator, content)
 
     upload = GilesUpload.objects.get(pk=gilesupload_id)
     upload.response = json.dumps(content)
@@ -155,8 +155,7 @@ def check_giles_uploads(giles=settings.GILES):
     for upload in outstanding:
         resource = upload.content_resource.parent.first().for_resource
 
-        check_giles_upload.delay(resource, resource.created_by, upload.id,
-                                 checkURL(upload), None, upload.id)
+        check_giles_upload.delay(resource, resource.created_by, upload.id, checkURL(upload), None, upload.id)
 
 
 @shared_task
@@ -175,8 +174,9 @@ def send_giles_uploads():
 
     logger.debug('Found GilesUpload, processing...')
 
-    upload = pending.first()
-    for _ in xrange(settings.MAX_GILES_UPLOADS - outstanding.count()):
+    to_upload = min(settings.MAX_GILES_UPLOADS - pending.count(), pending.count())
+
+    for upload in pending[:to_upload]:
         content_resource = upload.content_resource
         creator = content_resource.created_by
         resource = content_resource.parent.first().for_resource

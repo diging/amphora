@@ -34,7 +34,7 @@ def handle_status_exception(func):
             return func(user, *args, **kwargs)
         elif response.status_code != requests.codes.ok and response.status_code != 202:
             message = 'Status %i, content: %s' % (response.status_code, response.content)
-            logger.debug(message)
+            logger.error(message)
             raise StatusException(response)
         return response
     return wrapper
@@ -240,21 +240,21 @@ def get_file_details(user, upload_id, **kwargs):
     return _get_file_data(response.json())
 
 
-def process_file_upload(resource, creator, raw_data, session_id=None, **kwargs):
+def process_file_upload(resource, creator, raw_data, **kwargs):
     giles = kwargs.get('giles', settings.GILES)
-    session = GilesSession.objects.get(pk=session_id)
+    # session = GilesSession.objects.get(pk=session_id)
 
     file_details = _get_file_data(raw_data)
 
-    if not session_id:
-        session = GilesSession.objects.create(created_by=creator)
-
-    session.file_ids = [o['uploadId'] for o in raw_data]
-    session.file_details = file_details
-    session.save()
+    # if not session_id:
+    #     session = GilesSession.objects.create(created_by=creator)
+    #
+    # session.file_ids = [o['uploadId'] for o in raw_data]
+    # session.file_details = file_details
+    # session.save()
 
     for document_id, file_data in file_details.iteritems():
-        _process_document_data(session, file_data, creator, resource=resource, **kwargs)
+        _process_document_data(file_data, creator, resource=resource, **kwargs)
 
 
 
@@ -359,7 +359,7 @@ def _create_page_resource(parent_resource, page_nr, resource_type, creator, uri,
     return resource
 
 
-def _process_document_data(session, data, creator, resource=None, **kwargs):
+def _process_document_data(data, creator, resource=None, **kwargs):
 
     giles = kwargs.get('giles', settings.GILES)
     __text__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Text')
@@ -386,32 +386,32 @@ def _process_document_data(session, data, creator, resource=None, **kwargs):
                 'external_source': Resource.GILES,
             })
 
-    if not session:
-        session = GilesSession.objects.create(created_by=creator)
+    # if not session:
+    #     session = GilesSession.objects.create(created_by=creator)
 
-    session.resources.add(resource)
+    # session.resources.add(resource)
 
     # Content resource for uploaded file.
     upload_data = data.get('uploadedFile')
     content_type = upload_data.get('content-type')
     resource_type = __text__ if content_type == 'application/pdf' else __image__
     resource_uri = '%s/files/%s' % (giles, upload_data.get('id'))
-    session.content_resources.add(
-        _create_content_resource(resource, resource_type, creator, resource_uri,
-                                 _fix_url(upload_data.get('url')), public=public,
-                                 content_type=content_type)
-    )
+    # session.content_resources.add(
+    #     _create_content_resource(resource, resource_type, creator, resource_uri,
+    #                              _fix_url(upload_data.get('url')), public=public,
+    #                              content_type=content_type)
+    # )
 
     # Content resoruce for extracted text, if available.
     text_data = data.get('extractedText', None)
     if text_data is not None:
         text_content_type = text_data.get('content-type')
         text_uri = '%s/files/%s' % (giles, text_data.get('id'))
-        session.content_resources.add(
-            _create_content_resource(resource, __text__, creator, text_uri,
-                                     _fix_url(text_data.get('url')),
-                                     public=public,
-                                     content_type=text_content_type))
+        # session.content_resources.add(
+        #     _create_content_resource(resource, __text__, creator, text_uri,
+        #                              _fix_url(text_data.get('url')),
+        #                              public=public,
+        #                              content_type=text_content_type))
 
     # Keep track of page resources so that we can populate ``next_page``.
     pages = defaultdict(dict)
@@ -456,7 +456,7 @@ def _process_document_data(session, data, creator, resource=None, **kwargs):
     return resource
 
 
-def process_resources(user, session, **kwargs):
+def process_resources(user, file_details, **kwargs):
     """
     Once details have been retrieved concerning images uploaded to Giles, we
     need to create the appropriate metadata records (Resources). This function
@@ -474,8 +474,8 @@ def process_resources(user, session, **kwargs):
     None
     """
 
-    for document_id, file_data in session.file_details.iteritems():
-        _process_document_data(session, file_data, user, **kwargs)
+    for document_id, file_data in file_details.iteritems():
+        _process_document_data(file_data, user, **kwargs)
 
 
 def handle_giles_callback(request, **kwargs):
@@ -505,15 +505,15 @@ def handle_giles_callback(request, **kwargs):
         raise ValueError('No upload ids in request')
 
 
-    session = GilesSession.objects.create(created_by_id=request.user.id)
+    # session = GilesSession.objects.create(created_by_id=request.user.id)
 
     file_details = {}
     for uid in upload_ids:
         file_details.update(get_file_details(request.user, uid, **kwargs))
 
-    session.file_ids = upload_ids
-    session.file_details = file_details
-    session.save()
+    # session.file_ids = upload_ids
+    # session.file_details = file_details
+    # session.save()
 
-    process_resources(request.user, session)
-    return session
+    process_resources(request.user, file_details)
+    return
