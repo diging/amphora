@@ -12,8 +12,6 @@ from cookies.exceptions import *
 logger = settings.LOGGER
 
 
-
-
 @receiver(post_save, sender=Collection)
 @receiver(post_save, sender=Resource)
 @receiver(post_save, sender=Relation)
@@ -39,7 +37,7 @@ def new_users_are_inactive_by_default(sender, **kwargs):
         # instance.save()
 
 
-@receiver(post_save, sender=ContentRelation)
+# @receiver(post_save, sender=ContentRelation)
 def send_pdfs_and_images_to_giles(sender, **kwargs):
     """
     Create a :class:`.GilesUpload` instance to indicate that an upload should

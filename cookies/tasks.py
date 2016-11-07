@@ -9,6 +9,7 @@ from cookies.models import *
 from concepts import authorities
 from cookies.accession import IngesterFactory
 from cookies.exceptions import *
+from django.core.files import File
 logger = settings.LOGGER
 
 import jsonpickle, json, datetime
@@ -67,7 +68,15 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
 
     # User can indicate a default Type to assign to each new Resource.
     default_type = form_data.pop('default_type', None)
-    ingester = IngesterFactory().get(ingester)(file_path)
+
+    upload_resource = Resource.objects.create(
+        created_by=creator,
+        name=file_name,
+    )
+    with open(file_path, 'r') as f:
+        upload_resource.file.save(file_name, File(f), True)
+
+    ingester = IngesterFactory().get(ingester)(upload_resource.file.path)
     ingester.Resource = authorization.apply_filter(creator, 'change_resource', ingester.Resource)
     ingester.Collection = authorization.apply_filter(creator, 'change_collection', ingester.Collection)
     ingester.ConceptEntity = authorization.apply_filter(creator, 'change_conceptentity', ingester.ConceptEntity)

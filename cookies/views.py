@@ -1226,8 +1226,11 @@ def resource_content(request, resource_id):
         content_type = 'application/octet-stream'
 
     if resource.file:
-        with open(resource.file.path, 'rb') as f:
-            return HttpResponse(f.read(), content_type=content_type)
+        try:
+            with open(resource.file.path, 'rb') as f:
+                return HttpResponse(f.read(), content_type=content_type)
+        except IOError:    # Whoops....
+            return HttpResponse('Hmmm....something went wrong.')
     elif resource.location:
         return HttpResponseRedirect(resource.location)
     return HttpResponse('Nope')
