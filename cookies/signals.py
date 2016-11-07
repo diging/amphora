@@ -39,11 +39,14 @@ def new_users_are_inactive_by_default(sender, **kwargs):
         # instance.save()
 
 
-# TODO: enable this when Giles is ready for asynchronous uploads.
-# @receiver(post_save, sender=ContentRelation)
+@receiver(post_save, sender=ContentRelation)
 def send_pdfs_and_images_to_giles(sender, **kwargs):
+    """
+    Create a :class:`.GilesUpload` instance to indicate that an upload should
+    be performed.
+    """
     instance = kwargs.get('instance', None)
-    print 'received post_Save for ContentRelation %i' % instance.id
+    logger.debug('received post_save for ContentRelation %i' % instance.id)
 
     import mimetypes
     try:
@@ -53,15 +56,8 @@ def send_pdfs_and_images_to_giles(sender, **kwargs):
     if instance.content_resource.is_local and instance.content_resource.file.name is not None:
         # PDFs and images should be stored in Digilib via Giles.
         if content_type in ['image/png', 'image/tiff', 'image/jpeg', 'application/pdf']:
-            logger.debug('%s has a ContentResource; sending to Giles' % instance.content_resource.name)
-            try:
-                task = send_to_giles.delay(instance.content_resource.file.name,
-                                    instance.for_resource.created_by, resource=instance.for_resource,
-                                    public=instance.for_resource.public)
-            except ConnectionError:
-                logger.error("send_pdfs_and_images_to_giles: there was an error"
-                             " connecting to the redis message passing"
-                             " backend.")
+            logger.debug('%s has a ContentResource; creating a GilesUpload' % instance.content_resource.name)
+            GilesUpload.objects.create(content_resource=instance.content_resource)
 
 
 

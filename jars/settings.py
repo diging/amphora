@@ -15,6 +15,7 @@ be a useful way to manage secrets if the configuration file is secure.
 
 import os, socket, sys, requests
 from urlparse import urlparse
+from datetime import timedelta
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 HOSTNAME = socket.gethostname()
@@ -159,6 +160,12 @@ MEDIA_URL = BASE_URL + 'media/'
 # Celery: async tasks.
 CELERY_IMPORTS = ('cookies.tasks',)
 CELERY_DEFAULT_RATE_LIMIT = "100/m"
+CELERYBEAT_SCHEDULE = {
+    'send_giles_uploads': {
+        'task': 'cookies.tasks.send_giles_uploads',
+        'schedule': timedelta(seconds=5)
+    }
+}
 
 # File handling.
 FILE_UPLOAD_HANDLERS = ["cookies.uploadhandler.PersistentTemporaryFileUploadHandler",]
@@ -193,6 +200,7 @@ GET = requests.get
 POST = requests.post
 GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
 GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
+MAX_GILES_UPLOADS = 20
 
 # Metadata globals.
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'

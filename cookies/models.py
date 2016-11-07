@@ -429,6 +429,36 @@ class UserJob(models.Model):
         return reverse('jobs')
 
 
+class GilesUpload(models.Model):
+    """
+    Represents a single upload.
+    """
+
+    created = models.DateTimeField(auto_now_add=True)
+    sent = models.DateTimeField(null=True, blank=True)
+    """The datetime when the file was uploaded."""
+
+    upload_id = models.CharField(max_length=255, blank=True, null=True)
+    """Returned by Giles upon upload."""
+
+    content_resource = models.ForeignKey('Resource', null=True, blank=True,
+                                         related_name='giles_upload')
+    """This is the resource that directly 'owns' the uploaded file."""
+
+    response = models.TextField(blank=True, null=True)
+    """This should be raw JSON."""
+
+    resolved = models.BooleanField(default=False)
+    """When a successful response is received, this should be set ``True``."""
+
+    fail = models.BooleanField(default=False)
+    """If ``True``, should not be retried."""
+
+    @property
+    def pending(self):
+        return not self.resolved
+
+
 class GilesSession(models.Model):
     created_by = models.ForeignKey(User, related_name='giles_sessions')
     created = models.DateTimeField(auto_now_add=True)
@@ -456,14 +486,6 @@ class GilesSession(models.Model):
     file_ids = property(_get_file_ids, _set_file_ids)
     file_details = property(_get_file_details, _set_file_details)
 
-
-class GilesUpload(models.Model):
-    """
-    Tracks files that have been uploaded via the REST API.
-    """
-    created_by = models.ForeignKey(User, related_name='giles_uploads')
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
 
 
 class GilesToken(models.Model):
