@@ -153,7 +153,7 @@ def send_to_giles(user, file_name, resource=None, public=True, **kwargs):
     files = {
         'files': (
             file_name,
-              File(open(os.path.join(settings.MEDIA_ROOT, file_name), 'rb')),
+              File(open(os.path.join(settings.MEDIA_ROOT, file_name.encode('utf-8')), 'rb')),
               'application/pdf'
           )
     }
