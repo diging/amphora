@@ -159,6 +159,10 @@ def check_giles_uploads():
             continue
             # raise check_giles_upload.retry()
 
+        gl = [cr for cr in resource.content.all() if cr.content_resource.external_source == Resource.GILES]
+        if len(gl) > 0:
+            continue
+            
         giles.process_file_upload(resource, resource.created_by, content)
 
         upload.response = json.dumps(content)
