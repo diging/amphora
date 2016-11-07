@@ -102,7 +102,7 @@ class Entity(models.Model):
         super(Entity, self).save()
 
     def __unicode__(self):
-        return unicode(self.name)
+        return unicode(self.id)
 
 
 class ResourceBase(Entity):
@@ -189,7 +189,7 @@ class Resource(ResourceBase):
         return self.content.filter(~Q(content_resource__file='')).count() > 0
 
     def __unicode__(self):
-        return self.name
+        return self.id
 
 
 
