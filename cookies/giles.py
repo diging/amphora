@@ -242,16 +242,8 @@ def get_file_details(user, upload_id, **kwargs):
 
 def process_file_upload(resource, creator, raw_data, **kwargs):
     giles = kwargs.get('giles', settings.GILES)
-    # session = GilesSession.objects.get(pk=session_id)
 
     file_details = _get_file_data(raw_data)
-
-    # if not session_id:
-    #     session = GilesSession.objects.create(created_by=creator)
-    #
-    # session.file_ids = [o['uploadId'] for o in raw_data]
-    # session.file_details = file_details
-    # session.save()
 
     for document_id, file_data in file_details.iteritems():
         _process_document_data(file_data, creator, resource=resource, **kwargs)
@@ -386,32 +378,17 @@ def _process_document_data(data, creator, resource=None, **kwargs):
                 'external_source': Resource.GILES,
             })
 
-    # if not session:
-    #     session = GilesSession.objects.create(created_by=creator)
-
-    # session.resources.add(resource)
-
     # Content resource for uploaded file.
     upload_data = data.get('uploadedFile')
     content_type = upload_data.get('content-type')
     resource_type = __text__ if content_type == 'application/pdf' else __image__
     resource_uri = '%s/files/%s' % (giles, upload_data.get('id'))
-    # session.content_resources.add(
-    #     _create_content_resource(resource, resource_type, creator, resource_uri,
-    #                              _fix_url(upload_data.get('url')), public=public,
-    #                              content_type=content_type)
-    # )
 
     # Content resoruce for extracted text, if available.
     text_data = data.get('extractedText', None)
     if text_data is not None:
         text_content_type = text_data.get('content-type')
         text_uri = '%s/files/%s' % (giles, text_data.get('id'))
-        # session.content_resources.add(
-        #     _create_content_resource(resource, __text__, creator, text_uri,
-        #                              _fix_url(text_data.get('url')),
-        #                              public=public,
-        #                              content_type=text_content_type))
 
     # Keep track of page resources so that we can populate ``next_page``.
     pages = defaultdict(dict)
@@ -460,14 +437,13 @@ def process_resources(user, file_details, **kwargs):
     """
     Once details have been retrieved concerning images uploaded to Giles, we
     need to create the appropriate metadata records (Resources). This function
-    processes all of the file data associated with a :class:`.GilesSession`\,
+    processes all of the file data associated with an upload,
     creating :class:`.Resource` instances and attendant :class:`.Relation`\s
     as needed.
 
     Parameters
     ----------
     user : :class:`.User`
-    session : :class:`.GilesSession`
 
     Returns
     -------
@@ -494,26 +470,15 @@ def handle_giles_callback(request, **kwargs):
         Function for executing an HTTP GET request. Must return an object with
         properties ``status_code`` and ``content``, and method ``json()``.
 
-    Returns
-    -------
-    :class:`.GilesSession`
-        This is used to track the provenance of Giles images.
     """
 
     upload_ids = request.GET.getlist('uploadids') + request.GET.getlist('uploadIds')
     if not upload_ids:
         raise ValueError('No upload ids in request')
 
-
-    # session = GilesSession.objects.create(created_by_id=request.user.id)
-
     file_details = {}
     for uid in upload_ids:
         file_details.update(get_file_details(request.user, uid, **kwargs))
-
-    # session.file_ids = upload_ids
-    # session.file_details = file_details
-    # session.save()
 
     process_resources(request.user, file_details)
     return

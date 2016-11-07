@@ -93,28 +93,19 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
 def send_to_giles(file_name, creator, resource=None, public=True, gilesupload_id=None):
     upload = GilesUpload.objects.get(pk=gilesupload_id)
 
-    # try:
-    status_code, response_data = giles.send_to_giles(creator, file_name,
-                                                     resource=resource,
-                                                     public=public)
-    # except:
-        # logger.error("send_to_giles: failing permanently for %i" % upload.id)
-        # upload.fail = True
-        # upload.save()
-        # return
-
-    # session = GilesSession.objects.create(created_by_id=creator.id)
+    try:
+        status_code, response_data = giles.send_to_giles(creator, file_name,
+                                                         resource=resource,
+                                                         public=public)
+    except:
+        logger.error("send_to_giles: failing permanently for %i" % upload.id)
+        upload.fail = True
+        upload.save()
+        return
 
     upload.upload_id = response_data['id']
     upload.sent = datetime.datetime.now()
     upload.save()
-
-    # try:
-    #     check_giles_upload.delay(resource, creator, response_data['id'],
-    #                              response_data['checkUrl'], session.id, gilesupload_id)
-    # except ConnectionError:
-    #     logger.error("send_to_giles: there was an error connecting to"
-    #                  " the redis message passing backend.")
 
 
 
@@ -125,7 +116,6 @@ def check_giles_upload(resource, creator, upload_id, checkURL,
     if status == 202:    # Accepted.
         logger.debug('Accepted, retrying in 30 seconds')
         return
-        # raise check_giles_upload.retry()
 
     giles.process_file_upload(resource, creator, content)
 
@@ -157,19 +147,16 @@ def check_giles_uploads():
         status, content = giles.check_upload_status(resource.created_by, checkURL(upload))
         if status == 202:    # Accepted.
             continue
-            # raise check_giles_upload.retry()
 
         gl = [cr for cr in resource.content.all() if cr.content_resource.external_source == Resource.GILES]
         if len(gl) > 0:
             continue
-            
+
         giles.process_file_upload(resource, resource.created_by, content)
 
         upload.response = json.dumps(content)
         upload.resolved = True
         upload.save()
-
-        # check_giles_upload(resource, , upload.id, , upload.id)
 
 
 @shared_task
@@ -202,15 +189,3 @@ def send_giles_uploads():
         result = send_to_giles(content_resource.file.name, creator,
                                resource=resource, public=public,
                                gilesupload_id=upload.id)
-
-
-# session = GilesSession.objects.create(created_by_id=creator.id)
-#
-# stat_sucode, response_data = result
-#
-# try:
-#     check_giles_upload.delay(resource, creator, response_data['id'],
-#                              response_data['checkUrl'], session.id)
-# except ConnectionError:
-#     logger.error("send_to_giles: there was an error connecting to"
-#                  " the redis message passing backend.")
