@@ -63,8 +63,8 @@
                 {% for content_relation in resource.content.all %}
                 <dd>
                     {% if content_relation.content_resource.is_local and not resource.has_giles_content %}<a class="btn btn-xs glyphicon glyphicon-plus" href="{% url "trigger-giles-submission" resource.id content_relation.id %}"></a>{% endif %}
-                    <a href="{{ content_relation.content_resource.content_location }}">
-                        {{ content_relation.content_resource.content_location|truncatechars:50 }}
+                    <a href="{% url "resource-content" content_relation.content_resource.id %}">
+                        {% url "resource-content" content_relation.content_resource.id %}
                     </a>&nbsp;
                     {% if content_relation.content_type %}
                     <span class="text-warning">

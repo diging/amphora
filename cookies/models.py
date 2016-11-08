@@ -177,6 +177,10 @@ class Resource(ResourceBase):
             return self.location
 
     @property
+    def content_view(self):
+        return reverse('resource-content', args=(self.id,))
+
+    @property
     def is_remote(self):
         return not self.is_local and not self.is_external
 

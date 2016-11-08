@@ -93,6 +93,7 @@ class ZoteroIngest(object):
     ]
 
     def __init__(self, path, classes=copy.deepcopy(RESOURCE_CLASSES)):
+        self.file_paths = {}
         if path.endswith('.zip'):
             self._unpack_zipfile(path)
         else:
@@ -103,6 +104,7 @@ class ZoteroIngest(object):
         self._init_graph(self.rdf, classes=classes)
         self.data = []    # All results will go here.
 
+
     def _unpack_zipfile(self, path):
         """
         Extract all files in the zipfile at ``path`` into a temporary directory.
@@ -112,12 +114,14 @@ class ZoteroIngest(object):
 
         self.paths = []
         for file_path in self.zipfile.namelist():
+
             if path.startswith('.'):
                 continue
             temp_path = self.zipfile.extract(file_path, self.dtemp)
-
             if temp_path.endswith('.rdf'):
                 self.rdf = temp_path
+            else:
+                self.file_paths[file_path] = temp_path
 
     def _correct_zotero_violation(self):
         """
@@ -352,7 +356,7 @@ class ZoteroIngest(object):
                 p = 'url' if p == 'uri' else p
             elif p == RSS.link:
                 link_path =  self._to_python(o).replace('file://', '')
-                p, o = 'link', link_path
+                p, o = 'link', self.file_paths.get(link_path, link_path)
             else:
                 p, o = self.handle(p, o)
             link_data.append((self._to_python(p), self._to_python(o)))
