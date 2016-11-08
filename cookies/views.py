@@ -1209,3 +1209,28 @@ def bulk_add_resource_to_collection(request):
     else:
         return HttpResponseBadRequest('Error: Select a collection to add resources.\
                                       Go back to previous page and select a collection')
+
+
+@authorization.authorization_required('view_resource', _get_resource_by_id)
+def resource_content(request, resource_id):
+    """
+    Serve up the raw content associated with a :class:`.Resource`\.
+
+    This is not the most efficient way to serve files, but we need some kind of
+    security layer here for non-public content.
+    """
+    resource = _get_resource_by_id(request, resource_id)
+    if resource.content_type:
+        content_type = resource.content_type
+    else:
+        content_type = 'application/octet-stream'
+
+    if resource.file:
+        try:
+            with open(resource.file.path, 'rb') as f:
+                return HttpResponse(f.read(), content_type=content_type)
+        except IOError:    # Whoops....
+            return HttpResponse('Hmmm....something went wrong.')
+    elif resource.location:
+        return HttpResponseRedirect(resource.location)
+    return HttpResponse('Nope')
