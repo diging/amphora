@@ -35,6 +35,9 @@
     </span>
     <h2 class="collection_name">{{ collection.name }}</h1>
     <div class="collection_uri"><strong>URI:</strong> {{ collection.uri }}</div>
+    {% if collection.part_of != null%}
+      <div class="text-info">Sub-collection of: {{ collection.part_of.name }}</div>
+    {% endif %}
 </div>
 
 <div class="row">
@@ -126,5 +129,9 @@
     </dl>
 </div>
 {% endif %}
+
+<div class="text-center">
+    <a class="btn btn-success" href="{% url "create-collection" %}">Create a sub collection</a>
+</div>
 
 {% endblock %}

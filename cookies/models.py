@@ -223,6 +223,8 @@ class Collection(ResourceBase):
     resources = models.ManyToManyField('Resource', related_name='part_of',
                                         blank=True, null=True  )
 
+    part_of = models.ForeignKey('Collection', blank=True, null=True)
+
     def get_absolute_url(self):
         return reverse("cookies.views.collection", args=(self.id,))
 
