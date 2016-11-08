@@ -121,14 +121,20 @@ def send_to_giles(file_name, creator, resource=None, public=True, gilesupload_id
 @shared_task
 def check_giles_upload(resource, creator, upload_id, checkURL,
                        gilesupload_id):
-    status, content = giles.check_upload_status(creator, checkURL)
-    if status == 202:    # Accepted.
-        logger.debug('Accepted, retrying in 30 seconds')
+    upload = GilesUpload.objects.get(pk=gilesupload_id)
+    try:
+        status, content = giles.check_upload_status(creator, checkURL)
+        if status == 202:    # Accepted.
+            logger.debug('Accepted, retrying in 30 seconds')
+            return
+    except:
+        logger.error("send_to_giles: failing permanently for %i" % upload.id)
+        upload.fail = True
+        upload.save()
         return
 
     giles.process_file_upload(resource, creator, content)
 
-    upload = GilesUpload.objects.get(pk=gilesupload_id)
     upload.response = json.dumps(content)
     upload.resolved = True
     upload.save()
@@ -148,23 +154,36 @@ def search_for_concept(lemma):
 
 @shared_task
 def check_giles_uploads():
-    checkURL = lambda u: '%s/rest/files/upload/check/%s' % (settings.GILES, u.upload_id)
+    """
+    Periodic task that reviews currently outstanding Giles uploads, and checks
+    their status.
+    """
+    checkURL = lambda u: '%s/rest/files/upload/check/%s' % (settings.GILES,
+                                                            u.upload_id)
     query = Q(resolved=False) & ~Q(sent=None) & Q(fail=False)
     outstanding = GilesUpload.objects.filter(query)
     for upload in outstanding:
         resource = upload.content_resource.parent.first().for_resource
-        status, content = giles.check_upload_status(resource.created_by, checkURL(upload))
-        if status == 202:    # Accepted.
+        try:
+            status, content = giles.check_upload_status(resource.created_by,
+                                                        checkURL(upload))
+            if status == 202:    # Accepted.
+                continue
+        except:
+            logger.error("send_to_giles: failing permanently for %i" % upload.id)
+            upload.fail = True
+            upload.save()
+            return
+
+        if resource.content.filter(content_resource__external_source=Resource.GILES).count() > 0:
             continue
 
-        gl = [cr for cr in resource.content.all() if cr.content_resource.external_source == Resource.GILES]
-        if len(gl) > 0:
-            continue
-
+        # Upload processing is complete; register Giles file objects as
+        #  content resources.
         giles.process_file_upload(resource, resource.created_by, content)
 
-        upload.response = json.dumps(content)
-        upload.resolved = True
+        upload.response = json.dumps(content)    # Posterity.
+        upload.resolved = True    # Take out of queue.
         upload.save()
 
 
@@ -179,12 +198,13 @@ def send_giles_uploads():
     pending = GilesUpload.objects.filter(resolved=False, sent=None, fail=False)
 
     # We limit the number of simultaneous requests to Giles.
-    if outstanding.count() >= settings.MAX_GILES_UPLOADS or pending.count() == 0:
+    remaining = settings.MAX_GILES_UPLOADS - outstanding.count()
+    if remaining <= 0 or pending.count() == 0:
         return
 
     logger.debug('Found GilesUpload, processing...')
 
-    to_upload = min(settings.MAX_GILES_UPLOADS - outstanding.count(), pending.count())
+    to_upload = min(remaining, pending.count())
     if to_upload <= 0:
         return
 
@@ -194,7 +214,8 @@ def send_giles_uploads():
         resource = content_resource.parent.first().for_resource
 
         anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
-        public = authorization.check_authorization('view', anonymous, content_resource)
+        public = authorization.check_authorization('view', anonymous,
+                                                   content_resource)
         result = send_to_giles(content_resource.file.name, creator,
                                resource=resource, public=public,
                                gilesupload_id=upload.id)
