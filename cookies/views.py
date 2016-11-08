@@ -1127,7 +1127,12 @@ def create_collection(request):
     if request.method == 'GET':
         form = UserAddCollectionForm()
         if parent_id:
-            form.fields['part_of'].initial = parent_id
+            try:
+                parent_collection = _get_collection_by_id(request, int(parent_id))
+                authorization.check_authorization('change_collection', request.user, parent_collection)
+            except RuntimeError:
+                return HttpResponse('You do not have permission to edit this collection', status=401)
+            form.fields['part_of'].initial = parent_collection
     if request.method == 'POST':
         form = UserAddCollectionForm(request.POST)
         if form.is_valid():
