@@ -1121,10 +1121,13 @@ def create_collection(request):
     """
     context = RequestContext(request, {})
 
+    parent_id = request.GET.get('parent_collection', None)
     template = loader.get_template('create_collection.html')
 
     if request.method == 'GET':
         form = UserAddCollectionForm()
+        if parent_id:
+            form.fields['part_of'].initial = parent_id
     if request.method == 'POST':
         form = UserAddCollectionForm(request.POST)
         if form.is_valid():
