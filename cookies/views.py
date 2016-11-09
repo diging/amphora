@@ -120,7 +120,7 @@ def resource_list(request):
     # TODO: implement a real search backend.
     filtered_objects = ResourceFilter(request.GET, queryset=qset_resources)
     qset_collections = Collection.objects.filter(
-        Q(content_resource=False) & Q(hidden=False)
+        Q(content_resource=False) & Q(hidden=False) & Q(part_of__isnull=True)
     )
     qset_collections = authorization.apply_filter(request.user,
                                                   'view_collection',
@@ -155,7 +155,7 @@ def collection(request, obj_id):
 
 
 def collection_list(request):
-    queryset = Collection.objects.filter(content_resource=False, hidden=False)
+    queryset = Collection.objects.filter(content_resource=False, hidden=False, part_of__isnull=True)
     queryset = authorization.apply_filter(request.user, 'view_resource', queryset)
     filtered_objects = CollectionFilter(request.GET, queryset=queryset)
     context = RequestContext(request, {
