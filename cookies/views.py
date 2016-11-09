@@ -142,11 +142,13 @@ def collection(request, obj_id):
     resources = collection.resources.filter(content_resource=False, hidden=False)
     resources = authorization.apply_filter(request.user, 'view_resource', resources)
     filtered_objects = ResourceFilter(request.GET, queryset=resources)
-
+    qset_collections = Collection.objects.filter(part_of=collection)
+    collections = CollectionFilter(request.GET, queryset=qset_collections)
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
         'collection': collection,
         'request': request,
+        'collections': collections,
     })
     template = loader.get_template('collection.html')
     return HttpResponse(template.render(context))
