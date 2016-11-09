@@ -1121,10 +1121,17 @@ def create_collection(request):
     """
     context = RequestContext(request, {})
 
+    parent_id = request.GET.get('parent_collection', None)
     template = loader.get_template('create_collection.html')
 
     if request.method == 'GET':
         form = UserAddCollectionForm()
+        if parent_id:
+            parent_collection = _get_collection_by_id(request, int(parent_id))
+            check_auth = authorization.check_authorization('change_collection', request.user, parent_collection)
+            if not check_auth:
+                return HttpResponse('You do not have permission to edit this collection', status=401)
+            form.fields['part_of'].initial = parent_collection
     if request.method == 'POST':
         form = UserAddCollectionForm(request.POST)
         if form.is_valid():

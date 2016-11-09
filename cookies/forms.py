@@ -293,10 +293,11 @@ class UserAddCollectionForm(forms.ModelForm):
     uri = forms.CharField(**{
         'required': False,
     })
+    part_of = forms.ModelChoiceField(queryset=Collection.objects.all().order_by('-name'))
 
     class Meta:
         model = Collection
-        fields = ['name', 'public', 'uri', 'content_type', 'content_resource']
+        fields = ['name', 'public', 'uri', 'content_type', 'content_resource', 'part_of']
 
     def __init__(self, *args, **kwargs):
         super(UserAddCollectionForm, self).__init__(*args, **kwargs)
