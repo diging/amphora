@@ -142,12 +142,7 @@ def collection(request, obj_id):
     resources = collection.resources.filter(content_resource=False, hidden=False)
     resources = authorization.apply_filter(request.user, 'view_resource', resources)
     filtered_objects = ResourceFilter(request.GET, queryset=resources)
-    qset_collections = Collection.objects.filter(
-        Q(content_resource=False) & Q(hidden=False)
-    )
-    qset_collections = authorization.apply_filter(request.user,
-                                                  'view_collection',
-                                                  qset_collections)
+    qset_collections = Collection.objects.filter(part_of=collection)
     collections = CollectionFilter(request.GET, queryset=qset_collections)
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
