@@ -18,6 +18,10 @@ from cookies import authorization
 
 
 class CustomModelChoiceField(forms.ModelChoiceField):
+    """
+    Overriding label_from_instance function in ModelChoiceField
+    """
+
     def label_from_instance(self, obj):
          return obj.name
 
