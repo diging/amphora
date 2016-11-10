@@ -100,12 +100,12 @@
                 data-title="Upload Resource">
             </a>
             {% endif %}
-            <a href="{% url "collections" %}{% if request.user.id > 0 %}?created_by={{ request.user.id }}{% endif %}"
+            <a href="{% url "collections" %}"
                 class="btn btn-lg glyphicon glyphicon-folder-close"
                 data-toggle="tooltip"
                 data-title="Collections">
             </a>
-            <a href="{% url "resources" %}{% if request.user.id > 0 %}?created_by={{ request.user.id }}{% endif %}"
+            <a href="{% url "resources" %}"
                 class="btn btn-lg glyphicon glyphicon-list"
                 data-toggle="tooltip"
                 data-title="Resources">
