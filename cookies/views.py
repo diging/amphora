@@ -70,6 +70,9 @@ def check_authorization(request, instance, permission):
 @authorization.authorization_required('view_resource', _get_resource_by_id)
 def resource(request, obj_id):
     resource = _get_resource_by_id(request, obj_id)
+
+    # Get a fresh Giles auth token, if needed.
+    giles.get_user_auth_token(resource.created_by)
     context = {
         'resource':resource,
         'request': request,
