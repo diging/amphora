@@ -176,6 +176,15 @@ def _propagate_to_relations(auths, user, obj, **kwargs):
     update_authorizations(child_auths, user, children_to, **kwargs)
 
 
+def _propagate_to_content(auths, user, obj, **kwargs):
+    by_user = kwargs.get('by_user', None)
+    logger.debug(repr(kwargs))
+    logger.debug(repr(auths))
+    for relation in obj.content.all():
+        update_authorizations(auths, user, relation.content_resource, **kwargs)
+
+
+
 def _propagate_to_entities(auths, user, obj, **kwargs):
     """
     Propagate authorizations from :class:`.Relation` instances to ``source``
@@ -238,6 +247,9 @@ def _propagate_to_children(auths, user, obj, **kwargs):
     elif isinstance(obj, Resource):
         logger.debug('Resource -> Relation')
         _propagate_to_relations(auths, user, obj, **kwargs)
+
+        logger.debug('Resource -> Content')
+        _propagate_to_content(auths, user, obj, **kwargs)
     elif isinstance(obj, Relation):
         logger.debug('Relation -> ConceptEntity')
         _propagate_to_entities(auths, user, obj,  **kwargs)
@@ -269,6 +281,7 @@ def update_authorizations(auths, user, obj, **kwargs):
     -------
     None
     """
+    
     logger.debug('update authorizations for %s with %s for %s' % \
                  (repr(obj), ' '.join(auths), repr(user)))
 
