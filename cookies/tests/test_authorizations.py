@@ -1,11 +1,13 @@
 import unittest, mock, json, os
 
 from django.test import Client
+from django.conf import settings
 
 from cookies.authorization import *
 from cookies.models import *
 
 os.environ.setdefault('LOGLEVEL', 'ERROR')
+
 
 class TestIsOwner(unittest.TestCase):
     def setUp(self):
@@ -340,6 +342,38 @@ class TestUpdateAuthorizations(unittest.TestCase):
         self.assertFalse(check_authorization('view_relation', self.o, relation),
                          "update_authorizations should propagate to a"
                          " resource's relations.")
+
+    def test_propagate_resource_to_contentresource(self):
+        """
+        If ``propagate=True`` (Default), authorizations assigned to a
+        :class:`.Resource` should also be applied to its related content
+        resources.
+        """
+
+
+
+        resource = Resource.objects.create(created_by=self.u, name='Test')
+        content_resource = Resource.objects.create(created_by=self.u, name='ContentTest', content_resource=True)
+        content_relation = ContentRelation.objects.create(for_resource=resource, content_resource=content_resource)
+
+        resource.refresh_from_db()
+        for auth in Resource.DEFAULT_AUTHS:
+            self.assertFalse(check_authorization(auth, self.o, content_resource))
+
+        update_authorizations(['view_resource'], self.o, resource)
+        content_resource.refresh_from_db()
+
+        self.assertTrue(check_authorization('view_resource', self.o, content_resource),
+                        "update_authorizations should propagate to a resource's"
+                        " relations.")
+
+        update_authorizations(['delete_resource'], self.o, resource)
+        content_resource.refresh_from_db()
+        self.assertTrue(check_authorization('delete_resource', self.o, content_resource),
+                         "update_authorizations should propagate to a"
+                         " resource's relations.")
+
+
 
     def test_propagate_relation_to_conceptentity(self):
         """

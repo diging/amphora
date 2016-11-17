@@ -72,7 +72,7 @@ def resource(request, obj_id):
     resource = _get_resource_by_id(request, obj_id)
 
     # Get a fresh Giles auth token, if needed.
-    giles.get_user_auth_token(resource.created_by)
+    giles.get_user_auth_token(resource.created_by, fresh=True)
     context = {
         'resource':resource,
         'request': request,
@@ -1244,5 +1244,12 @@ def resource_content(request, resource_id):
         except IOError:    # Whoops....
             return HttpResponse('Hmmm....something went wrong.')
     elif resource.location:
-        return HttpResponseRedirect(resource.location)
+        target = resource.location
+        if 'giles' in target:
+            user = resource.created_by
+            print resource, user
+            if user:
+                auth_token = giles.get_user_auth_token(user, fresh=True)
+                target += '?accessToken=' + auth_token
+        return HttpResponseRedirect(target)
     return HttpResponse('Nope')
