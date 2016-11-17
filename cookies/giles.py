@@ -81,6 +81,7 @@ def get_user_auth_token(user, **kwargs):
 
     try:
         status_code, data = get_auth_token(user, **kwargs)
+        user.giles_token.delete()
         user.giles_token = GilesToken.objects.create(for_user=user, token=data["token"])
         user.save()
         return user.giles_token.token
