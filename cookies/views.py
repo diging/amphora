@@ -1244,5 +1244,8 @@ def resource_content(request, resource_id):
         except IOError:    # Whoops....
             return HttpResponse('Hmmm....something went wrong.')
     elif resource.location:
+        target = resource.location
+        if 'giles' in target:
+            target += '?accessToken' + giles.get_user_auth_token(resource.created_by, fresh=True)
         return HttpResponseRedirect(resource.location)
     return HttpResponse('Nope')
