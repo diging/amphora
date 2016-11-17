@@ -90,6 +90,7 @@ def get_user_auth_token(user, **kwargs):
         if kwargs.get('raise_exception', False):
             raise E
         logger.error(msg)
+        logger.error(data)
 
 
 # @handle_status_exception
