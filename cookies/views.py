@@ -72,7 +72,7 @@ def resource(request, obj_id):
     resource = _get_resource_by_id(request, obj_id)
 
     # Get a fresh Giles auth token, if needed.
-    giles.get_user_auth_token(resource.created_by)
+    giles.get_user_auth_token(resource.created_by, fresh=True)
     context = {
         'resource':resource,
         'request': request,
