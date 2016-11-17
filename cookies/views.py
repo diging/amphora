@@ -70,6 +70,9 @@ def check_authorization(request, instance, permission):
 @authorization.authorization_required('view_resource', _get_resource_by_id)
 def resource(request, obj_id):
     resource = _get_resource_by_id(request, obj_id)
+
+    # Get a fresh Giles auth token, if needed.
+    giles.get_user_auth_token(resource.created_by)
     context = {
         'resource':resource,
         'request': request,
@@ -120,7 +123,7 @@ def resource_list(request):
     # TODO: implement a real search backend.
     filtered_objects = ResourceFilter(request.GET, queryset=qset_resources)
     qset_collections = Collection.objects.filter(
-        Q(content_resource=False) & Q(hidden=False)
+        Q(content_resource=False) & Q(hidden=False) & Q(part_of__isnull=True)
     )
     qset_collections = authorization.apply_filter(request.user,
                                                   'view_collection',
@@ -142,18 +145,20 @@ def collection(request, obj_id):
     resources = collection.resources.filter(content_resource=False, hidden=False)
     resources = authorization.apply_filter(request.user, 'view_resource', resources)
     filtered_objects = ResourceFilter(request.GET, queryset=resources)
-
+    qset_collections = Collection.objects.filter(part_of=collection)
+    collections = CollectionFilter(request.GET, queryset=qset_collections)
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
         'collection': collection,
         'request': request,
+        'collections': collections,
     })
     template = loader.get_template('collection.html')
     return HttpResponse(template.render(context))
 
 
 def collection_list(request):
-    queryset = Collection.objects.filter(content_resource=False, hidden=False)
+    queryset = Collection.objects.filter(content_resource=False, hidden=False, part_of__isnull=True)
     queryset = authorization.apply_filter(request.user, 'view_resource', queryset)
     filtered_objects = CollectionFilter(request.GET, queryset=queryset)
     context = RequestContext(request, {
@@ -1121,10 +1126,17 @@ def create_collection(request):
     """
     context = RequestContext(request, {})
 
+    parent_id = request.GET.get('parent_collection', None)
     template = loader.get_template('create_collection.html')
 
     if request.method == 'GET':
         form = UserAddCollectionForm()
+        if parent_id:
+            parent_collection = _get_collection_by_id(request, int(parent_id))
+            check_auth = authorization.check_authorization('change_collection', request.user, parent_collection)
+            if not check_auth:
+                return HttpResponse('You do not have permission to edit this collection', status=401)
+            form.fields['part_of'].initial = parent_collection
     if request.method == 'POST':
         form = UserAddCollectionForm(request.POST)
         if form.is_valid():

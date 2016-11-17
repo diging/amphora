@@ -17,6 +17,14 @@ from cookies.models import *
 from cookies import authorization
 
 
+class CustomModelChoiceField(forms.ModelChoiceField):
+    """
+    Overriding label_from_instance function in ModelChoiceField
+    """
+
+    def label_from_instance(self, obj):
+         return obj.name
+
 class ContenteditableInput(forms.TextInput):
     """
     A contenteditable widget to include in your form
@@ -78,7 +86,7 @@ class RemoteSchemaForm(forms.Form):
 
 
 class BulkResourceForm(forms.Form):
-    collection = forms.ModelChoiceField(**{
+    collection = CustomModelChoiceField(**{
         'queryset': Collection.objects.all(),
         'empty_label': u'Create a new collection',
         'required': False,
@@ -102,7 +110,7 @@ class BulkResourceForm(forms.Form):
                    + u' be generated for each file in the archive.'
     })
 
-    default_type = forms.ModelChoiceField(**{
+    default_type = CustomModelChoiceField(**{
         'queryset': Type.objects.all(),
         'required': False,
         'help_text': u'All resources in this upload will be assigned the' \
@@ -137,7 +145,7 @@ class ResourceForm(forms.ModelForm):
 
 class UserResourceForm(forms.Form):
     name = forms.CharField(help_text='Give your resource a unique name')
-    resource_type = forms.ModelChoiceField(**{
+    resource_type = CustomModelChoiceField(**{
         'queryset': Type.objects.all().order_by('name'),
         'help_text': 'Types help JARS determine what metadata fields are' \
                    + ' appropriate for your resource.',
@@ -160,7 +168,7 @@ class UserResourceForm(forms.Form):
     #                + u' namespace for this resource.',
     #     'required': False,
     # })
-    collection = forms.ModelChoiceField(**{
+    collection = CustomModelChoiceField(**{
         'queryset': Collection.objects.all().order_by('name'),
         'required': False
     })
@@ -168,7 +176,7 @@ class UserResourceForm(forms.Form):
 
 class UserEditResourceForm(forms.Form):
     name = forms.CharField(help_text='Give your resource a unique name')
-    resource_type = forms.ModelChoiceField(**{
+    resource_type = CustomModelChoiceField(**{
         'queryset': Type.objects.all().order_by('name'),
         'help_text': 'Types help JARS determine what metadata fields are' \
                    + ' appropriate for your resource.',
@@ -206,7 +214,7 @@ class UserResourceURLForm(forms.Form):
 
 
 class ChooseCollectionForm(forms.Form):
-    collection = forms.ModelChoiceField(**{
+    collection = CustomModelChoiceField(**{
         'queryset': Collection.objects.all(),
         'empty_label': u'Create a new collection',
         'required': False,
@@ -237,17 +245,17 @@ class MetadatumValueDateForm(forms.Form):
     value = forms.DateField()
 
 class MetadatumConceptEntityForm(forms.Form):
-    value = forms.ModelChoiceField(queryset=ConceptEntity.objects.all().order_by('-name'))
+    value = CustomModelChoiceField(queryset=ConceptEntity.objects.all().order_by('-name'))
 
 class MetadatumResourceForm(forms.Form):
-    value = forms.ModelChoiceField(queryset=Resource.objects.all().order_by('-name'))
+    value = CustomModelChoiceField(queryset=Resource.objects.all().order_by('-name'))
 
 class MetadatumTypeForm(forms.Form):
-    value = forms.ModelChoiceField(queryset=Type.objects.all().order_by('-name'))
+    value = CustomModelChoiceField(queryset=Type.objects.all().order_by('-name'))
 
 
 class MetadatumForm(forms.Form):
-    predicate = forms.ModelChoiceField(queryset=Field.objects.all().order_by('-name'))
+    predicate = CustomModelChoiceField(queryset=Field.objects.all().order_by('-name'))
     value_type = forms.ChoiceField(choices=(
         ('Int', 'Integer'),
         ('Float', 'Float'),
@@ -261,12 +269,12 @@ class MetadatumForm(forms.Form):
 
 
 class AuthorizationForm(forms.Form):
-    for_user = forms.ModelChoiceField(queryset=User.objects.all().order_by('-username'))
+    for_user = CustomModelChoiceField(queryset=User.objects.all().order_by('-username'))
     authorizations = forms.MultipleChoiceField(choices=[('', 'None')] + authorization.AUTHORIZATIONS, required=False)
 
 
 class CollectionAuthorizationForm(forms.Form):
-    for_user = forms.ModelChoiceField(queryset=User.objects.all().order_by('-username'))
+    for_user = CustomModelChoiceField(queryset=User.objects.all().order_by('-username'))
     authorizations = forms.MultipleChoiceField(choices=[('', 'None')] + authorization.COLLECTION_AUTHORIZATIONS)
     propagate = forms.BooleanField(required=False, help_text="If selected,"
                                    " these authorizations will also be applied"
@@ -293,10 +301,11 @@ class UserAddCollectionForm(forms.ModelForm):
     uri = forms.CharField(**{
         'required': False,
     })
+    part_of = CustomModelChoiceField(queryset=Collection.objects.all().order_by('name'))
 
     class Meta:
         model = Collection
-        fields = ['name', 'public', 'uri', 'content_type', 'content_resource']
+        fields = ['name', 'public', 'uri', 'content_type', 'content_resource', 'part_of']
 
     def __init__(self, *args, **kwargs):
         super(UserAddCollectionForm, self).__init__(*args, **kwargs)
