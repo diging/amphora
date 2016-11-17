@@ -81,7 +81,7 @@ def get_user_auth_token(user, **kwargs):
 
     try:
         status_code, data = get_auth_token(user, **kwargs)
-        user.giles_token =  GilesToken.objects.create(for_user=user, token=data["token"])
+        user.giles_token = GilesToken.objects.create(for_user=user, token=data["token"])
         user.save()
         return user.giles_token.token
     except Exception as E:
@@ -91,6 +91,7 @@ def get_user_auth_token(user, **kwargs):
             raise E
         logger.error(msg)
         logger.error(data)
+        logger.error(str(E))
 
 
 # @handle_status_exception
