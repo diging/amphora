@@ -1246,6 +1246,12 @@ def resource_content(request, resource_id):
     elif resource.location:
         target = resource.location
         if 'giles' in target:
-            target += '?accessToken=' + giles.get_user_auth_token(resource.created_by, fresh=True)
-        return HttpResponseRedirect(resource.location)
+            if resource.content_resource:
+                parent = resource.parent.first()
+                user = parent.created_by
+            else:
+                user = resource.created_by
+            auth_token = giles.get_user_auth_token(user, fresh=True)
+            target += '?accessToken=' + auth_token
+        return HttpResponseRedirect(target)
     return HttpResponse('Nope')
