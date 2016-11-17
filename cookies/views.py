@@ -1251,7 +1251,8 @@ def resource_content(request, resource_id):
                 user = parent.created_by
             else:
                 user = resource.created_by
-            auth_token = giles.get_user_auth_token(user, fresh=True)
-            target += '?accessToken=' + auth_token
+            if user:
+                auth_token = giles.get_user_auth_token(user, fresh=True)
+                target += '?accessToken=' + auth_token
         return HttpResponseRedirect(target)
     return HttpResponse('Nope')
