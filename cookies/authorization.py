@@ -102,6 +102,7 @@ def check_authorization(auth, user, obj):
     elif obj is None:
         _authorized = False
     else:
+        auth = auth_label(auth, obj)
         _authorized = user.has_perm(auth, obj)
     return user.is_superuser or is_owner(user, obj) or _authorized or (is_public(obj) and 'view' in auth)
 

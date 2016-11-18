@@ -14,7 +14,7 @@ class TestIsOwner(unittest.TestCase):
         self.u = User.objects.create(username='TestUser')
 
     def test_is_owner(self):
-        resource = Resource.objects.create(
+        resource = Collection.objects.create(
             created_by=self.u,
             name='TestResource'
         )
@@ -318,12 +318,16 @@ class TestUpdateAuthorizations(unittest.TestCase):
         :func:`.update_authorizations` should add new authorizations for a user
         on a :class:`.Collection`.
         """
+
         collection = Collection.objects.create(created_by=self.u, name='Test')
         for auth in Collection.DEFAULT_AUTHS:
             self.assertFalse(check_authorization(auth, self.o, collection))
 
         update_authorizations(['view'], self.o, collection)
-        self.assertTrue(check_authorization('view', self.o, collection))
+        authorized = check_authorization('view', self.o, collection)
+
+        self.assertTrue(authorized)
+
 
 
     def test_update_obj_with_remove(self):

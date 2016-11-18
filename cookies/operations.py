@@ -1,5 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.conf import settings
 
 from cookies.models import *
@@ -108,27 +108,47 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
         implicated.
     """
     conceptentity_type = ContentType.objects.get_for_model(ConceptEntity)
+    if isinstance(entities, QuerySet):
+        _len = lambda qs: qs.count()
+        _uri = lambda qs: qs.values_list('concept__uri', flat=True)
+        _get_master = lambda qs, pk: qs.get(pk=pk)
+        _get_rep = lambda qs: qs.filter(represents__isnull=False).first()
+        _first = lambda qs: qs.first()
+    elif isinstance(entities, list):
+        _len = lambda qs: len(qs)
+        _uri = lambda qs: [getattr(o.concept, 'uri', None) for o in qs]
+        _get_master = lambda qs, pk: [e for e in entities if e.id == pk].pop()
+        _get_rep = lambda qs: [e for e in entities if e.represents.count() > 0].pop()
+        _first = lambda qs: qs[0]
 
-    if entities.count() < 2:
+
+    if _len(entities) < 2:
         raise RuntimeError("Need more than one ConceptEntity instance to merge")
 
-    _concepts = list(set([v for v in entities.values_list('concept__uri', flat=True) if v]))
+    _concepts = list(set([v for v in _uri(entities) if v]))
     if len(_concepts) > 1:
         raise RuntimeError("Cannot merge two ConceptEntity instances with"
                            " conflicting external concepts")
     _uri = _concepts[0] if _concepts else None
 
-
+    master = None
     if master_id:    # If a master is specified, use it...
-        master = entities.get(pk=master_id)
-    else:
+        try:
+            master = _get_master(entities, pk)
+        except:
+            pass
+
+    if not master:
         # Prefer entities that are already representative.
-        master = entities.filter(represents__isnull=False).first()
-        if not master:
-            try:    # ...otherwise, try to use the first instance.
-                master = entities.first()
-            except AssertionError:    # If a slice has already been taken.
-                master = entities[0]
+        try:
+            master = _get_rep(entities)
+        except:
+            pass
+    if not master:
+        try:    # ...otherwise, try to use the first instance.
+            master = _first(entities)
+        except AssertionError:    # If a slice has already been taken.
+            master = entities[0]
 
     if _uri is not None:
         master.concept = Concept.objects.get(uri=_uri)
