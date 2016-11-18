@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+{% load addcss %}
+
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url 'Add Tag' 'bulk-action-resource' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="h2">Add a tag</div>
+{% if resources.count > 0 %}
+<form class="form" action="{% url "bulk-add-tag-to-resource" %}" method="POST">
+  {% csrf_token %}
+    <div class="text-info">You have selected {{ resources.count }} resource{% if resources.count > 1 %}s{% endif %}.</div>
+    {% for field in form %}
+        <label>{{ field.label }}</label>
+        {% if field.label == 'Resources' %}
+            {{ field }}
+            {% for resource in resources %}
+            <li class="list-group-item">{{ resource.name }}</li>
+            {% endfor %}
+        {% else %}
+
+            {{ field|addcss:"form-control" }}
+            <p class="text-muted">{{ field.help_text }}</p>
+        {% endif %}
+    {% endfor %}
+
+
+    <input type="submit" class="btn btn-success" />
+</form>
+{% else %}
+<div class="alert alert-warning">
+  <strong>Warning!</strong> Need to select at least one resource before proceeding. Go to previous page and select resources.
+</div>
+{% endif %}
+
+<script>
+$('#id_tag').change(function(e) {
+    var val = $(this).val();
+    if (val == "") {
+        $('#id_tag_name').removeAttr('disabled');
+    } else {
+        $('#id_tag_name').attr('disabled', true);
+    }
+})
+</script>
+{% endblock %}

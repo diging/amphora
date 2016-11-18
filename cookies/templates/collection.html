@@ -87,27 +87,13 @@
     </div>
 </div>
 
-<div class="collection_resources">
-    <ul class="list-group">
-        {% for resource in resources %}
-        <a class="resource-name list-group-item clearfix" href="{{ resource.get_absolute_url }}">{{ resource.name }}
-
-            <span class="pull-right btn-group">
-                {% if resource.has_local_content %}
-                <span class="btn-xs">
-                    <i class="fa fa-database"></i>
-                </span>
-                {% endif %}
-                {% if resource.has_giles_content %}
-                <span class="btn-xs">
-                    <img style="height: 12px;" src="{% static "cookies/img/giles_logo.png" %}" />
-                </span>
-                {% endif %}
-            </span>
-
-        </a>
-        {% endfor %}
-    </ul>
+<div class="row">
+    <div class="col-sm-3">
+        {% include "fragment_tag_panel.html" %}
+    </div>
+    <div class="col-sm-9">
+        {% include "fragment_resource_list.html" %}
+    </div>
 </div>
 
 <div class="row">

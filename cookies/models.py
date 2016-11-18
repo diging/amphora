@@ -203,7 +203,21 @@ class Resource(ResourceBase):
         return unicode(self.id)
 
 
+class Tag(models.Model):
+    """
+    """
+    created_by = models.ForeignKey(User, related_name='tags')
+    created = models.DateTimeField(auto_now_add=True)
+    name = models.CharField(max_length=255)
 
+
+class ResourceTag(models.Model):
+    """
+    """
+    created_by = models.ForeignKey(User, related_name='resource_tags')
+    created = models.DateTimeField(auto_now_add=True)
+    tag = models.ForeignKey('Tag', related_name='resource_tags')
+    resource = models.ForeignKey('Resource', related_name='tags')
 
 
 class ContentRelation(models.Model):

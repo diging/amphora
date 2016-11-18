@@ -122,17 +122,10 @@ def resource_list(request):
     #
     # TODO: implement a real search backend.
     filtered_objects = ResourceFilter(request.GET, queryset=qset_resources)
-    qset_collections = Collection.objects.filter(
-        Q(content_resource=False) & Q(hidden=False) & Q(part_of__isnull=True)
-    )
-    qset_collections = authorization.apply_filter(request.user,
-                                                  'view_collection',
-                                                  qset_collections)
-    collections = CollectionFilter(request.GET, queryset=qset_collections)
 
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
-        'collections': collections
+        'tags': Tag.objects.filter(resource_tags__resource_id__in=filtered_objects.qs.values_list('id', flat=True)).distinct(),
     })
 
     template = loader.get_template('resources.html')
@@ -143,7 +136,7 @@ def resource_list(request):
 def collection(request, obj_id):
     collection = _get_collection_by_id(request, obj_id)
     resources = collection.native_resources.filter(content_resource=False, hidden=False)
-    
+
     filtered_objects = ResourceFilter(request.GET, queryset=resources)
     qset_collections = Collection.objects.filter(part_of=collection)
     collections = CollectionFilter(request.GET, queryset=qset_collections)
@@ -152,6 +145,7 @@ def collection(request, obj_id):
         'collection': collection,
         'request': request,
         'collections': collections,
+        'tags': Tag.objects.filter(resource_tags__resource_id__in=filtered_objects.qs.values_list('id', flat=True)).distinct(),
     })
     template = loader.get_template('collection.html')
     return HttpResponse(template.render(context))
@@ -1095,48 +1089,44 @@ def bulk_action_resource(request):
     On POST, User is presented with a set of collections to choose from.
     """
     resource_ids = request.POST.getlist('addresources', [])
-    qs_resources = Resource.objects.filter(pk__in=resource_ids)
-
-    qset_collections = Collection.objects.filter(
-        Q(content_resource=False) & Q(hidden=False)
-    )
-    qset_collections = authorization.apply_filter(request.user,
-                                                  'view_collection',
-                                                  qset_collections)
-
-    collections = CollectionFilter(request.GET, queryset=qset_collections)
-
-    context = RequestContext(request, {
-        'collections': qset_collections,
-        'resources': qs_resources,
-        'number_of_resources': qs_resources.count
-    })
-
-    template = loader.get_template('add_resources_to_collection.html')
-    return HttpResponse(template.render(context))
+    return HttpResponseRedirect(reverse('bulk-add-tag-to-resource') + "?" + '&'.join(["resource=%s" % r_id for r_id in resource_ids]))
 
 
 @login_required
-def bulk_add_resource_to_collection(request):
+def bulk_add_tag_to_resource(request):
     """
-    Curator adds resource to collection.
-    Input from user- collection to add the resources to.
-    On success, the user is presented with the collection detail view.
+
     """
-    resource_ids = request.POST.getlist('addresources', [])
-    if len(resource_ids) < 1:
-        raise ValueError('Need more than one resource')
+    if request.method == 'GET':
+        resource_ids = request.GET.getlist('resource', [])
+        resources = authorization.apply_filter(request.user, 'change', Resource.objects.filter(pk__in=resource_ids))
 
-    qs_resources = Resource.objects.filter(pk__in=resource_ids)
+        form = AddTagForm()
+        form.fields['resources'].queryset = resources
+        form.fields['resources'].initial = resources
 
-    collection_id = request.POST.get('collection', None)
-    if collection_id:
-        collection = _get_collection_by_id(request, collection_id)
-        updated_collection = operations.add_resources_to_collection(qs_resources, collection)
-        return HttpResponseRedirect(updated_collection.get_absolute_url())
-    else:
-        return HttpResponseBadRequest('Error: Select a collection to add resources.\
-                                      Go back to previous page and select a collection')
+    elif request.method == 'POST':
+        form = AddTagForm(request.POST)
+        resource_ids = eval(request.POST.get('resources', '[]'))
+        resources = authorization.apply_filter(request.user, 'change', Resource.objects.filter(pk__in=resource_ids))
+
+        if form.is_valid():
+            tag = form.cleaned_data.get('tag', None)
+            tag_name = form.cleaned_data.get('tag_name', None)
+            resources = form.cleaned_data.get('resources')
+            if not tag and tag_name:
+                tag = Tag.objects.create(name=tag_name, created_by=request.user)
+            ResourceTag.objects.bulk_create([
+                ResourceTag(resource=resource, tag=tag, created_by=request.user)
+                for resource in resources
+            ])
+            return HttpResponseRedirect(reverse('resources'))
+    context = RequestContext(request, {
+        'form': form,
+        'resources': resources,
+    })
+    template = loader.get_template('add_tag_to_resource.html')
+    return HttpResponse(template.render(context))
 
 
 @authorization.authorization_required('view_resource', _get_resource_by_id)

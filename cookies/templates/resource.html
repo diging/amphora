@@ -43,6 +43,8 @@
             </div>
 
             <dl class="dl-horizontal">
+                <dt>Belongs to</dt>
+                <dd><a href="{{ resource.belongs_to.get_absolute_url }}">{{ resource.belongs_to.name }}</a></dd>
                 <dt>Created</dt>
                 <dd>{{ resource.created }}</dd>
                 <dt>Created by</dt>

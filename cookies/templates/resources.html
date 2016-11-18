@@ -64,53 +64,12 @@
 
 <div class="row">
     <div class="col-sm-3">
-        <div class="panel panel-default">
-            <div class="panel-heading">
-              <span class="h5">Collections</span>
-            </div>
-            <div class="panel-body">
-                {% for collection in collections %}
-                <a href="{{ collection.get_absolute_url }}"
-                    class="list-group-item">{{ collection.name }}
-                </a>
-                {% endfor %}
-            </div>
-        </div>
+        <!-- {% with "/resource/" as base_tag_url %} -->
+        {% include "fragment_tag_panel.html" %}
+        <!-- {% endwith %} -->
     </div>
     <div class="col-sm-9">
-        <form class="form" action="{%url "bulk-action-resource" %}" method="POST">
-          {% csrf_token %}
-          <div>
-            <input type="submit" class="btn btn-primary" value="Add to collection">
-          </div>
-          <div class="collection_resources">
-            <ul class="list-group">
-                {% for resource in resources %}
-                <a class="list-group-item"
-                    href="{{ resource.get_absolute_url }}">
-                    <input type="checkbox" name="addresources" value={{resource.id}}>
-                    <span class="label label-primary">{{ resource.entity_type }}</span> {{ resource.name }}
-                    <span class="pull-right">Updated: {{ resource.updated.date }}</span>
-                    <div>
-                        Creator: <span class="text-info">{{ resource.created_by }}</span>
-                        <span class="pull-right btn-group">
-                            {% if resource.has_local_content %}
-                            <span class="btn-xs">
-                                <i class="fa fa-database"></i>
-                            </span>
-                            {% endif %}
-                            {% if resource.has_giles_content %}
-                            <span class="btn-xs">
-                                <img style="height: 12px;" src="{% static "cookies/img/giles_logo.png" %}" />
-                            </span>
-                            {% endif %}
-                        </span>
-                    </div>
-                </a>
-                {% endfor %}
-            </ul>
-        </div>
-      </form>
+        {% include "fragment_resource_list.html" %}
     </div>
 </div>
 <div class="pagination container text-center">
