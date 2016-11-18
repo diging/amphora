@@ -142,8 +142,8 @@ def resource_list(request):
 @authorization.authorization_required('view_resource', _get_collection_by_id)
 def collection(request, obj_id):
     collection = _get_collection_by_id(request, obj_id)
-    resources = collection.resources.filter(content_resource=False, hidden=False)
-    resources = authorization.apply_filter(request.user, 'view_resource', resources)
+    resources = collection.native_resources.filter(content_resource=False, hidden=False)
+    
     filtered_objects = ResourceFilter(request.GET, queryset=resources)
     qset_collections = Collection.objects.filter(part_of=collection)
     collections = CollectionFilter(request.GET, queryset=qset_collections)
@@ -787,15 +787,16 @@ def list_metadata(request):
 def entity_details(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
     template = loader.get_template('entity_details.html')
-    similar_entities = entities.suggest_similar(entity)
-    print '---'*20
-    similar_entities = authorization.apply_filter(request.user, 'change', similar_entities)
-    print '---'*20
+    similar_entities = entities.suggest_similar(entity, qs=authorization.apply_filter(request.user, 'change', ConceptEntity.objects.all()))
 
-    relations_from = metadata.filter_relations(qs=entity.relations_from.all(), user=request.user)
+    relations_from = entity.relations_from.all()
     relations_from = [(g[0].predicate, g) for g in metadata.group_relations(relations_from)]
-    relations_to = metadata.filter_relations(qs=entity.relations_to.all(), user=request.user)
+    relations_to = entity.relations_to.all()
     relations_to = [(g[0].predicate, g) for g in metadata.group_relations(relations_to)]
+
+    represents = entity.represents.values_list('entities__id', 'entities__name').distinct('entities__id')
+    represented_by = entity.identities.filter(~Q(representative=entity)).values_list('representative_id', 'representative__name').distinct('representative_id')
+
     context = RequestContext(request, {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
         'entity': entity,
@@ -803,13 +804,18 @@ def entity_details(request, entity_id):
         'entity_type': ContentType.objects.get_for_model(ConceptEntity),
         'relations_from': relations_from,
         'relations_to': relations_to,
+        'represents': represents,
+        'represented_by': represented_by
     })
     return HttpResponse(template.render(context))
 
 
 def entity_list(request):
     template = loader.get_template('entity_list.html')
-    qs = authorization.apply_filter(request.user, 'view_entity', ConceptEntity.objects.all())
+    qs = ConceptEntity.objects.all()
+    qs = qs.filter(Q(identities__isnull=True) | Q(represents__isnull=False))
+    qs = authorization.apply_filter(request.user, 'view_entity', qs)
+
     filtered_objects = ConceptEntityFilter(request.GET, queryset=qs)
 
     context = RequestContext(request, {
@@ -901,9 +907,7 @@ def entity_merge(request):
         raise ValueError('')
 
     qs = ConceptEntity.objects.filter(pk__in=entity_ids)
-    print qs
     qs = authorization.apply_filter(request.user, 'change', qs)
-    print ':::', qs
     # q = authorization.get_auth_filter('merge_conceptentities', request.user)
     if qs.count() < 2:
         # TODO: make this pretty and informative.
@@ -977,7 +981,7 @@ def entity_change_concept(request, entity_id):
         'entity': entity,
         'form': form,
     })
-    print form
+
     template = loader.get_template('entity_change_concept.html')
     return HttpResponse(template.render(context))
 
@@ -1159,7 +1163,7 @@ def resource_content(request, resource_id):
         target = resource.location
         if 'giles' in target:
             user = resource.created_by
-            print resource, user
+
             if user:
                 auth_token = giles.get_user_auth_token(user, fresh=True)
                 target += '?accessToken=' + auth_token

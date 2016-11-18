@@ -55,7 +55,7 @@ def is_owner(user, obj):
     -------
     bool
     """
-    return getattr(obj, 'created_by', None) == user or user.is_superuser
+    return (isinstance(obj, Collection) and getattr(obj, 'created_by', None) == user) or user.is_superuser
 
 
 def is_public(obj):
@@ -76,13 +76,14 @@ def check_authorization(auth, user, obj):
     -------
     bool
     """
-    print auth
+
     if auth == 'is_owner':
         return is_owner(user, obj)
-    auth = auth_label(auth, obj)
+
     if isinstance(obj, Resource):
         if getattr(obj, 'belongs_to', False):
-            _authorized = user.has_perm(auth, obj.belongs_to)
+            auth = auth_label(auth, obj.belongs_to)
+            _authorized = check_authorization(auth, user, obj.belongs_to)
         else:
             # If the Resource has no Collection, only the owner or admin can
             #  access it.
@@ -92,9 +93,7 @@ def check_authorization(auth, user, obj):
         resource = obj.relations_to.filter(source_type=resource_type).first().source
         _authorized = check_authorization(auth, user, resource)
     elif isinstance(obj, Relation):
-        _authorized = check_authorization(auth, user, obj.source) \
-                    and check_authorization(auth, user, obj.target)
-
+        _authorized = check_authorization(auth, user, obj.source)
     elif isinstance(obj, Value):
         _check = lambda o: check_authorization(auth, user, o)
         _sources = [relation.source for relation in obj.relations_to.all() if not isinstance(relation.source, Value)]
@@ -104,7 +103,6 @@ def check_authorization(auth, user, obj):
         _authorized = False
     else:
         _authorized = user.has_perm(auth, obj)
-    print auth, obj, _authorized
     return user.is_superuser or is_owner(user, obj) or _authorized or (is_public(obj) and 'view' in auth)
 
 
@@ -145,9 +143,6 @@ def auth_label(auth, obj):
     else:
         model_label = type(obj).__name__.lower()
     return '%s_%s' % (auth, model_label)
-
-
-
 
 
 def update_authorizations(auths, user, obj, **kwargs):
@@ -245,6 +240,9 @@ def apply_filter(user, auth, queryset):
     """
     Limit ``queryset`` to those objects for which ``user`` has ``permission``.
 
+    As of 0.4 this depends entirely on the :class:`.Collection` to which
+    objects belong.
+
     Parameters
     ----------
     user : :class:`django.contrib.auth.models.User`
@@ -256,10 +254,8 @@ def apply_filter(user, auth, queryset):
     :class:`django.db.models.QuerySet`
 
     """
-
     # Everything depends on the Collection now.
     auth = auth_label(auth, Collection.objects.first())
-    print auth
     if user.is_superuser:
         return queryset
     if type(queryset) is list:
@@ -267,33 +263,33 @@ def apply_filter(user, auth, queryset):
     if auth == 'is_owner':
         return queryset.filter(created_by_id=user.id)
 
-    perm = Permission.objects.get(codename=auth, content_type_id=ContentType.objects.get_for_model(Collection))
     ctype = ContentType.objects.get_for_model(Collection)
+    rtype = ContentType.objects.get_for_model(Resource)
+    perm = Permission.objects.get(codename=auth, content_type_id=ctype)
     perms = UserObjectPermission.objects.filter(user_id=user.id,
                                                 permission_id=perm.id,
                                                 content_type_id=ctype.id)
-    pks = map(int, perms.values_list('object_pk', flat=True))
+
+    # For some reason Guardian stores related primary keys as strings; without
+    #  mapping back to int this will cause Postgres to choke.
+    collection_pks = map(int, perms.values_list('object_pk', flat=True))
     if queryset.model is Collection:
-        return queryset.filter(pk__in=pks)
-        # return queryset.filter(Q(permissions__user_id=user.id, permissions__permission_id=perm.id))# | Q(created_by_id=user.id))
-
+        return queryset.filter(pk__in=collection_pks)
     elif queryset.model is Resource:
-        return queryset.filter(belongs_to__id__in=pks)
+        q = Q(belongs_to__id__in=collection_pks)
+    else:    # Traverse back up to the Collection via its Resources.
+        resources = Resource.objects.filter(belongs_to__id__in=collection_pks)\
+                                    .values_list('id', flat=True)
 
-    elif queryset.model is ConceptEntity:
-        resources = Resource.objects.filter(belongs_to__id__in=pks).values_list('id', flat=True)
-        print 'resources::', resources
-        return queryset.filter(Q(relations_to__source_instance_id__in=resources) | Q(relations_from__target_instance_id__in=resources))
-        # resources = Resource.objects.filter(belongs_to__permissions__user_id=user.id, belongs_to__permissions__permission_id=perm.id)
-        # return queryset.filter(Q(relations_to__source_instance_id__in=resources.values_list('id', flat=True)) | Q(created_by=user))
-    elif queryset.model is Relation:
-        # rtype = ContentType.objects.get_for_model(Resource)
-        resources = Resource.objects.filter(belongs_to__id__in=pks).values_list('id', flat=True)
-        return queryset.filter(Q(source_instance_id__in=resources) | Q(target_instance_id__in=resources))
-    elif queryset.model is Value:
-        resources = Resource.objects.filter(belongs_to__id__in=pks)
-        # resources = Resource.objects.filter(belongs_to__permissions__user_id=user.id, belongs_to__permissions__permission_id=perm.id)
-        return queryset.filter(Q(relations_to__source_instance_id__in=resources.values_list('id', flat=True)))
+        if queryset.model is ConceptEntity:
+            q = Q(relations_to__source_instance_id__in=resources, relations_to__source_type=rtype) \
+                | Q(relations_from__target_instance_id__in=resources, relations_from__target_type=rtype)
+        elif queryset.model is Relation:
+            q = Q(source_instance_id__in=resources) \
+                | Q(target_instance_id__in=resources)
+        elif queryset.model is Value:
+            q = Q(relations_to__source_instance_id__in=resources)
+    return queryset.filter(q).distinct()
 
 
 def make_nonpublic(obj):

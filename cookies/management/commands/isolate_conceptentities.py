@@ -5,6 +5,7 @@ from cookies.models import ConceptEntity
 from cookies import operations
 import sys
 
+
 class Command(BaseCommand):
     def handle(self, *args, **options):
         i = 0.
@@ -15,3 +16,5 @@ class Command(BaseCommand):
             sys.stdout.flush()
 
             operations.isolate_conceptentity(entity)
+
+        ConceptEntity.objects.filter(relations_to__isnull=True).delete()

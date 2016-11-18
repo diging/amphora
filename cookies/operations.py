@@ -121,11 +121,14 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
 
     if master_id:    # If a master is specified, use it...
         master = entities.get(pk=master_id)
-    else:    # ...otherwise, try to use the first instance.
-        try:
-            master = entities.first()
-        except AssertionError:    # If a slice has already been taken.
-            master = entities[0]
+    else:
+        # Prefer entities that are already representative.
+        master = entities.filter(represents__isnull=False).first()
+        if not master:
+            try:    # ...otherwise, try to use the first instance.
+                master = entities.first()
+            except AssertionError:    # If a slice has already been taken.
+                master = entities[0]
 
     if _uri is not None:
         master.concept = Concept.objects.get(uri=_uri)
@@ -136,6 +139,10 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
         representative = master,
     )
     identity.entities.add(*entities)
+    for ent in entities:
+        ent.identities.update(representative=master)
+
+
     return master
 
 
@@ -205,7 +212,7 @@ def add_resources_to_collection(resources, collection):
 
     if not isinstance(collection, Collection):
         raise RuntimeError("Invalid collection to add resources to.")
-    
+
     collection.resources.add(*resources)
     collection.save()
 
@@ -214,16 +221,28 @@ def add_resources_to_collection(resources, collection):
 
 def isolate_conceptentity(instance):
     """
-    For each relation to a :class:`.ConceptEntity` instance, clone the instance
-    and swap the clone into the relation.
+    Clone ``instance`` (and its relations) such that there is a separate
+    :class:`.ConceptEntity` instance for each related :class:`.Resource`\.
+
+    Prior to 0.3, merging involved actually combining records (and deleting all
+    but one). As of 0.4, merging does not result in deletion or combination,
+    but rather the reation of a :class:`.Identity`\.
+
+    Parameters
+    ----------
+    instance : :class:`.ConceptEntity`
     """
+
     if instance.relations_to.count() <= 1:
         return
-
+    entities = []
     for relation in instance.relations_to.all():
         clone = copy.copy(instance)
         clone.pk = None
         clone.save()
+
+        relation.target = clone
+        relation.save()
 
         for alt_relation in instance.relations_from.all():
             alt_relation_target = alt_relation.target
@@ -239,6 +258,5 @@ def isolate_conceptentity(instance):
             cloned_relation.target = cloned_relation_target
             cloned_relation.save()
 
-        relation.target = clone
-        relation.save()
-    instance.refresh_from_db()
+        entities.append(clone)
+    merge_conceptentities(entities, user=instance.created_by)

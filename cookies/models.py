@@ -153,7 +153,13 @@ class Resource(ResourceBase):
                      'delete_resource', 'change_authorizations',
                      'view_authorizations']
 
-    belongs_to = models.ForeignKey('Collection', related_name='native_resources', blank=True, null=True)
+    belongs_to = models.ForeignKey('Collection',
+                                   related_name='native_resources',
+                                   blank=True, null=True)
+    """
+    As of 0.4, a :class:`.Resource` instance belongs to one and only one
+    :class:`.Collection` instance.
+    """
 
     next_page = models.OneToOneField('Resource', related_name='previous_page',
                                      blank=True, null=True)
@@ -425,7 +431,7 @@ class ConceptEntity(Entity):
 class Identity(models.Model):
     created_by = models.ForeignKey(User)
     created = models.DateTimeField(auto_now_add=True)
-    representative = models.ForeignKey('ConceptEntity')
+    representative = models.ForeignKey('ConceptEntity', related_name='represents')
     entities = models.ManyToManyField('ConceptEntity', related_name='identities')
 
 
