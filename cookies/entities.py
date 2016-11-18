@@ -9,7 +9,7 @@ _normalize = lambda s: s.replace('.', ' ').replace(',', ' ').lower().strip()
 _tokenize = lambda s: [part for part in s.split() if len(part) > 2]
 
 
-def suggest_similar(entity):
+def suggest_similar(entity, qs=None):
     """
     Attempt to find :class:`.ConceptEntity` instances that are similar to
     ``entity``.
@@ -24,14 +24,19 @@ def suggest_similar(entity):
         A list of :class:`.ConceptEntity` instances. Ordered by descending
         similarity.
     """
+
+    rep_ids = Identity.objects.filter(entities=entity.id).values_list('representative', flat=True)
+    identities = Identity.objects.filter(representative__id__in=rep_ids)
+    if not qs:
+        qs = ConceptEntity.objects.all()
     name = _normalize(entity.name)
     suggestions = []
     # suggestions += [o.id ConceptEntity.objects.filter(Q(name__icontains=name) & ~Q(id=entity.id))
 
     name_parts = _tokenize(name)
     _id = lambda o: o.id
-    _name = lambda o: o.name
-    _find = lambda part: ConceptEntity.objects.filter(Q(name__icontains=part) & ~Q(id=entity.id))
+    _name = lambda o: o.name   #similar_entities = similar_entities.filter()
+    _find = lambda part: qs.filter(Q(name__icontains=part) & ~Q(id=entity.id) & ~Q(identities__id__in=identities))
     for name, group in groupby(sorted(chain(*[_find(part) for part in name_parts]), key=_name), key=_name):
         for pk, subgroup in groupby(sorted(group, key=_id), key=_id):
             subgroup = [o for o in subgroup]

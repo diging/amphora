@@ -85,10 +85,12 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
 
     N = len(ingester)
     for resource in ingester:
-        collection.resources.add(resource)
+        resource.belongs_to = collection
+        resource.save()
+        # collection.resources.add(resource)
         operations.add_creation_metadata(resource, creator)
         authorization.update_authorizations(Resource.DEFAULT_AUTHS, creator,
-                                            resource, propagate=True)
+                                            resource)
         if job:
             job.progress += 1./N
             job.save()
@@ -142,9 +144,8 @@ def check_giles_upload(resource, creator, upload_id, checkURL,
 
 
 @shared_task
-def update_authorizations(auths, user, obj, by_user=None, propagate=True):
-    authorization.update_authorizations(auths, user, obj, by_user=by_user,
-                                        propagate=propagate)
+def update_authorizations(auths, user, obj, by_user=None):
+    authorization.update_authorizations(auths, user, obj, by_user=by_user)
 
 
 @shared_task
