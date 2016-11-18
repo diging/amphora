@@ -7,7 +7,6 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.core.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.urlresolvers import reverse
-
 from django.conf import settings
 
 
@@ -154,6 +153,14 @@ class Resource(ResourceBase):
                      'delete_resource', 'change_authorizations',
                      'view_authorizations']
 
+    belongs_to = models.ForeignKey('Collection',
+                                   related_name='native_resources',
+                                   blank=True, null=True)
+    """
+    As of 0.4, a :class:`.Resource` instance belongs to one and only one
+    :class:`.Collection` instance.
+    """
+
     next_page = models.OneToOneField('Resource', related_name='previous_page',
                                      blank=True, null=True)
 
@@ -196,6 +203,22 @@ class Resource(ResourceBase):
         return unicode(self.id)
 
 
+class Tag(models.Model):
+    """
+    """
+    created_by = models.ForeignKey(User, related_name='tags')
+    created = models.DateTimeField(auto_now_add=True)
+    name = models.CharField(max_length=255)
+
+
+class ResourceTag(models.Model):
+    """
+    """
+    created_by = models.ForeignKey(User, related_name='resource_tags')
+    created = models.DateTimeField(auto_now_add=True)
+    tag = models.ForeignKey('Tag', related_name='resource_tags')
+    resource = models.ForeignKey('Resource', related_name='tags')
+
 
 class ContentRelation(models.Model):
     """
@@ -231,7 +254,6 @@ class Collection(ResourceBase):
     @property
     def size(self):
         return self.resources.count()
-
 
 
 ### Types and Fields ###
@@ -324,6 +346,8 @@ class Value(models.Model):
     Uses jsonpickle to support Python data types, as well as ``date`` and
     ``datetime`` objects.
     """
+
+    DEFAULT_AUTHS = ['view', 'change', 'add', 'delete']
     _value = models.TextField()
     _type = models.CharField(max_length=255, blank=True, null=True)
 
@@ -342,6 +366,14 @@ class Value(models.Model):
     @property
     def uri(self):
         return u'Literal: ' + self.__unicode__()
+
+    relations_from = GenericRelation('Relation',
+                                     content_type_field='source_type',
+                                     object_id_field='source_instance_id')
+
+    relations_to = GenericRelation('Relation',
+                                   content_type_field='target_type',
+                                   object_id_field='target_instance_id')
 
 
 ### Relations ###
@@ -408,6 +440,13 @@ class ConceptEntity(Entity):
             ('change_authorizations', 'Change authorizations'),
             ('view_authorizations', 'View authorizations'),
         )
+
+
+class Identity(models.Model):
+    created_by = models.ForeignKey(User)
+    created = models.DateTimeField(auto_now_add=True)
+    representative = models.ForeignKey('ConceptEntity', related_name='represents')
+    entities = models.ManyToManyField('ConceptEntity', related_name='identities')
 
 
 class ConceptType(Type):

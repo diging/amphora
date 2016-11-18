@@ -7,7 +7,8 @@
 
     <link rel="stylesheet" type="text/css" href="{% static "cookies/css/bootstrap.min.css" %}" />
     <link rel="stylesheet" type="text/css" href="{% static "cookies/css/base.css" %}" />
-    <link rel="stylesheet" type="text/css" href="{% static "cookies/css/font-awesome.min.css" %}" />
+
+
     {% block extrastyle %}{% endblock %}
     <!--[if lte IE 7]><link rel="stylesheet" type="text/css" href="{% block stylesheet_ie %}{% static "admin/css/ie.css" %}{% endblock %}" /><![endif]-->
     {% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}" />{% endif %}
@@ -18,6 +19,8 @@
     <script src="{% static "cookies/js/jquery-ui.min.js" %}"></script>
     {% block extrahead %}{% endblock %}
     {% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE" />{% endblock %}
+
+    <script src="https://use.fontawesome.com/2893561c25.js"></script>
 </head>
 <body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}">
 
@@ -116,7 +119,7 @@
                 data-title="Metadata">
             </a>
             <a href="{% url "entity-list" %}"
-                class="btn btn-lg fa fa-tags fa-2"
+                class="btn btn-lg fa fa-anchor fa-2"
                 data-toggle="tooltip"
                 data-title="Entities">
             </a>

@@ -1,12 +1,12 @@
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.conf import settings
 
 from cookies.models import *
 from concepts.models import Concept
 from cookies import authorization
 
-import jsonpickle, datetime
+import jsonpickle, datetime, copy
 from itertools import groupby
 
 from cookies.exceptions import *
@@ -81,13 +81,13 @@ def prune_relations(resource, user=None):
 
 
 
-def merge_conceptentities(entities, master_id=None, delete=True):
+def merge_conceptentities(entities, master_id=None, delete=True, user=None):
     """
     Merge :class:`.ConceptEntity` instances in the QuerySet ``entities``.
 
-    Any associated :class:`.Relation` instances will accrue to the ``master``
-    instance, which is returned. All but the ``master`` instance will be
-    deleted forever.
+    As of 0.4, no :class:`.ConceptEntity` instances are deleted. Instead, they
+    are added to an :class:`.Identity` instance. ``master`` will become the
+    :prop:`.Identity.representative`\.
 
     Parameters
     ----------
@@ -108,34 +108,61 @@ def merge_conceptentities(entities, master_id=None, delete=True):
         implicated.
     """
     conceptentity_type = ContentType.objects.get_for_model(ConceptEntity)
+    if isinstance(entities, QuerySet):
+        _len = lambda qs: qs.count()
+        _uri = lambda qs: qs.values_list('concept__uri', flat=True)
+        _get_master = lambda qs, pk: qs.get(pk=pk)
+        _get_rep = lambda qs: qs.filter(represents__isnull=False).first()
+        _first = lambda qs: qs.first()
+    elif isinstance(entities, list):
+        _len = lambda qs: len(qs)
+        _uri = lambda qs: [getattr(o.concept, 'uri', None) for o in qs]
+        _get_master = lambda qs, pk: [e for e in entities if e.id == pk].pop()
+        _get_rep = lambda qs: [e for e in entities if e.represents.count() > 0].pop()
+        _first = lambda qs: qs[0]
 
-    if entities.count() < 2:
+
+    if _len(entities) < 2:
         raise RuntimeError("Need more than one ConceptEntity instance to merge")
 
-    _concepts = list(set([v for v in entities.values_list('concept__uri', flat=True) if v]))
+    _concepts = list(set([v for v in _uri(entities) if v]))
     if len(_concepts) > 1:
         raise RuntimeError("Cannot merge two ConceptEntity instances with"
                            " conflicting external concepts")
     _uri = _concepts[0] if _concepts else None
 
-    if master_id:
-        master = entities.get(pk=master_id)
-    else:
+    master = None
+    if master_id:    # If a master is specified, use it...
         try:
-            master = entities.first()
+            master = _get_master(entities, pk)
+        except:
+            pass
+
+    if not master:
+        # Prefer entities that are already representative.
+        try:
+            master = _get_rep(entities)
+        except:
+            pass
+    if not master:
+        try:    # ...otherwise, try to use the first instance.
+            master = _first(entities)
         except AssertionError:    # If a slice has already been taken.
             master = entities[0]
+
     if _uri is not None:
         master.concept = Concept.objects.get(uri=_uri)
         master.save()
 
-    # Update all Relations.
-    to_merge = entities.filter(~Q(pk=master.id))
-    for entity in to_merge:
-        _transfer_all_relations(entity, master.id, conceptentity_type)
+    identity = Identity.objects.create(
+        created_by = user,
+        representative = master,
+    )
+    identity.entities.add(*entities)
+    for ent in entities:
+        ent.identities.update(representative=master)
 
-    if delete:
-        to_merge.delete()
+
     return master
 
 
@@ -173,6 +200,7 @@ def merge_resources(resources, master_id=None, delete=True, user=None):
         to_merge.delete()
     return master
 
+
 def add_resources_to_collection(resources, collection):
     """
     Adds selected resources to a collection.
@@ -209,3 +237,46 @@ def add_resources_to_collection(resources, collection):
     collection.save()
 
     return collection
+
+
+def isolate_conceptentity(instance):
+    """
+    Clone ``instance`` (and its relations) such that there is a separate
+    :class:`.ConceptEntity` instance for each related :class:`.Resource`\.
+
+    Prior to 0.3, merging involved actually combining records (and deleting all
+    but one). As of 0.4, merging does not result in deletion or combination,
+    but rather the reation of a :class:`.Identity`\.
+
+    Parameters
+    ----------
+    instance : :class:`.ConceptEntity`
+    """
+
+    if instance.relations_to.count() <= 1:
+        return
+    entities = []
+    for relation in instance.relations_to.all():
+        clone = copy.copy(instance)
+        clone.pk = None
+        clone.save()
+
+        relation.target = clone
+        relation.save()
+
+        for alt_relation in instance.relations_from.all():
+            alt_relation_target = alt_relation.target
+            cloned_relation_target = copy.copy(alt_relation_target)
+            cloned_relation_target.pk = None
+            cloned_relation_target.save()
+
+            cloned_relation = copy.copy(alt_relation)
+            cloned_relation.pk = None
+            cloned_relation.save()
+
+            cloned_relation.source = clone
+            cloned_relation.target = cloned_relation_target
+            cloned_relation.save()
+
+        entities.append(clone)
+    merge_conceptentities(entities, user=instance.created_by)

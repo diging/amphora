@@ -25,6 +25,7 @@ class CustomModelChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
          return obj.name
 
+
 class ContenteditableInput(forms.TextInput):
     """
     A contenteditable widget to include in your form
@@ -276,9 +277,6 @@ class AuthorizationForm(forms.Form):
 class CollectionAuthorizationForm(forms.Form):
     for_user = CustomModelChoiceField(queryset=User.objects.all().order_by('-username'))
     authorizations = forms.MultipleChoiceField(choices=[('', 'None')] + authorization.COLLECTION_AUTHORIZATIONS)
-    propagate = forms.BooleanField(required=False, help_text="If selected,"
-                                   " these authorizations will also be applied"
-                                   " to all resources in this collection.")
 
 
 class ConceptEntityForm(forms.ModelForm):
@@ -309,3 +307,36 @@ class UserAddCollectionForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(UserAddCollectionForm, self).__init__(*args, **kwargs)
+
+
+class HiddenModelMultipleChoiceField(forms.ModelMultipleChoiceField):
+    def clean(self, value):
+        value = eval(value)
+        return super(HiddenModelMultipleChoiceField, self).clean(value)
+
+    def to_python(self, value):
+        if not value:
+            return []
+        value = eval(value)
+        return super(HiddenModelMultipleChoiceField, self).to_python(value)
+
+    def validate(self, value):
+
+        print 'validate', value
+
+
+class AddTagForm(forms.Form):
+    tag = CustomModelChoiceField(queryset=Tag.objects.all(), empty_label=u'Create a new tag', required=False)
+    tag_name = forms.CharField(max_length=255, required=False)
+
+    resources = HiddenModelMultipleChoiceField(queryset=Resource.objects.all(), widget=forms.widgets.HiddenInput(), required=False)
+
+    def clean(self):
+        print "clean"
+
+        cleaned_data = super(AddTagForm, self).clean()
+        print cleaned_data
+        tag = cleaned_data.get('tag', None)
+        name = cleaned_data.get('tag_name', None)
+        if not tag and not name:
+            raise forms.ValidationError("Please enter a name for your new tag")

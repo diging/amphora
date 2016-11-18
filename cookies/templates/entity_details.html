@@ -16,7 +16,6 @@
 
 {% block content %}
 {% is_authorized "change_conceptentity" user entity as can_edit %}
-{% is_authorized "delete_conceptentity" user entity as can_delete %}
 <div class="container-fluid">
     <div class="row">
         <div class="col-sm-6 col-md-8">
@@ -65,7 +64,24 @@
                 {% endwith %}
                 <dt class="resource_entity_type">Type</dt>
                 <dd>{{ entity.entity_type }}</dd>
+                {% if represented_by %}
+                <dt>Represented by</dt>
+                <dd>{% for rep in represented_by %}<a href="{% url "entity-details" rep.0 %}">{{ rep.1 }}</a>{% endfor %}</dd>
+                {% endif %}
             </dl>
+
+            {% if represents %}
+            <div class="panel">
+                <div class="h4 panel-heading">Represents</div>
+                {% for rep in represents %}
+                    {% if rep.0 != entity.id %}
+                    <a href="{% url "entity-details" rep.0 %}" class="list-group-item">
+                        {{ rep.1 }}
+                    </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
 
             {% if relations_from|length > 0 %}
             <div class="resource_relations panel">
@@ -120,8 +136,6 @@
                 <div class="list-group"  style="max-height: 600px; overflow-y: scroll;">
                     {% for ent in similar_entities %}
                     <li class="list-group-item">
-                        {% is_authorized "delete_conceptentity" user ent as can_edit_sim %}
-                        {% if can_delete and can_edit_sim %}
                         <span class="btn-group">
                             <a href="{% url "entity-merge" %}?entity={{entity.id}}&entity={{ent.id}}"
                                 class="btn btn-xs"
@@ -138,7 +152,6 @@
                             {% endif %}
 
                         </span>
-                        {% endif %}
                         <a href="{{ ent.get_absolute_url }}">{{ ent.name.title }}</a>
                         <span class="text-muted">a {{ ent.entity_type.schema }}/{{ ent.entity_type.name }}</span>
                         <span class="pull-right">{{ ent.relations_from.count }}/{{ ent.relations_to.count }}</span>
