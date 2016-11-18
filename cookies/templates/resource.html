@@ -38,12 +38,6 @@
                         data-title="Prune duplicate metadata"></a>
                     {% endif %}
                     {% is_authorized "view_authorizations" user resource as can_view_authorizations %}
-                    {% if can_view_authorizations %}
-                    <a class="btn glyphicon glyphicon-lock" aria-hidden="true"
-                        href="{% url "resource-authorization-list" resource.id %}{% if request %}?next={{ request.path }}{% endif %}"
-                        data-toggle="tooltip"
-                        data-title="Authorizations"></a>
-                    {% endif %}
                 </span>
 
             </div>

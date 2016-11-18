@@ -6,7 +6,7 @@ from cookies.models import *
 from concepts.models import Concept
 from cookies import authorization
 
-import jsonpickle, datetime
+import jsonpickle, datetime, copy
 from itertools import groupby
 
 from cookies.exceptions import *
@@ -81,13 +81,13 @@ def prune_relations(resource, user=None):
 
 
 
-def merge_conceptentities(entities, master_id=None, delete=True):
+def merge_conceptentities(entities, master_id=None, delete=True, user=None):
     """
     Merge :class:`.ConceptEntity` instances in the QuerySet ``entities``.
 
-    Any associated :class:`.Relation` instances will accrue to the ``master``
-    instance, which is returned. All but the ``master`` instance will be
-    deleted forever.
+    As of 0.4, no :class:`.ConceptEntity` instances are deleted. Instead, they
+    are added to an :class:`.Identity` instance. ``master`` will become the
+    :prop:`.Identity.representative`\.
 
     Parameters
     ----------
@@ -118,24 +118,24 @@ def merge_conceptentities(entities, master_id=None, delete=True):
                            " conflicting external concepts")
     _uri = _concepts[0] if _concepts else None
 
-    if master_id:
+
+    if master_id:    # If a master is specified, use it...
         master = entities.get(pk=master_id)
-    else:
+    else:    # ...otherwise, try to use the first instance.
         try:
             master = entities.first()
         except AssertionError:    # If a slice has already been taken.
             master = entities[0]
+
     if _uri is not None:
         master.concept = Concept.objects.get(uri=_uri)
         master.save()
 
-    # Update all Relations.
-    to_merge = entities.filter(~Q(pk=master.id))
-    for entity in to_merge:
-        _transfer_all_relations(entity, master.id, conceptentity_type)
-
-    if delete:
-        to_merge.delete()
+    identity = Identity.objects.create(
+        created_by = user,
+        representative = master,
+    )
+    identity.entities.add(*entities)
     return master
 
 
@@ -173,6 +173,7 @@ def merge_resources(resources, master_id=None, delete=True, user=None):
         to_merge.delete()
     return master
 
+
 def add_resources_to_collection(resources, collection):
     """
     Adds selected resources to a collection.
@@ -204,8 +205,40 @@ def add_resources_to_collection(resources, collection):
 
     if not isinstance(collection, Collection):
         raise RuntimeError("Invalid collection to add resources to.")
-
+    
     collection.resources.add(*resources)
     collection.save()
 
     return collection
+
+
+def isolate_conceptentity(instance):
+    """
+    For each relation to a :class:`.ConceptEntity` instance, clone the instance
+    and swap the clone into the relation.
+    """
+    if instance.relations_to.count() <= 1:
+        return
+
+    for relation in instance.relations_to.all():
+        clone = copy.copy(instance)
+        clone.pk = None
+        clone.save()
+
+        for alt_relation in instance.relations_from.all():
+            alt_relation_target = alt_relation.target
+            cloned_relation_target = copy.copy(alt_relation_target)
+            cloned_relation_target.pk = None
+            cloned_relation_target.save()
+
+            cloned_relation = copy.copy(alt_relation)
+            cloned_relation.pk = None
+            cloned_relation.save()
+
+            cloned_relation.source = clone
+            cloned_relation.target = cloned_relation_target
+            cloned_relation.save()
+
+        relation.target = clone
+        relation.save()
+    instance.refresh_from_db()

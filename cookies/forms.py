@@ -276,9 +276,6 @@ class AuthorizationForm(forms.Form):
 class CollectionAuthorizationForm(forms.Form):
     for_user = CustomModelChoiceField(queryset=User.objects.all().order_by('-username'))
     authorizations = forms.MultipleChoiceField(choices=[('', 'None')] + authorization.COLLECTION_AUTHORIZATIONS)
-    propagate = forms.BooleanField(required=False, help_text="If selected,"
-                                   " these authorizations will also be applied"
-                                   " to all resources in this collection.")
 
 
 class ConceptEntityForm(forms.ModelForm):

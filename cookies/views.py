@@ -788,7 +788,9 @@ def entity_details(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
     template = loader.get_template('entity_details.html')
     similar_entities = entities.suggest_similar(entity)
-    similar_entities = authorization.apply_filter(request.user, 'is_owner', similar_entities)
+    print '---'*20
+    similar_entities = authorization.apply_filter(request.user, 'change', similar_entities)
+    print '---'*20
 
     relations_from = metadata.filter_relations(qs=entity.relations_from.all(), user=request.user)
     relations_from = [(g[0].predicate, g) for g in metadata.group_relations(relations_from)]
@@ -816,92 +818,6 @@ def entity_list(request):
     })
     return HttpResponse(template.render(context))
 
-
-
-@authorization.authorization_required('view_authorizations', _get_resource_by_id)
-def resource_authorization_list(request, resource_id):
-    """
-    Display permissions for a specific resource.
-    """
-
-    resource = get_object_or_404(Resource, pk=resource_id)
-    can_change = authorization.check_authorization('change_authorizations', request.user, resource)
-
-    context = RequestContext(request, {
-        'can_change': can_change,
-        'resource': resource,
-        'authorizations': authorization.list_authorizations(resource),
-    })
-    template = loader.get_template('resource_authorization_list.html')
-    return HttpResponse(template.render(context))
-
-
-@authorization.authorization_required('change_authorizations', _get_resource_by_id)
-def resource_authorization_create(request, resource_id):
-    """
-    Allow the user to add authorizations for a new user.
-
-    This is kind of hacky, but will do for now.
-    """
-
-    resource = get_object_or_404(Resource, pk=resource_id)
-    authorized_users = zip(*authorization.list_authorizations(resource))[0]
-    authorized_users_ids = [user.id for user in authorized_users]
-    unauthorized_users = User.objects.filter(~Q(pk__in=authorized_users_ids)).order_by('username')
-
-    context = RequestContext(request, {
-        'unauthorized_users': unauthorized_users,
-        'resource': resource,
-    })
-    template = loader.get_template('resource_authorization_create.html')
-    return HttpResponse(template.render(context))
-
-
-
-@authorization.authorization_required('change_authorizations', _get_resource_by_id)
-def resource_authorization_change(request, resource_id, user_id):
-    """
-    Change permissions on a resource for a specific user.
-    """
-    resource = get_object_or_404(Resource, pk=resource_id)
-    user = get_object_or_404(User, pk=user_id)
-
-    if request.method == 'GET':
-        form = AuthorizationForm(initial={
-            'for_user': user,
-            'authorizations': authorization.list_authorizations(resource, user)
-        })
-    elif request.method == 'POST':
-        form = AuthorizationForm(request.POST)
-        if form.is_valid():
-            if form.cleaned_data.get('for_user') != user:
-                raise RuntimeError('Whoops, someone f***ed with the user.')
-
-            # Synchronously update the Resource itself, so that the user sees
-            #  the effect immediately.
-            authorization.update_authorizations(
-                form.cleaned_data.get('authorizations'),
-                form.cleaned_data.get('for_user'),
-                resource,
-            )
-            # Asynchronously update any downstream resources and entities.
-            update_authorizations.delay(
-                form.cleaned_data.get('authorizations'),
-                form.cleaned_data.get('for_user'),
-                resource,
-                by_user=request.user,
-                propagate=True,
-            )
-            return HttpResponseRedirect(reverse('resource-authorization-list', args=(resource.id,)))
-
-    form.fields['for_user'].widget = forms.HiddenInput()
-    context = RequestContext(request, {
-        'for_user': user,
-        'resource': resource,
-        'form': form,
-    })
-    template = loader.get_template('resource_authorization_change.html')
-    return HttpResponse(template.render(context))
 
 
 @authorization.authorization_required('view_authorizations', _get_collection_by_id)
@@ -943,13 +859,7 @@ def collection_authorization_change(request, collection_id, user_id):
 
             authorizations = form.cleaned_data.get('authorizations')
             for_user = form.cleaned_data.get('for_user')
-            propagate = form.cleaned_data.get('propagate', False)
-            authorization.update_authorizations(
-                authorizations, for_user, collection, propagate=propagate,
-            )
-            update_authorizations.delay(
-                authorizations, for_user, collection, request.user
-            )
+            authorization.update_authorizations(authorizations, for_user, collection)
 
             return HttpResponseRedirect(reverse('collection-authorization-list', args=(collection.id,)))
 
@@ -991,7 +901,9 @@ def entity_merge(request):
         raise ValueError('')
 
     qs = ConceptEntity.objects.filter(pk__in=entity_ids)
-    qs = authorization.apply_filter(request.user, 'change_conceptentity', qs)
+    print qs
+    qs = authorization.apply_filter(request.user, 'change', qs)
+    print ':::', qs
     # q = authorization.get_auth_filter('merge_conceptentities', request.user)
     if qs.count() < 2:
         # TODO: make this pretty and informative.
@@ -999,7 +911,7 @@ def entity_merge(request):
 
     if request.GET.get('confirm', False) == 'true':
         master_id = request.GET.get('master', None)
-        master = operations.merge_conceptentities(qs, master_id)
+        master = operations.merge_conceptentities(qs, master_id, user=request.user)
         return HttpResponseRedirect(reverse('entity-details', args=(master.id,)))
 
     context = RequestContext(request, {
@@ -1009,7 +921,7 @@ def entity_merge(request):
     return HttpResponse(template.render(context))
 
 
-@authorization.authorization_required('change_conceptentity', _get_entity_by_id)
+@authorization.authorization_required('change', _get_entity_by_id)
 def entity_change(request, entity_id):
     """
     Edit a :class:`.ConceptEntity` instance.

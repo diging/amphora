@@ -7,7 +7,6 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.core.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.urlresolvers import reverse
-
 from django.conf import settings
 
 
@@ -154,6 +153,8 @@ class Resource(ResourceBase):
                      'delete_resource', 'change_authorizations',
                      'view_authorizations']
 
+    belongs_to = models.ForeignKey('Collection', related_name='native_resources', blank=True, null=True)
+
     next_page = models.OneToOneField('Resource', related_name='previous_page',
                                      blank=True, null=True)
 
@@ -197,6 +198,8 @@ class Resource(ResourceBase):
 
 
 
+
+
 class ContentRelation(models.Model):
     """
     Associates a :class:`.Resource` with its content representation(s).
@@ -231,7 +234,6 @@ class Collection(ResourceBase):
     @property
     def size(self):
         return self.resources.count()
-
 
 
 ### Types and Fields ###
@@ -324,6 +326,8 @@ class Value(models.Model):
     Uses jsonpickle to support Python data types, as well as ``date`` and
     ``datetime`` objects.
     """
+
+    DEFAULT_AUTHS = ['view', 'change', 'add', 'delete']
     _value = models.TextField()
     _type = models.CharField(max_length=255, blank=True, null=True)
 
@@ -342,6 +346,14 @@ class Value(models.Model):
     @property
     def uri(self):
         return u'Literal: ' + self.__unicode__()
+
+    relations_from = GenericRelation('Relation',
+                                     content_type_field='source_type',
+                                     object_id_field='source_instance_id')
+
+    relations_to = GenericRelation('Relation',
+                                   content_type_field='target_type',
+                                   object_id_field='target_instance_id')
 
 
 ### Relations ###
@@ -408,6 +420,13 @@ class ConceptEntity(Entity):
             ('change_authorizations', 'Change authorizations'),
             ('view_authorizations', 'View authorizations'),
         )
+
+
+class Identity(models.Model):
+    created_by = models.ForeignKey(User)
+    created = models.DateTimeField(auto_now_add=True)
+    representative = models.ForeignKey('ConceptEntity')
+    entities = models.ManyToManyField('ConceptEntity', related_name='identities')
 
 
 class ConceptType(Type):
