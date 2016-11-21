@@ -788,8 +788,8 @@ def entity_details(request, entity_id):
     relations_to = entity.relations_to.all()
     relations_to = [(g[0].predicate, g) for g in metadata.group_relations(relations_to)]
 
-    represents = entity.represents.values_list('entities__id', 'entities__name').distinct('entities__id')
-    represented_by = entity.identities.filter(~Q(representative=entity)).values_list('representative_id', 'representative__name').distinct('representative_id')
+    represents = entity.represents.values_list('entities__id', 'entities__name').distinct()
+    represented_by = entity.identities.filter(~Q(representative=entity)).values_list('representative_id', 'representative__name').distinct()
 
     context = RequestContext(request, {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
