@@ -263,7 +263,7 @@ def filter_relations(source=None, predicate=None, target=None,
 
 
     try:
-        _states = qs.distinct('id')
+        _states = qs.distinct()
         bool(_states)    # Force evaluation... oh I don't know.
         return _states
     except NotImplementedError:
