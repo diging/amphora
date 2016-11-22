@@ -128,6 +128,10 @@ def preview(resource, request):
                         preview_elem = iframe_template.format(**{
                             'href': relation.content_resource.location + '?accessToken=' + giles.get_user_auth_token(user)
                         })
+                    elif relation.content_resource.external_source == Resource.GILES and relation.content_resource.content_type in images:
+                        preview_elem = image_preview_template.format(**{
+                            'src': relation.content_resource.location + '?accessToken=' + giles.get_user_auth_token(user)
+                        })
                     else:
                         preview_elem = external_link_template.format(**{
                             'href': relation.content_resource.location
@@ -159,10 +163,12 @@ def preview(resource, request):
 
                 preview_elem = page_link_template.format(href=reverse('resource', args=(relation.source.id,)))
                 if content_resource.content_type in images:
-                    image_location = content_resource.content_view
-                    if image_location.startswith(settings.GILES):
-                        image_location += '&accessToken=' + giles.get_user_auth_token(user)+ '&dw=300'
 
+                    if content_resource.external_source == Resource.GILES:
+                        image_location = content_resource.location
+                        image_location += '&accessToken=' + giles.get_user_auth_token(user)+ '&dw=300'
+                    else:
+                        image_location = content_resource.content_view
                     preview_elem += image_preview_template.format(src=image_location)
                 elif content_resource.content_type == 'application/xpdf' or content_resource.content_view.lower().endswith('.pdf'):
                     preview_elem += pdf_preview_template.format(src=content_resource.content_view, page_id=str(content_resource.id)) + pdf_preview_fragment

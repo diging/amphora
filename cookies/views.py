@@ -70,6 +70,9 @@ def check_authorization(request, instance, permission):
 @authorization.authorization_required('view_resource', _get_resource_by_id)
 def resource(request, obj_id):
     resource = _get_resource_by_id(request, obj_id)
+
+    # Get a fresh Giles auth token, if needed.
+    giles.get_user_auth_token(resource.created_by, fresh=True)
     context = {
         'resource':resource,
         'request': request,
@@ -119,17 +122,10 @@ def resource_list(request):
     #
     # TODO: implement a real search backend.
     filtered_objects = ResourceFilter(request.GET, queryset=qset_resources)
-    qset_collections = Collection.objects.filter(
-        Q(content_resource=False) & Q(hidden=False) & Q(part_of__isnull=True)
-    )
-    qset_collections = authorization.apply_filter(request.user,
-                                                  'view_collection',
-                                                  qset_collections)
-    collections = CollectionFilter(request.GET, queryset=qset_collections)
 
     context = RequestContext(request, {
         'filtered_objects': filtered_objects,
-        'collections': collections
+        'tags': Tag.objects.filter(resource_tags__resource_id__in=filtered_objects.qs.values_list('id', flat=True)).distinct(),
     })
 
     template = loader.get_template('resources.html')
@@ -139,8 +135,8 @@ def resource_list(request):
 @authorization.authorization_required('view_resource', _get_collection_by_id)
 def collection(request, obj_id):
     collection = _get_collection_by_id(request, obj_id)
-    resources = collection.resources.filter(content_resource=False, hidden=False)
-    resources = authorization.apply_filter(request.user, 'view_resource', resources)
+    resources = collection.native_resources.filter(content_resource=False, hidden=False)
+
     filtered_objects = ResourceFilter(request.GET, queryset=resources)
     qset_collections = Collection.objects.filter(part_of=collection)
     collections = CollectionFilter(request.GET, queryset=qset_collections)
@@ -149,6 +145,7 @@ def collection(request, obj_id):
         'collection': collection,
         'request': request,
         'collections': collections,
+        'tags': Tag.objects.filter(resource_tags__resource_id__in=filtered_objects.qs.values_list('id', flat=True)).distinct(),
     })
     template = loader.get_template('collection.html')
     return HttpResponse(template.render(context))
@@ -784,13 +781,16 @@ def list_metadata(request):
 def entity_details(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
     template = loader.get_template('entity_details.html')
-    similar_entities = entities.suggest_similar(entity)
-    similar_entities = authorization.apply_filter(request.user, 'is_owner', similar_entities)
+    similar_entities = entities.suggest_similar(entity, qs=authorization.apply_filter(request.user, 'change', ConceptEntity.objects.all()))
 
-    relations_from = metadata.filter_relations(qs=entity.relations_from.all(), user=request.user)
+    relations_from = entity.relations_from.all()
     relations_from = [(g[0].predicate, g) for g in metadata.group_relations(relations_from)]
-    relations_to = metadata.filter_relations(qs=entity.relations_to.all(), user=request.user)
+    relations_to = entity.relations_to.all()
     relations_to = [(g[0].predicate, g) for g in metadata.group_relations(relations_to)]
+
+    represents = entity.represents.values_list('entities__id', 'entities__name').distinct()
+    represented_by = entity.identities.filter(~Q(representative=entity)).values_list('representative_id', 'representative__name').distinct()
+
     context = RequestContext(request, {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
         'entity': entity,
@@ -798,13 +798,18 @@ def entity_details(request, entity_id):
         'entity_type': ContentType.objects.get_for_model(ConceptEntity),
         'relations_from': relations_from,
         'relations_to': relations_to,
+        'represents': represents,
+        'represented_by': represented_by
     })
     return HttpResponse(template.render(context))
 
 
 def entity_list(request):
     template = loader.get_template('entity_list.html')
-    qs = authorization.apply_filter(request.user, 'view_entity', ConceptEntity.objects.all())
+    qs = ConceptEntity.objects.all()
+    qs = qs.filter(Q(identities__isnull=True) | Q(represents__isnull=False))
+    qs = authorization.apply_filter(request.user, 'view_entity', qs)
+
     filtered_objects = ConceptEntityFilter(request.GET, queryset=qs)
 
     context = RequestContext(request, {
@@ -813,92 +818,6 @@ def entity_list(request):
     })
     return HttpResponse(template.render(context))
 
-
-
-@authorization.authorization_required('view_authorizations', _get_resource_by_id)
-def resource_authorization_list(request, resource_id):
-    """
-    Display permissions for a specific resource.
-    """
-
-    resource = get_object_or_404(Resource, pk=resource_id)
-    can_change = authorization.check_authorization('change_authorizations', request.user, resource)
-
-    context = RequestContext(request, {
-        'can_change': can_change,
-        'resource': resource,
-        'authorizations': authorization.list_authorizations(resource),
-    })
-    template = loader.get_template('resource_authorization_list.html')
-    return HttpResponse(template.render(context))
-
-
-@authorization.authorization_required('change_authorizations', _get_resource_by_id)
-def resource_authorization_create(request, resource_id):
-    """
-    Allow the user to add authorizations for a new user.
-
-    This is kind of hacky, but will do for now.
-    """
-
-    resource = get_object_or_404(Resource, pk=resource_id)
-    authorized_users = zip(*authorization.list_authorizations(resource))[0]
-    authorized_users_ids = [user.id for user in authorized_users]
-    unauthorized_users = User.objects.filter(~Q(pk__in=authorized_users_ids)).order_by('username')
-
-    context = RequestContext(request, {
-        'unauthorized_users': unauthorized_users,
-        'resource': resource,
-    })
-    template = loader.get_template('resource_authorization_create.html')
-    return HttpResponse(template.render(context))
-
-
-
-@authorization.authorization_required('change_authorizations', _get_resource_by_id)
-def resource_authorization_change(request, resource_id, user_id):
-    """
-    Change permissions on a resource for a specific user.
-    """
-    resource = get_object_or_404(Resource, pk=resource_id)
-    user = get_object_or_404(User, pk=user_id)
-
-    if request.method == 'GET':
-        form = AuthorizationForm(initial={
-            'for_user': user,
-            'authorizations': authorization.list_authorizations(resource, user)
-        })
-    elif request.method == 'POST':
-        form = AuthorizationForm(request.POST)
-        if form.is_valid():
-            if form.cleaned_data.get('for_user') != user:
-                raise RuntimeError('Whoops, someone f***ed with the user.')
-
-            # Synchronously update the Resource itself, so that the user sees
-            #  the effect immediately.
-            authorization.update_authorizations(
-                form.cleaned_data.get('authorizations'),
-                form.cleaned_data.get('for_user'),
-                resource,
-            )
-            # Asynchronously update any downstream resources and entities.
-            update_authorizations.delay(
-                form.cleaned_data.get('authorizations'),
-                form.cleaned_data.get('for_user'),
-                resource,
-                by_user=request.user,
-                propagate=True,
-            )
-            return HttpResponseRedirect(reverse('resource-authorization-list', args=(resource.id,)))
-
-    form.fields['for_user'].widget = forms.HiddenInput()
-    context = RequestContext(request, {
-        'for_user': user,
-        'resource': resource,
-        'form': form,
-    })
-    template = loader.get_template('resource_authorization_change.html')
-    return HttpResponse(template.render(context))
 
 
 @authorization.authorization_required('view_authorizations', _get_collection_by_id)
@@ -940,13 +859,7 @@ def collection_authorization_change(request, collection_id, user_id):
 
             authorizations = form.cleaned_data.get('authorizations')
             for_user = form.cleaned_data.get('for_user')
-            propagate = form.cleaned_data.get('propagate', False)
-            authorization.update_authorizations(
-                authorizations, for_user, collection, propagate=propagate,
-            )
-            update_authorizations.delay(
-                authorizations, for_user, collection, request.user
-            )
+            authorization.update_authorizations(authorizations, for_user, collection)
 
             return HttpResponseRedirect(reverse('collection-authorization-list', args=(collection.id,)))
 
@@ -988,7 +901,7 @@ def entity_merge(request):
         raise ValueError('')
 
     qs = ConceptEntity.objects.filter(pk__in=entity_ids)
-    qs = authorization.apply_filter(request.user, 'change_conceptentity', qs)
+    qs = authorization.apply_filter(request.user, 'change', qs)
     # q = authorization.get_auth_filter('merge_conceptentities', request.user)
     if qs.count() < 2:
         # TODO: make this pretty and informative.
@@ -996,7 +909,7 @@ def entity_merge(request):
 
     if request.GET.get('confirm', False) == 'true':
         master_id = request.GET.get('master', None)
-        master = operations.merge_conceptentities(qs, master_id)
+        master = operations.merge_conceptentities(qs, master_id, user=request.user)
         return HttpResponseRedirect(reverse('entity-details', args=(master.id,)))
 
     context = RequestContext(request, {
@@ -1006,7 +919,7 @@ def entity_merge(request):
     return HttpResponse(template.render(context))
 
 
-@authorization.authorization_required('change_conceptentity', _get_entity_by_id)
+@authorization.authorization_required('change', _get_entity_by_id)
 def entity_change(request, entity_id):
     """
     Edit a :class:`.ConceptEntity` instance.
@@ -1062,7 +975,7 @@ def entity_change_concept(request, entity_id):
         'entity': entity,
         'form': form,
     })
-    print form
+
     template = loader.get_template('entity_change_concept.html')
     return HttpResponse(template.render(context))
 
@@ -1176,48 +1089,44 @@ def bulk_action_resource(request):
     On POST, User is presented with a set of collections to choose from.
     """
     resource_ids = request.POST.getlist('addresources', [])
-    qs_resources = Resource.objects.filter(pk__in=resource_ids)
-
-    qset_collections = Collection.objects.filter(
-        Q(content_resource=False) & Q(hidden=False)
-    )
-    qset_collections = authorization.apply_filter(request.user,
-                                                  'view_collection',
-                                                  qset_collections)
-
-    collections = CollectionFilter(request.GET, queryset=qset_collections)
-
-    context = RequestContext(request, {
-        'collections': qset_collections,
-        'resources': qs_resources,
-        'number_of_resources': qs_resources.count
-    })
-
-    template = loader.get_template('add_resources_to_collection.html')
-    return HttpResponse(template.render(context))
+    return HttpResponseRedirect(reverse('bulk-add-tag-to-resource') + "?" + '&'.join(["resource=%s" % r_id for r_id in resource_ids]))
 
 
 @login_required
-def bulk_add_resource_to_collection(request):
+def bulk_add_tag_to_resource(request):
     """
-    Curator adds resource to collection.
-    Input from user- collection to add the resources to.
-    On success, the user is presented with the collection detail view.
+
     """
-    resource_ids = request.POST.getlist('addresources', [])
-    if len(resource_ids) < 1:
-        raise ValueError('Need more than one resource')
+    if request.method == 'GET':
+        resource_ids = request.GET.getlist('resource', [])
+        resources = authorization.apply_filter(request.user, 'change', Resource.objects.filter(pk__in=resource_ids))
 
-    qs_resources = Resource.objects.filter(pk__in=resource_ids)
+        form = AddTagForm()
+        form.fields['resources'].queryset = resources
+        form.fields['resources'].initial = resources
 
-    collection_id = request.POST.get('collection', None)
-    if collection_id:
-        collection = _get_collection_by_id(request, collection_id)
-        updated_collection = operations.add_resources_to_collection(qs_resources, collection)
-        return HttpResponseRedirect(updated_collection.get_absolute_url())
-    else:
-        return HttpResponseBadRequest('Error: Select a collection to add resources.\
-                                      Go back to previous page and select a collection')
+    elif request.method == 'POST':
+        form = AddTagForm(request.POST)
+        resource_ids = eval(request.POST.get('resources', '[]'))
+        resources = authorization.apply_filter(request.user, 'change', Resource.objects.filter(pk__in=resource_ids))
+
+        if form.is_valid():
+            tag = form.cleaned_data.get('tag', None)
+            tag_name = form.cleaned_data.get('tag_name', None)
+            resources = form.cleaned_data.get('resources')
+            if not tag and tag_name:
+                tag = Tag.objects.create(name=tag_name, created_by=request.user)
+            ResourceTag.objects.bulk_create([
+                ResourceTag(resource=resource, tag=tag, created_by=request.user)
+                for resource in resources
+            ])
+            return HttpResponseRedirect(reverse('resources'))
+    context = RequestContext(request, {
+        'form': form,
+        'resources': resources,
+    })
+    template = loader.get_template('add_tag_to_resource.html')
+    return HttpResponse(template.render(context))
 
 
 @authorization.authorization_required('view_resource', _get_resource_by_id)
@@ -1241,5 +1150,12 @@ def resource_content(request, resource_id):
         except IOError:    # Whoops....
             return HttpResponse('Hmmm....something went wrong.')
     elif resource.location:
-        return HttpResponseRedirect(resource.location)
+        target = resource.location
+        if 'giles' in target:
+            user = resource.created_by
+
+            if user:
+                auth_token = giles.get_user_auth_token(user, fresh=True)
+                target += '?accessToken=' + auth_token
+        return HttpResponseRedirect(target)
     return HttpResponse('Nope')
