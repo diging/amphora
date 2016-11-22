@@ -176,6 +176,10 @@ class UserResourceForm(forms.Form):
 
 
 class UserEditResourceForm(forms.Form):
+    """
+    Form to edit a resource
+    """
+
     name = forms.CharField(help_text='Give your resource a unique name')
     resource_type = CustomModelChoiceField(**{
         'queryset': Type.objects.all().order_by('name'),
@@ -310,6 +314,10 @@ class UserAddCollectionForm(forms.ModelForm):
 
 
 class HiddenModelMultipleChoiceField(forms.ModelMultipleChoiceField):
+    """
+    Overriding functions in ModelMultipleChoiceField
+    """
+
     def clean(self, value):
         value = eval(value)
         return super(HiddenModelMultipleChoiceField, self).clean(value)
@@ -326,6 +334,10 @@ class HiddenModelMultipleChoiceField(forms.ModelMultipleChoiceField):
 
 
 class AddTagForm(forms.Form):
+    """
+    Form for creating tags for resources
+    """
+
     tag = CustomModelChoiceField(queryset=Tag.objects.all(), empty_label=u'Create a new tag', required=False)
     tag_name = forms.CharField(max_length=255, required=False)
 
