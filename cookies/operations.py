@@ -27,6 +27,9 @@ def add_creation_metadata(resource, user):
 
 
 def _transfer_all_relations(from_instance, to_instance_id, content_type):
+    """
+    Traferring relations from one :class:`.Resource` instance to another
+    """
     from_instance.relations_from.update(source_type=content_type,
                                         source_instance_id=to_instance_id)
     from_instance.relations_to.update(target_type=content_type,
@@ -168,7 +171,28 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
 
 def merge_resources(resources, master_id=None, delete=True, user=None):
     """
+    Merge selected resources to a single resource.
+
+    Parameters
+    -------------
+    resources : ``QuerySet``
+        The :class:`.Resource` instances that will be merged.
+    master_id : int
+        (optional) The primary key of the :class:`.Resource` to use as the
+        "master" instance into which the remaining instances will be merged.
+
+    Returns
+    -------
+    master : :class:`.Resource`
+
+    Raises
+    ------
+    RuntimeError
+        If less than two :class:`.Resource` instances are present in
+        ``resources``, or if :class:`.Resource` instances are not the
+        same with respect to content.
     """
+
     resource_type = ContentType.objects.get_for_model(Resource)
     if resources.count() < 2:
         raise RuntimeError("Need more than one Resource instance to merge")

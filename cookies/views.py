@@ -69,6 +69,10 @@ def check_authorization(request, instance, permission):
 
 @authorization.authorization_required('view_resource', _get_resource_by_id)
 def resource(request, obj_id):
+    """
+    Display the resource with the given id
+    """
+
     resource = _get_resource_by_id(request, obj_id)
 
     # Get a fresh Giles auth token, if needed.
@@ -100,6 +104,10 @@ def resource_by_uri(request):
 
 
 def resource_list(request):
+    """
+    Display the set of resources
+    """
+
     # Either the resource is public, or owned by the requesting user.
     qset_resources = Resource.objects.filter(content_resource=False,
                                              is_part=False,
@@ -134,6 +142,10 @@ def resource_list(request):
 
 @authorization.authorization_required('view_resource', _get_collection_by_id)
 def collection(request, obj_id):
+    """
+    Display the collection for the given id
+    """
+
     collection = _get_collection_by_id(request, obj_id)
     resources = collection.native_resources.filter(content_resource=False, hidden=False)
 
@@ -152,6 +164,10 @@ def collection(request, obj_id):
 
 
 def collection_list(request):
+    """
+    Display the set of collections
+    """
+
     queryset = Collection.objects.filter(content_resource=False, hidden=False, part_of__isnull=True)
     queryset = authorization.apply_filter(request.user, 'view_resource', queryset)
     filtered_objects = CollectionFilter(request.GET, queryset=queryset)
@@ -896,6 +912,10 @@ def collection_authorization_create(request, collection_id):
 
 # Authorization is handled internally.
 def entity_merge(request):
+    """
+    User can merge selected entities.
+    """
+
     entity_ids = request.GET.getlist('entity', [])
     if len(entity_ids) <= 1:
         raise ValueError('')
@@ -1095,7 +1115,7 @@ def bulk_action_resource(request):
 @login_required
 def bulk_add_tag_to_resource(request):
     """
-
+    Adding tag to selected resources.
     """
     if request.method == 'GET':
         resource_ids = request.GET.getlist('resource', [])
