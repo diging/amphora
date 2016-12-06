@@ -23,6 +23,7 @@ from celery.result import AsyncResult
 import iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle
 from hashlib import sha1
 import time, os, json, base64, hmac, urllib, datetime
+import networkx as nx
 
 # TODO: clean this up!!
 from cookies.forms import *
@@ -1179,3 +1180,41 @@ def resource_content(request, resource_id):
                 target += '?accessToken=' + auth_token
         return HttpResponseRedirect(target)
     return HttpResponse('Nope')
+
+def export_coauthor_data(request):
+    context = RequestContext(request, {})
+
+    graph = nx.Graph()
+
+    parent_id = request.GET.get('parent_collection', None)
+
+
+    if parent_id:
+        parent_collection = _get_collection_by_id(request, int(parent_id))
+        check_auth = authorization.check_authorization('view_collection', request.user, parent_collection)
+        if not check_auth:
+            return HttpResponse('You do not have permission to view this collection', status=401)
+
+        qset_resources = parent_collection.native_resources.filter(content_resource=False, hidden=False)
+        resources = ResourceFilter(request.GET, queryset=qset_resources)
+
+
+        for resource in resources:
+            list_authors = []
+            for relation in resource.relations_from.all():
+                if relation.predicate.name == 'Authors':
+                    list_authors.append(relation.target.name)
+                    graph.add_node(relation.target.name)
+
+            for author in list_authors:
+                for coauthor in list_authors:
+                    if author is not coauthor:
+                        graph.add_edge(author, coauthor)
+
+    context.update({
+        'metadata': graph.nodes(),
+        'edges': graph.edges(),
+    })
+
+    template = loader.get_template('graph_coauthor_data.html')
+    return HttpResponse(template.render(context))
