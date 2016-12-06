@@ -33,6 +33,7 @@ iso8601==0.1.10
 isodate==0.5.1
 kombu==3.0.35
 Markdown==2.6.2
+networkx
 oauth2==1.9.0.post1
 oauth2-provider==0.0
 oauthlib==1.0.1
