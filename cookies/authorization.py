@@ -174,8 +174,9 @@ def update_authorizations(auths, user, obj, **kwargs):
     None
     """
 
-    logger.debug('update authorizations for %s with %s for %s' % \
-                 (repr(obj), ' '.join(auths), repr(user)))
+
+    # logger.debug('update authorizations for %s with %s for %s' % \
+    #              (repr(obj), ' '.join(auths), repr(user)))
 
     # ``auths`` may or may not have model-specific auth labels.
     labeled_auths = label_authorizations(auths, obj)
@@ -183,20 +184,22 @@ def update_authorizations(auths, user, obj, **kwargs):
     if by_user and isinstance(obj, QuerySet):
         obj = apply_filter(by_user, 'change_authorizations', obj)
 
+    if not (isinstance(obj, Collection) or isinstance(getattr(obj, 'model', None), Collection)):
+        return
     # There may be a variety of authorizations for the objects in the QuerySet,
     #  so we will visit all of the (few in number) authorizations, and remove
     #  or add accordingly.
     for auth in getattr(obj, 'model', obj).DEFAULT_AUTHS:   # obj may be a QS.
         if auth in labeled_auths:
             try:
-                logger.debug('assign: %s' % auth)
+                # logger.debug('assign: %s' % auth)
                 assign_perm(auth, user, obj)
             except ObjectDoesNotExist:
                 msg = '"%s" not a valid auth for %s' % (auth, repr(obj))
                 raise ValueError(msg)
         else:
             try:
-                logger.debug('remove: %s' % auth)
+                # logger.debug('remove: %s' % auth)
                 remove_perm(auth, user, obj)
             except ObjectDoesNotExist:
                 msg = '"%s" not a valid auth for %s' % (auth, repr(obj))
@@ -296,11 +299,9 @@ def apply_filter(user, auth, queryset):
             # q = Q(source_instance_id__in=resources) \
             #     | Q(target_instance_id__in=resources)
         elif queryset.model is Value:
+            resources = Resource.objects.filter(belongs_to__id__in=collection_pks)\
+                                        .values_list('id', flat=True)
             q = Q(relations_to__source_instance_id__in=resources)
-        resources = Resource.objects.filter(belongs_to__id__in=collection_pks)\
-                                    .values_list('id', flat=True)
-
-
 
     return queryset.filter(q).distinct()
 

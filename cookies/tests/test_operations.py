@@ -3,7 +3,9 @@
 
 from django.contrib.contenttypes.models import ContentType
 
-import unittest, mock, json
+import unittest, mock, json, os
+
+os.environ.setdefault('LOGLEVEL', 'ERROR')
 
 from cookies import operations
 from cookies.models import *

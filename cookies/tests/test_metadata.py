@@ -1,4 +1,6 @@
-import unittest, mock, json
+import unittest, mock, json, os
+
+os.environ.setdefault('LOGLEVEL', 'ERROR')
 
 from cookies import metadata
 from cookies.models import *
