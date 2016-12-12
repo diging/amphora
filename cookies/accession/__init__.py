@@ -91,7 +91,8 @@ class IngestManager(object):
         resource_data : kwargs
             Keys should be model field names. E.g. ``created_by``\.
         """
-        self.resource_data = {k: v for k, v in resource_data.iteritems() if k in self.model_fields}
+        self.resource_data = {k: v for k, v in resource_data.iteritems()
+                              if k in self.model_fields}
 
     def _handle_uri_ref(self, predicate, data):
         """

@@ -16,7 +16,7 @@ import unittest, mock, json, os
 from collections import Counter
 
 from cookies.admin import import_schema
-
+os.environ.setdefault('LOGLEVEL', 'ERROR')
 
 DATAPATH = 'cookies/tests/data/giles'
 

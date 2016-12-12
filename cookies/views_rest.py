@@ -37,6 +37,20 @@ class MultiSerializerViewSet(viewsets.ModelViewSet):
         return self.serializers.get(self.action, self.serializers['default'])
 
 
+class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Resource
+        fields = ('url', 'id', 'uri', 'name', 'public', 'content_location',
+                  'is_external', 'external_source', 'is_local', 'is_remote')
+
+
+class ContentRelationSerializer(serializers.HyperlinkedModelSerializer):
+    content_resource = ContentResourceSerializer()
+    class Meta:
+        model = ContentRelation
+        fields = ('id', 'content_resource', 'content_type', 'content_encoding')
+
+
 class ConceptSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Concept
@@ -64,10 +78,32 @@ class RelationSerializer(serializers.HyperlinkedModelSerializer):
         fields = ('id', 'uri', 'url', 'name', 'target', 'predicate')
 
 
+class PartResourceDetailSerializer(serializers.HyperlinkedModelSerializer):
+    content = ContentRelationSerializer(many=True)
+
+    class Meta:
+        model = Resource
+        fields = ('url', 'id', 'uri', 'name', 'public', 'content', 'file')
+
+
+class PartSerializer(serializers.HyperlinkedModelSerializer):
+    source = PartResourceDetailSerializer()
+    predicate = FieldSerializer()
+
+    class Meta:
+        model = Relation
+        fields = ('id', 'uri', 'url', 'name', 'source', 'predicate')
+
+
 class ResourcePermission(BasePermission):
     def has_object_permission(self, request, view, obj):
+        print 'has_object_permission::', request.user, authorization.list_authorizations(obj, request.user)
         authorized = authorization.check_authorization('view_resource', request.user, obj)
         return authorized or request.user.is_superuser
+
+    def has_permission(self, request, view):
+        print 'has_permission::', request, view
+        return True
 
 
 class CollectionPermission(BasePermission):
@@ -76,27 +112,16 @@ class CollectionPermission(BasePermission):
         return authorized or request.user.is_superuser
 
 
-class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model = Resource
-        fields = ('url', 'id', 'uri', 'name', 'public', 'file', 'location',
-                  'is_external', 'external_source', 'is_local', 'is_remote')
-
-
-class ContentRelationSerializer(serializers.HyperlinkedModelSerializer):
-    content_resource = ContentResourceSerializer()
-    class Meta:
-        model = ContentRelation
-        fields = ('id', 'content_resource', 'content_type', 'content_encoding')
-
 
 class ResourceDetailSerializer(serializers.HyperlinkedModelSerializer):
     content = ContentRelationSerializer(many=True)
     relations_from = RelationSerializer(many=True)
+    parts = PartSerializer(many=True)
 
     class Meta:
         model = Resource
-        fields = ('url', 'id', 'uri', 'name', 'public', 'content', 'relations_from',  'file')
+        fields = ('url', 'id', 'uri', 'name', 'public', 'content',
+                  'parts', 'relations_from',  'file', 'content_types')
 
 
 class ResourceListSerializer(serializers.HyperlinkedModelSerializer):
@@ -104,7 +129,7 @@ class ResourceListSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Resource
-        fields = ('url', 'uri', 'name', 'public', 'content', 'id')
+        fields = ('url', 'uri', 'name', 'public', 'content', 'id', 'content_types')
 
 
 class CollectionSerializer(serializers.HyperlinkedModelSerializer):
@@ -128,10 +153,10 @@ class ConceptViewSet(viewsets.ModelViewSet):
     def get_queryset(self, *args, **kwargs):
         queryset = super(ConceptViewSet, self).get_queryset(*args, **kwargs)
         search = self.request.query_params.get('search', None)
-        print search
+
         if search is not None:
             queryset = queryset.filter(label__icontains=search)
-            print queryset
+
             try:
                 tasks.search_for_concept.delay(search)
             except ConnectionError:
@@ -183,7 +208,7 @@ class FieldViewSet(viewsets.ModelViewSet):
 
 class ResourceViewSet(MultiSerializerViewSet):
     parser_classes = (JSONParser,)
-    queryset = Resource.objects.filter(hidden=False)
+    queryset = Resource.objects.filter(hidden=False, content_resource=False)
     serializers = {
         'list': ResourceListSerializer,
         'retrieve':  ResourceDetailSerializer,
@@ -191,12 +216,17 @@ class ResourceViewSet(MultiSerializerViewSet):
     }
     permission_classes = (ResourcePermission,)
 
+    def retrieve(self, request, pk=None):
+
+        return super(ResourceViewSet, self).retrieve(request, pk=pk)
+
+
     def get_queryset(self):
         """
         Extended to provide authorization filtering.
         """
         qs = super(ResourceViewSet, self).get_queryset()
-        qs = authorization.apply_filter(self.request.user, 'view_resource', qs)
+        qs = authorization.apply_filter(self.request.user, 'view', qs)
 
         if not self.kwargs.get('pk', None):
             qs = qs.filter(content_resource=False)
@@ -207,12 +237,16 @@ class ResourceViewSet(MultiSerializerViewSet):
         query = self.request.query_params.get('search', None)
         if query:
             qs = qs.filter(name__icontains=query)
+
+        content_type = self.request.query_params.get('content_type')
+        if content_type:
+            qs = qs.filter(Q(content__content_resource__content_type=content_type))
         return qs
 
 
 class ResourceContentView(APIView):
-    parser_classes = (FileUploadParser,MultiPartParser)
-    authentication_classes = (TokenAuthentication,)
+    parser_classes = (FileUploadParser, MultiPartParser)
+    # authentication_classes = (TokenAuthentication,)
     permission_classes = (ResourcePermission,)
 
     # Allows us to work with Accept header directly.

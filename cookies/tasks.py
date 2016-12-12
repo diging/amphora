@@ -81,6 +81,7 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
     ingester.Collection = authorization.apply_filter(creator, 'change_collection', ingester.Collection)
     ingester.ConceptEntity = authorization.apply_filter(creator, 'change_conceptentity', ingester.ConceptEntity)
     ingester.set_resource_defaults(entity_type=default_type,
+                                   belongs_to=collection,
                                    created_by=creator, **form_data)
 
     N = len(ingester)
