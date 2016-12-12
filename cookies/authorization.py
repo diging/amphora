@@ -76,7 +76,7 @@ def check_authorization(auth, user, obj):
     -------
     bool
     """
-
+    print auth, user, obj
     if auth == 'is_owner':
         return is_owner(user, obj)
 
@@ -85,6 +85,12 @@ def check_authorization(auth, user, obj):
             auth = auth_label(auth, obj.belongs_to)
             _authorized = check_authorization(auth, user, obj.belongs_to)
         else:
+            print obj.__dict__
+            print obj.parent.count()
+            return True
+            if obj.content_resource:
+                print obj.parent.all()
+                return check_authorization(auth, user, obj.parent.first().for_resource)
             # If the Resource has no Collection, only the owner or admin can
             #  access it.
             _authorized = False

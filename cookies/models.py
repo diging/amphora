@@ -139,6 +139,11 @@ class ResourceBase(Entity):
         elif self.location:
             return False
 
+    @property
+    def parts(self):
+        page_field, _ = Field.objects.get_or_create(uri='http://purl.org/dc/terms/isPartOf')
+        return self.relations_to.filter(predicate=page_field)
+
     class Meta:
         permissions = (
             ('view_resource', 'View resource'),
@@ -182,6 +187,23 @@ class Resource(ResourceBase):
             if self.file:
                 return self.file.url
             return self.location
+
+    @property
+    def content_types(self):
+        if self.content_resource:
+            return self.content_type
+
+        direct = [(cr.content_type, cr.content_resource.content_type)
+                    for cr in self.content.all()
+                   if cr.content_resource.content_type or cr.content_type]
+        if direct:
+            d0, d1 = map(list, zip(*direct))
+            direct = d0 + d1
+        parts = []
+        for r in self.relations_to.all():
+             if r.source.content_type:
+                parts += r.source.content_types
+        return set([ct for ct in direct + parts if ct is not None])
 
     @property
     def content_view(self):
@@ -406,6 +428,10 @@ class Relation(Entity):
     target_instance_id = models.PositiveIntegerField(blank=True, null=True)
     target = GenericForeignKey('target_type', 'target_instance_id')
 
+    belongs_to = models.ForeignKey('Collection',
+                                   related_name='native_relations',
+                                   blank=True, null=True)
+
 
     class Meta:
         verbose_name = 'metadata relation'
@@ -430,6 +456,10 @@ class ConceptEntity(Entity):
                      'view_authorizations']
 
     concept = models.ForeignKey('concepts.Concept', null=True, blank=True)
+
+    belongs_to = models.ForeignKey('Collection',
+                                   related_name='native_conceptentities',
+                                   blank=True, null=True)
 
     def get_absolute_url(self):
         return reverse('entity-details', args=(self.id,))

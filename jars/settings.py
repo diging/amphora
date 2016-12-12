@@ -92,14 +92,15 @@ REST_FRAMEWORK = {
         'rest_framework_xml.parsers.XMLParser',
     ),
     'DEFAULT_RENDERER_CLASSES': (
-        'rest_framework_xml.renderers.XMLRenderer',
         'rest_framework.renderers.JSONRenderer',
+        # 'rest_framework_xml.renderers.XMLRenderer',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         # 'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
         'oauth2_provider.ext.rest_framework.OAuth2Authentication',
+        'jars.auth.GithubTokenBackend',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 10,
@@ -198,7 +199,7 @@ LOGIN_URL = BASE_URL + 'login/github/'
 LOGIN_REDIRECT_URL = 'index'
 
 # Giles and HTTP.
-GILES = os.environ.get('GILES', 'https://diging.asu.edu/giles')
+GILES = os.environ.get('GILES', 'https://diging-dev.asu.edu/giles-review')
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 GET = requests.get
 POST = requests.post
