@@ -16,25 +16,33 @@ def populate_belongs_to(apps, schema_editor):
 
     for collection in Collection.objects.all().values_list('id', flat=True):
         resource_ids = Resource.objects.filter(belongs_to=collection).values_list('id', flat=True)
-        relations = Relation.objects.filter(predicate__uri='http://purl.org/dc/terms/isPartOf', source_type=resource_type, source_instance_id__in=resource_ids)
-        relations.update(belongs_to=collection)
+        relations = Relation.objects.filter(source_type_id=resource_type.id, source_instance_id__in=resource_ids).distinct()
+        relations.update(belongs_to_id=collection)
         for relation in relations:
-            if relation.target.belongs_to:
+            ttype = ContentType.objects.get(pk=relation.target_type_id)
+            if ttype.model in ['value', 'type']:
                 continue
-            relation.target.belongs_to_id = collection
-            relation.target.save()
+            target = ttype.model_class().objects.get(pk=relation.target_instance_id)
 
-        relations = Relation.objects.filter(predicate__uri='http://purl.org/dc/terms/isPartOf', target_type=resource_type, target_instance_id=resource_ids)
-        relations.update(belongs_to=collection)
+            if target.belongs_to:
+                continue
+
+            target.belongs_to_id = collection
+            target.save()
+
+        relations = Relation.objects.filter(target_type_id=resource_type.id, target_instance_id__in=resource_ids)
+        relations.update(belongs_to_id=collection)
         for relation in relations:
-            if relation.source.belongs_to:
+            stype = ContentType.objects.get(pk=relation.source_type_id)
+            if stype.model in ['value', 'type']:
                 continue
-            relation.source.belongs_to_id = collection
-            relation.source.save()
+            source = stype.model_class().objects.get(pk=relation.source_instance_id)
 
+            if source.belongs_to:
+                continue
 
-
-
+            source.belongs_to_id = collection
+            source.save()
 
 
 def nope(apps, schema_editor):

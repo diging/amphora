@@ -76,7 +76,6 @@ def check_authorization(auth, user, obj):
     -------
     bool
     """
-    print auth, user, obj
     if auth == 'is_owner':
         return is_owner(user, obj)
 
@@ -85,20 +84,23 @@ def check_authorization(auth, user, obj):
             auth = auth_label(auth, obj.belongs_to)
             _authorized = check_authorization(auth, user, obj.belongs_to)
         else:
-            print obj.__dict__
-            print obj.parent.count()
-            return True
             if obj.content_resource:
-                print obj.parent.all()
                 return check_authorization(auth, user, obj.parent.first().for_resource)
+
             # If the Resource has no Collection, only the owner or admin can
             #  access it.
             _authorized = False
     elif isinstance(obj, ConceptEntity):
+        if getattr(obj, 'belongs_to', False):
+            auth = auth_label(auth, obj.belongs_to)
+            _authorized = check_authorization(auth, user, obj.belongs_to)
         resource_type = ContentType.objects.get_for_model(Resource)
         resource = obj.relations_to.filter(source_type=resource_type).first().source
         _authorized = check_authorization(auth, user, resource)
     elif isinstance(obj, Relation):
+        if getattr(obj, 'belongs_to', False):
+            auth = auth_label(auth, obj.belongs_to)
+            _authorized = check_authorization(auth, user, obj.belongs_to)
         _authorized = check_authorization(auth, user, obj.source)
     elif isinstance(obj, Value):
         _check = lambda o: check_authorization(auth, user, o)
@@ -285,17 +287,21 @@ def apply_filter(user, auth, queryset):
     elif queryset.model is Resource:
         q = Q(belongs_to__id__in=collection_pks)
     else:    # Traverse back up to the Collection via its Resources.
+        if queryset.model is ConceptEntity:
+            q = Q(belongs_to__id__in=collection_pks)
+            # q = Q(relations_to__source_instance_id__in=resources, relations_to__source_type=rtype) \
+            #     | Q(relations_from__target_instance_id__in=resources, relations_from__target_type=rtype)
+        elif queryset.model is Relation:
+            q = Q(belongs_to__id__in=collection_pks)
+            # q = Q(source_instance_id__in=resources) \
+            #     | Q(target_instance_id__in=resources)
+        elif queryset.model is Value:
+            q = Q(relations_to__source_instance_id__in=resources)
         resources = Resource.objects.filter(belongs_to__id__in=collection_pks)\
                                     .values_list('id', flat=True)
 
-        if queryset.model is ConceptEntity:
-            q = Q(relations_to__source_instance_id__in=resources, relations_to__source_type=rtype) \
-                | Q(relations_from__target_instance_id__in=resources, relations_from__target_type=rtype)
-        elif queryset.model is Relation:
-            q = Q(source_instance_id__in=resources) \
-                | Q(target_instance_id__in=resources)
-        elif queryset.model is Value:
-            q = Q(relations_to__source_instance_id__in=resources)
+
+
     return queryset.filter(q).distinct()
 
 

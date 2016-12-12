@@ -316,7 +316,6 @@ class Type(models.Model):
 
     def __unicode__(self):
         return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
-        # return '%s:: %s' % (getattr(self.schema, '__unicode__', lambda: '')(), self.name)
 
 
 class Field(models.Model):
