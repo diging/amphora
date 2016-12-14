@@ -89,6 +89,7 @@ def get_user_auth_token(user, **kwargs):
         user.save()
         return user.giles_token.token
     except Exception as E:
+
         template = "Failed to retrieve access token for user {u}"
         msg = template.format(u=user.username)
         if kwargs.get('raise_exception', False):
@@ -113,6 +114,7 @@ def get_auth_token(user, **kwargs):
     path = '/'.join([giles, 'rest', 'token'])
     provider_token = user.social_auth.get(provider=provider)\
                                      .extra_data.get('access_token')
+    
     return post(path, data={'providerToken': provider_token},
                 headers={'Authorization': 'token %s' % app_token})
 
@@ -487,3 +489,9 @@ def handle_giles_callback(request, **kwargs):
 
     process_resources(request.user, file_details)
     return
+
+
+def format_giles_url(url, user, dw=300):
+    """
+    """
+    return url + '&accessToken=' + get_user_auth_token(user) + '&dw=%i' % 300

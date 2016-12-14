@@ -1023,7 +1023,6 @@ def entity_prune(request, entity_id):
     return HttpResponseRedirect(entity.get_absolute_url())
 
 
-
 def resource_merge(request):
     """
     Curator can merge resources.

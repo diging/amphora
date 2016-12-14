@@ -76,7 +76,6 @@ def check_authorization(auth, user, obj):
     -------
     bool
     """
-
     if auth == 'is_owner':
         return is_owner(user, obj)
 
@@ -85,14 +84,23 @@ def check_authorization(auth, user, obj):
             auth = auth_label(auth, obj.belongs_to)
             _authorized = check_authorization(auth, user, obj.belongs_to)
         else:
+            if obj.content_resource:
+                return check_authorization(auth, user, obj.parent.first().for_resource)
+
             # If the Resource has no Collection, only the owner or admin can
             #  access it.
             _authorized = False
     elif isinstance(obj, ConceptEntity):
+        if getattr(obj, 'belongs_to', False):
+            auth = auth_label(auth, obj.belongs_to)
+            _authorized = check_authorization(auth, user, obj.belongs_to)
         resource_type = ContentType.objects.get_for_model(Resource)
         resource = obj.relations_to.filter(source_type=resource_type).first().source
         _authorized = check_authorization(auth, user, resource)
     elif isinstance(obj, Relation):
+        if getattr(obj, 'belongs_to', False):
+            auth = auth_label(auth, obj.belongs_to)
+            _authorized = check_authorization(auth, user, obj.belongs_to)
         _authorized = check_authorization(auth, user, obj.source)
     elif isinstance(obj, Value):
         _check = lambda o: check_authorization(auth, user, o)
@@ -166,8 +174,9 @@ def update_authorizations(auths, user, obj, **kwargs):
     None
     """
 
-    logger.debug('update authorizations for %s with %s for %s' % \
-                 (repr(obj), ' '.join(auths), repr(user)))
+
+    # logger.debug('update authorizations for %s with %s for %s' % \
+    #              (repr(obj), ' '.join(auths), repr(user)))
 
     # ``auths`` may or may not have model-specific auth labels.
     labeled_auths = label_authorizations(auths, obj)
@@ -175,20 +184,22 @@ def update_authorizations(auths, user, obj, **kwargs):
     if by_user and isinstance(obj, QuerySet):
         obj = apply_filter(by_user, 'change_authorizations', obj)
 
+    if not (isinstance(obj, Collection) or isinstance(getattr(obj, 'model', None), Collection)):
+        return
     # There may be a variety of authorizations for the objects in the QuerySet,
     #  so we will visit all of the (few in number) authorizations, and remove
     #  or add accordingly.
     for auth in getattr(obj, 'model', obj).DEFAULT_AUTHS:   # obj may be a QS.
         if auth in labeled_auths:
             try:
-                logger.debug('assign: %s' % auth)
+                # logger.debug('assign: %s' % auth)
                 assign_perm(auth, user, obj)
             except ObjectDoesNotExist:
                 msg = '"%s" not a valid auth for %s' % (auth, repr(obj))
                 raise ValueError(msg)
         else:
             try:
-                logger.debug('remove: %s' % auth)
+                # logger.debug('remove: %s' % auth)
                 remove_perm(auth, user, obj)
             except ObjectDoesNotExist:
                 msg = '"%s" not a valid auth for %s' % (auth, repr(obj))
@@ -279,17 +290,19 @@ def apply_filter(user, auth, queryset):
     elif queryset.model is Resource:
         q = Q(belongs_to__id__in=collection_pks)
     else:    # Traverse back up to the Collection via its Resources.
-        resources = Resource.objects.filter(belongs_to__id__in=collection_pks)\
-                                    .values_list('id', flat=True)
-
         if queryset.model is ConceptEntity:
-            q = Q(relations_to__source_instance_id__in=resources, relations_to__source_type=rtype) \
-                | Q(relations_from__target_instance_id__in=resources, relations_from__target_type=rtype)
+            q = Q(belongs_to__id__in=collection_pks)
+            # q = Q(relations_to__source_instance_id__in=resources, relations_to__source_type=rtype) \
+            #     | Q(relations_from__target_instance_id__in=resources, relations_from__target_type=rtype)
         elif queryset.model is Relation:
-            q = Q(source_instance_id__in=resources) \
-                | Q(target_instance_id__in=resources)
+            q = Q(belongs_to__id__in=collection_pks)
+            # q = Q(source_instance_id__in=resources) \
+            #     | Q(target_instance_id__in=resources)
         elif queryset.model is Value:
+            resources = Resource.objects.filter(belongs_to__id__in=collection_pks)\
+                                        .values_list('id', flat=True)
             q = Q(relations_to__source_instance_id__in=resources)
+
     return queryset.filter(q).distinct()
 
 

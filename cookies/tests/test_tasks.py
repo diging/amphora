@@ -1,5 +1,6 @@
 import unittest, mock, tempfile, shutil, os
 
+os.environ.setdefault('LOGLEVEL', 'ERROR')
 from cookies import tasks
 from cookies.models import *
 from cookies.signals import send_pdfs_and_images_to_giles
