@@ -9,7 +9,7 @@
 <div class="breadcrumbs">
     <a href="{% url 'index' %}">{% trans 'Home' %}</a>
     {% breadcrumb_url 'Collections' 'collections' %}
-    {% breadcrumb_url 'Export' 'export-coauthor-data' %}
+    {% breadcrumb_url 'Export' 'export-coauthor-data' collection_id %}
 </div>
 {% endblock %}
 

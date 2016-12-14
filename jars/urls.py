@@ -53,7 +53,7 @@ urlpatterns = patterns('',
     url(r'^collection/$', views.collection_list, name="collections"),
     url(r'^collection/create/$', views.create_collection, name="create-collection"),
     url(r'^metadata/$', views.list_metadata, name='list-metadata'),
-    url(r'^collection/export/$',views.export_coauthor_data, name="export-coauthor-data"),
+    url(r'^collection/export/([0-9]+)/$',views.export_coauthor_data, name="export-coauthor-data"),
 
     url(r'^entity/$', views.entity_list, name='entity-list'),
     url(r'^entity/merge/$', views.entity_merge, name='entity-merge'),

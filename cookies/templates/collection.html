@@ -127,5 +127,5 @@
 </div>
 
 <div class="text-center">
-  <a class="btn btn-success" href="{% url "export-coauthor-data" %}?parent_collection={{ collection.id }}">Export co-author data</a>
+  <a class="btn btn-success" href="{% url "export-coauthor-data" collection.id %}">Export co-author data</a>
 {% endblock %}

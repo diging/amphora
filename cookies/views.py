@@ -1180,39 +1180,41 @@ def resource_content(request, resource_id):
         return HttpResponseRedirect(target)
     return HttpResponse('Nope')
 
-def export_coauthor_data(request):
+def export_coauthor_data(request, parent_id):
+    """
+    Exporting coauthor data from a collection detail view
+    """
+
     context = RequestContext(request, {})
 
     graph = nx.Graph()
 
-    parent_id = request.GET.get('parent_collection', None)
-
-
     if parent_id:
-        parent_collection = _get_collection_by_id(request, int(parent_id))
-        check_auth = authorization.check_authorization('view_collection', request.user, parent_collection)
-        if not check_auth:
+        collection = Collection.objects.prefetch_related('native_resources__relations_from').get(id=parent_id)
+        for resource in collection.native_resources.all():
+            relations = resource.relations_from.prefetch_related('predicate','target')
+
+        if not authorization.check_authorization('view_collection', request.user, collection):
             return HttpResponse('You do not have permission to view this collection', status=401)
 
-        qset_resources = parent_collection.native_resources.filter(content_resource=False, hidden=False)
-        resources = ResourceFilter(request.GET, queryset=qset_resources)
+        list_authors = []
+        for relation in relations:
+            if relation.predicate.name == 'Authors':
+                list_authors.append(relation.target.name)
+                graph.add_node(relation.target.name)
 
+        for author in list_authors:
+            for coauthor in list_authors:
+                if author is not coauthor:
+                    graph.add_edge(author, coauthor)
 
-        for resource in resources:
-            list_authors = []
-            for relation in resource.relations_from.all():
-                if relation.predicate.name == 'Authors':
-                    list_authors.append(relation.target.name)
-                    graph.add_node(relation.target.name)
-
-            for author in list_authors:
-                for coauthor in list_authors:
-                    if author is not coauthor:
-                        graph.add_edge(author, coauthor)
+    else:
+        return HttpResponse('There is no collection selected for exporting coauthor data', status=401)
 
     context.update({
         'metadata': graph.nodes(),
         'edges': graph.edges(),
+        'collection_id': parent_id
     })
 
     template = loader.get_template('graph_coauthor_data.html')
