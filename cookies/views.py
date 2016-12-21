@@ -1187,35 +1187,42 @@ def export_coauthor_data(request, parent_id):
 
     context = RequestContext(request, {})
 
-    graph = nx.Graph()
-
     if parent_id:
+        # Prefetching resources and relations from collection db
         collection = Collection.objects.prefetch_related('native_resources__relations_from').get(id=parent_id)
         for resource in collection.native_resources.all():
             relations = resource.relations_from.prefetch_related('predicate','target')
 
+        # check if user has permission to view the collection
         if not authorization.check_authorization('view_collection', request.user, collection):
             return HttpResponse('You do not have permission to view this collection', status=401)
 
+        # Obtaining id and name of all authors in that collection
         list_authors = []
         for relation in relations:
             if relation.predicate.name == 'Authors':
-                list_authors.append(relation.target.name)
-                graph.add_node(relation.target.name)
+                list_authors.append([relation.target.id, relation.target.name])
 
+        # creating a complete graph as all authors in a collection are related
+        H = nx.complete_graph(len(list_authors))
+        nodeids = [n[0] for n in list_authors]
+        mapping = {i:nodename for i,nodename in enumerate(nodeids)}
+
+        # relabelling the nodes to match with the ids of the authors
+        graph = nx.relabel_nodes(H, mapping)
+
+        # setting name node attribute for the graph
         for author in list_authors:
-            for coauthor in list_authors:
-                if author is not coauthor:
-                    graph.add_edge(author, coauthor)
+            graph.node[author[0]]['name'] = author[1]
 
     else:
         return HttpResponse('There is no collection selected for exporting coauthor data', status=401)
 
-    context.update({
-        'metadata': graph.nodes(),
-        'edges': graph.edges(),
-        'collection_id': parent_id
-    })
+    # graphml file for user to download
+    nx.write_graphml(graph, "test.graphml")
 
-    template = loader.get_template('graph_coauthor_data.html')
-    return HttpResponse(template.render(context))
+    file = open('test.graphml', 'r')
+    response = HttpResponse(file.read(), content_type='application/graphml')
+    response['Content-Disposition'] = 'attachment; filename="test.graphml"'
+
+    return response
