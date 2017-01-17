@@ -976,20 +976,40 @@ def entity_change_concept(request, entity_id):
             form = ConceptEntityLinkForm()
 
     if request.method == 'POST':
-        form = ConceptEntityLinkForm(request.POST)
-        if form.is_valid():
-            uri = form.cleaned_data.get('uri')
-            try:
-                concept, _ = Concept.objects.get_or_create(uri=uri)
-            except ValueError as E:
-                errors = form._errors.setdefault("uri", ErrorList())
-                errors.append(E.args[0])
-                concept = None
+        if 'save' in request.POST:
+            form = ConceptEntityLinkForm(request.POST)
+            if form.is_valid():
+                uri = form.cleaned_data.get('uri')
+                try:
+                    concept, _ = Concept.objects.get_or_create(uri=uri)
+                except ValueError as E:
+                    errors = form._errors.setdefault("uri", ErrorList())
+                    errors.append(E.args[0])
+                    concept = None
 
-            if concept:
-                entity.concept = concept
-                entity.save()
-                return HttpResponseRedirect(entity.get_absolute_url())
+                if concept:
+                    entity.concept = concept
+                    entity.save()
+                    return HttpResponseRedirect(entity.get_absolute_url())
+
+        if 'search' in request.POST:
+            form = ConceptEntityLinkForm(request.POST)
+            search = ''
+            uri = ''
+            if form.is_valid():
+                search = form.cleaned_data.get('search_input')
+                uri = form.cleaned_data.get('uri')
+            print 'search=', search
+            print 'uri=', uri
+
+            concepts = operations.concept_search(search)
+
+            for concept in concepts:
+                print "URIs"
+                print concept.__dict__['identifier']
+
+
+
 
     context = RequestContext(request, {
         'entity': entity,

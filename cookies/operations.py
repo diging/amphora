@@ -9,8 +9,50 @@ from cookies import authorization
 import jsonpickle, datetime, copy
 from itertools import groupby
 
+import goat
+import unittest, mock, json, os, sys
+
 from cookies.exceptions import *
 logger = settings.LOGGER
+
+
+os.environ.setdefault('GOAT_WAIT_INTERVAL', '0.001')
+
+goat.GOAT_APP_TOKEN = 'd22bbda9b5b507dc6cd032d80d6a3d299fda10fe'
+goat.GOAT = 'http://127.0.0.1:8000'
+
+class MockResponse(object):
+    def __init__(self, content, status_code):
+        self._status_code = status_code
+        self.content = content
+
+    def json(self):
+        return json.loads(self.content)
+
+    @property
+    def status_code(self):
+        return self._status_code
+
+
+class MockSearchResponse(MockResponse):
+    url = 'http://mock/url/'
+
+    def __init__(self, parent, pending_content, success_content, max_calls=3,):
+        self.max_calls = 3
+        self.parent = parent
+        self.pending_content = pending_content
+        self.success_content = success_content
+
+    def json(self):
+        if self.parent.call_count < self.max_calls:
+            return json.loads(self.pending_content)
+        return json.loads(self.success_content)
+
+    @property
+    def status_code(self):
+        if self.parent.call_count < self.max_calls:
+            return 202
+        return 200
 
 
 def add_creation_metadata(resource, user):
@@ -304,3 +346,25 @@ def isolate_conceptentity(instance):
 
         entities.append(clone)
     merge_conceptentities(entities, user=instance.created_by)
+
+@mock.patch('requests.get')
+def concept_search(text, mock_get):
+    with open('cookies/tests/data/concept_search_results.json', 'r') as f:
+            with open('cookies/tests/data/concept_search_created.json', 'r') as f2:
+                mock_get.return_value = MockSearchResponse(mock_get, f2.read(), f.read(), 200)
+
+    max_calls = 3
+
+    concepts = goat.Concept.search(q=text)
+    assert mock_get.call_count == max_calls, \
+        "Should keep calling if status code 202 is received."
+    args, kwargs =  mock_get.call_args
+    assert args[0] == MockSearchResponse.url, \
+        "Should follow the redirect URL."
+    assert len(concepts) == 10, \
+        "There should be 10 items in the result set."
+    for concept in concepts:
+        assert isinstance(concept, goat.Concept), \
+            "Each of which should be a GoatConcept."
+
+    return concepts
