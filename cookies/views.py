@@ -1180,49 +1180,62 @@ def resource_content(request, resource_id):
         return HttpResponseRedirect(target)
     return HttpResponse('Nope')
 
-def export_coauthor_data(request, parent_id):
+def export_coauthor_data(request, collection_id):
     """
     Exporting coauthor data from a collection detail view
+    Parameters
+    ----------
+    collection_id : int
+        The primary key of the :class:`.Collection` to use for the
+        extraction of coauthor data.
+
+    Returns
+    -------
+    A graphml file for the user to download
     """
 
     context = RequestContext(request, {})
 
-    if parent_id:
-        # Prefetching resources and relations from collection db
-        collection = Collection.objects.prefetch_related('native_resources__relations_from').get(id=parent_id)
-        for resource in collection.native_resources.all():
-            relations = resource.relations_from.prefetch_related('predicate','target')
-
-        # check if user has permission to view the collection
-        if not authorization.check_authorization('view_collection', request.user, collection):
-            return HttpResponse('You do not have permission to view this collection', status=401)
-
-        # Obtaining id and name of all authors in that collection
-        list_authors = []
-        for relation in relations:
-            if relation.predicate.name == 'Authors':
-                list_authors.append([relation.target.id, relation.target.name])
-
-        # creating a complete graph as all authors in a collection are related
-        H = nx.complete_graph(len(list_authors))
-        nodeids = [n[0] for n in list_authors]
-        mapping = {i:nodename for i,nodename in enumerate(nodeids)}
-
-        # relabelling the nodes to match with the ids of the authors
-        graph = nx.relabel_nodes(H, mapping)
-
-        # setting name node attribute for the graph
-        for author in list_authors:
-            graph.node[author[0]]['name'] = author[1]
-
-    else:
+    if not collection_id:
         return HttpResponse('There is no collection selected for exporting coauthor data', status=401)
 
-    # graphml file for user to download
-    nx.write_graphml(graph, "test.graphml")
+    # Prefetching resources and relations from collection db
+    try:
+        collection = Collection.objects.prefetch_related('native_resources__relations_from').get(id=collection_id)
+    except Collection.DoesNotExist:
+        return HttpResponse('There is no collection with the given id', status=404)
 
-    file = open('test.graphml', 'r')
+    # check if user has permission to view the collection
+    if not authorization.check_authorization('view_collection', request.user, collection):
+        return HttpResponse('You do not have permission to view this collection', status=401)
+
+    graph = nx.Graph()
+
+    for resource in collection.native_resources.all():
+        # all authors associated with a resource
+        relations = resource.relations_from.prefetch_related('predicate','target')
+        authors = []
+        for relation in relations:
+            if relation.predicate.name == 'Authors':
+                authors.append(relation)
+
+        # adding nodes and node attribute for that resource
+        for author in authors:
+            graph.add_node(author.target.id)
+            graph.node[author.target.id]['name'] = author.target.name
+
+        # adding edges between authors of a resource
+        for i in range(0, len(authors)):
+            for j in range(i+1, len(authors)):
+                graph.add_edge(authors[i].target.id, authors[j].target.id)
+
+    # graphml file for user to download
+    time_now = '{:%Y-%m-%d%H:%M:%S}'.format(datetime.datetime.now())
+    file_name = collection.name + time_now + ".graphml"
+    nx.write_graphml(graph, file_name)
+
+    file = open(file_name, 'r')
     response = HttpResponse(file.read(), content_type='application/graphml')
-    response['Content-Disposition'] = 'attachment; filename="test.graphml"'
+    response['Content-Disposition'] = 'attachment; filename="%s"' %file_name
 
     return response
