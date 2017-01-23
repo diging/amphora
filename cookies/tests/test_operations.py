@@ -4,6 +4,7 @@
 from django.contrib.contenttypes.models import ContentType
 
 import unittest, mock, json, os
+import networkx as nx
 
 os.environ.setdefault('LOGLEVEL', 'ERROR')
 
@@ -268,3 +269,74 @@ class TestIsolationOperations(unittest.TestCase):
 
         instance = ConceptEntity.objects.create(name='TestEntity', created_by=u)
         operations.isolate_conceptentity(instance)
+
+
+class TestExportCoauthorData(unittest.TestCase):
+    def test_collection_with_one_resource(self):
+        resource = Resource.objects.create(name='first_resource')
+        value_1 = Value.objects.create()
+        value_1.name = 'Bradshaw'
+        value_1.save()
+        relation = Relation.objects.create(source=resource, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value_1)
+        value_2 = Value.objects.create()
+        value_2.name = 'Conan'
+        value_2.save()
+        relation = Relation.objects.create(source=resource, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value_2)
+        collection = Collection.objects.create(name='first_collection')
+        collection.native_resources.add(resource)
+        collection.save()
+
+        graph = operations.generate_graph_coauthor_data(collection)
+        self.assertEqual(nx.number_of_nodes(graph), 2, 'Node not added, number of nodes is %d' %nx.number_of_nodes(graph))
+        self.assertEqual(nx.get_node_attributes(graph, 'name').values(), ['Bradshaw', 'Conan'], 'Nodes not added to graph')
+        self.assertEqual(nx.edges(graph), [(value_1.id, value_2.id)], 'The edges are %s' %nx.edges(graph))
+
+    def test_collection_with_one_author(self):
+        resource = Resource.objects.create(name='first_resource')
+        value = Value.objects.create()
+        value.name = 'Bradshaw'
+        value.save()
+        relation = Relation.objects.create(source=resource, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value)
+        collection = Collection.objects.create(name='first_collection')
+        collection.native_resources.add(resource)
+        collection.save()
+
+        graph = operations.generate_graph_coauthor_data(collection)
+        self.assertEqual(nx.number_of_nodes(graph), 1, 'Node not added, number of nodes is %d' %nx.number_of_nodes(graph))
+        self.assertEqual(nx.get_node_attributes(graph, 'name').values(), ['Bradshaw'], 'Node not added to graph')
+        self.assertEqual(nx.number_of_edges(graph), 0, 'The edges are %s' %nx.edges(graph))
+
+    def test_collection_with_resources(self):
+        resource_1 = Resource.objects.create(name='first_resource')
+        value_1 = Value.objects.create()
+        value_1.name = 'Sanjana'
+        value_1.save()
+        relation = Relation.objects.create(source=resource_1, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value_1)
+        value_2 = Value.objects.create()
+        value_2.name = 'Vasudevan'
+        value_2.save()
+        relation = Relation.objects.create(source=resource_1, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value_2)
+        resource_2 = Resource.objects.create(name='second_resource')
+        value_3 = Value.objects.create()
+        value_3.name = 'Xiaomi'
+        value_3.save()
+        relation = Relation.objects.create(source=resource_2, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value_3)
+        value_4 = Value.objects.create()
+        value_4.name = 'Ned'
+        value_4.save()
+        relation = Relation.objects.create(source=resource_2, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value_4)
+        collection = Collection.objects.create(name='first_collection')
+        qs_resource = Resource.objects.all()
+        collection.native_resources.add(*qs_resource)
+        collection.save()
+
+
+        graph = operations.generate_graph_coauthor_data(collection)
+        self.assertEqual(nx.number_of_nodes(graph), 4, 'Node not added, number of nodes is %d, nodes are %s' % (nx.number_of_nodes(graph), nx.get_node_attributes(graph, 'name')))
+        self.assertEqual(nx.get_node_attributes(graph, 'name').values(), ['Sanjana', 'Vasudevan', 'Xiaomi', 'Ned'], 'Nodes not added to graph')
+        self.assertEqual(nx.edges(graph), [(value_1.id, value_2.id), (value_3.id, value_4.id)], 'The edges are %s' %nx.edges(graph))
+
+
+    def tearDown(self):
+        Resource.objects.all().delete()
+        Collection.objects.all().delete()

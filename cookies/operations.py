@@ -8,8 +8,10 @@ from cookies import authorization
 
 import jsonpickle, datetime, copy
 from itertools import groupby
+from itertools import combinations
 
 from cookies.exceptions import *
+import networkx as nx
 logger = settings.LOGGER
 
 
@@ -304,3 +306,34 @@ def isolate_conceptentity(instance):
 
         entities.append(clone)
     merge_conceptentities(entities, user=instance.created_by)
+
+
+def generate_graph_coauthor_data(collection):
+    """
+    Exports co-author data from a collection.
+
+    Parameters
+    -------------
+    collection : :class:`.Collection`
+        The :class:`.Collection` instance from which authors will be used to create a graph.
+
+    Returns
+    ---------
+    graph : A networkx graph that has nodes and edges of co-author data
+    """
+    graph = nx.Graph()
+
+    for resource in collection.native_resources.all():
+        # All authors associated with a resource are loaded from database
+        authors = resource.relations_from.prefetch_related('target').filter(predicate__uri="http://purl.org/net/biblio#authors")
+        edges = list(combinations([author.target.id for author in authors], 2))
+        graph.add_edges_from(edges)
+
+        if len(authors) == 1:
+            graph.add_node(author.target.id)
+
+        # Adding node attributes for a particular resource
+        for author in authors:
+            graph.node[author.target.id]['name'] = author.target.name
+
+    return graph

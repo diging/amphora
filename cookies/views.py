@@ -1205,36 +1205,19 @@ def export_coauthor_data(request, collection_id):
     except Collection.DoesNotExist:
         return HttpResponse('There is no collection with the given id', status=404)
 
-    # check if user has permission to view the collection
+    # Check if user has permission to view the collection
     if not authorization.check_authorization('view_collection', request.user, collection):
         return HttpResponse('You do not have permission to view this collection', status=401)
 
-    graph = nx.Graph()
 
-    for resource in collection.native_resources.all():
-        # all authors associated with a resource
-        relations = resource.relations_from.prefetch_related('predicate','target')
-        authors = []
-        for relation in relations:
-            if relation.predicate.name == 'Authors':
-                authors.append(relation)
+    graph = operations.generate_graph_coauthor_data(collection)
 
-        # adding nodes and node attribute for that resource
-        for author in authors:
-            graph.add_node(author.target.id)
-            graph.node[author.target.id]['name'] = author.target.name
-
-        # adding edges between authors of a resource
-        for i in range(0, len(authors)):
-            for j in range(i+1, len(authors)):
-                graph.add_edge(authors[i].target.id, authors[j].target.id)
-
-    # graphml file for user to download
+    # Graphml file for the user to download
     time_now = '{:%Y-%m-%d%H:%M:%S}'.format(datetime.datetime.now())
     file_name = collection.name + time_now + ".graphml"
-    nx.write_graphml(graph, file_name)
+    nx.write_graphml(graph, file_name.encode('utf-8'))
 
-    file = open(file_name, 'r')
+    file = open(file_name.encode('utf-8'), 'r')
     response = HttpResponse(file.read(), content_type='application/graphml')
     response['Content-Disposition'] = 'attachment; filename="%s"' %file_name
 
