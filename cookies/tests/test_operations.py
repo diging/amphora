@@ -272,69 +272,110 @@ class TestIsolationOperations(unittest.TestCase):
 
 
 class TestExportCoauthorData(unittest.TestCase):
+    """ Testing export_coauthor_data in operations module.
+        Takes :class: `.Collection` as input Parameter.
+        Returns a graph that has co-author data for all
+        :class: `.Resource` instances in a collection"""
+
     def test_collection_with_one_resource(self):
+        """ Collection has only one resource instance.
+        The nodes are authors of that resource.
+        Edges connect each node to the other. """
+
         resource = Resource.objects.create(name='first_resource')
-        value_1 = Value.objects.create()
-        value_1.name = 'Bradshaw'
-        value_1.save()
-        relation = Relation.objects.create(source=resource, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value_1)
-        value_2 = Value.objects.create()
-        value_2.name = 'Conan'
-        value_2.save()
-        relation = Relation.objects.create(source=resource, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value_2)
+        value_1 = ConceptEntity.objects.create(name='Bradshaw')
+        predicate_author = Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors")
+        relation = Relation.objects.create(source=resource, predicate=predicate_author, target=value_1)
+        value_2 = ConceptEntity.objects.create(name='Conan')
+        relation = Relation.objects.create(source=resource, predicate=predicate_author, target=value_2)
         collection = Collection.objects.create(name='first_collection')
         collection.native_resources.add(resource)
         collection.save()
 
         graph = operations.generate_graph_coauthor_data(collection)
-        self.assertEqual(nx.number_of_nodes(graph), 2, 'Node not added, number of nodes is %d' %nx.number_of_nodes(graph))
-        self.assertEqual(nx.get_node_attributes(graph, 'name').values(), ['Bradshaw', 'Conan'], 'Nodes not added to graph')
-        self.assertEqual(nx.edges(graph), [(value_1.id, value_2.id)], 'The edges are %s' %nx.edges(graph))
+        self.assertEqual(graph.order(), 2, 'Since there are two authors in the Collection,'
+                         'there should be two nodes in the graph')
+        self.assertEqual(set(nx.get_node_attributes(graph, 'name').values()), set(['Bradshaw', 'Conan']),
+                         'The nodes do not match with the authors in the Collection')
+        self.assertTrue(graph.has_edge(value_1.id, value_2.id), 'Since the authors are of the same resource,'
+                        'there should be an edge between them')
 
     def test_collection_with_one_author(self):
+        """ Collection has only one resource instance
+        and one author for that resource.
+        The graph has only one node and no edges. """
+
         resource = Resource.objects.create(name='first_resource')
-        value = Value.objects.create()
-        value.name = 'Bradshaw'
-        value.save()
-        relation = Relation.objects.create(source=resource, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value)
+        value = ConceptEntity.objects.create(name='Bradshaw')
+        predicate_author = Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors")
+        relation = Relation.objects.create(source=resource, predicate=predicate_author, target=value)
         collection = Collection.objects.create(name='first_collection')
         collection.native_resources.add(resource)
         collection.save()
 
         graph = operations.generate_graph_coauthor_data(collection)
-        self.assertEqual(nx.number_of_nodes(graph), 1, 'Node not added, number of nodes is %d' %nx.number_of_nodes(graph))
-        self.assertEqual(nx.get_node_attributes(graph, 'name').values(), ['Bradshaw'], 'Node not added to graph')
-        self.assertEqual(nx.number_of_edges(graph), 0, 'The edges are %s' %nx.edges(graph))
+        self.assertEqual(graph.order(), 1, 'Since there is one author in the resource,'
+                         'there should be one node in the graph')
+        self.assertEqual(nx.get_node_attributes(graph, 'name').values(), ['Bradshaw'],
+                         'The node does not match with the author in the resource')
+        self.assertEqual(graph.size(), 0, 'Since there is only one resource,'
+                         'there should be no edges in the graph')
 
     def test_collection_with_resources(self):
+        """ Collection has two resource instances
+        The nodes are all the authors of the resources.
+        The edges are between the authors of the same resource. """
+
         resource_1 = Resource.objects.create(name='first_resource')
-        value_1 = Value.objects.create()
-        value_1.name = 'Sanjana'
-        value_1.save()
-        relation = Relation.objects.create(source=resource_1, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value_1)
-        value_2 = Value.objects.create()
-        value_2.name = 'Vasudevan'
-        value_2.save()
-        relation = Relation.objects.create(source=resource_1, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value_2)
-        resource_2 = Resource.objects.create(name='second_resource')
-        value_3 = Value.objects.create()
-        value_3.name = 'Xiaomi'
-        value_3.save()
-        relation = Relation.objects.create(source=resource_2, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value_3)
-        value_4 = Value.objects.create()
-        value_4.name = 'Ned'
-        value_4.save()
-        relation = Relation.objects.create(source=resource_2, predicate=Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors"), target=value_4)
+        predicate_author = Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors")
+        value_1 = ConceptEntity.objects.create(name='Bradshaw')
+        relation = Relation.objects.create(source=resource_1, predicate=predicate_author, target=value_1)
+        value_2 = ConceptEntity.objects.create(name='Conan')
+        relation = Relation.objects.create(source=resource_1, predicate=predicate_author, target=value_2)
         collection = Collection.objects.create(name='first_collection')
-        qs_resource = Resource.objects.all()
-        collection.native_resources.add(*qs_resource)
+        collection.native_resources.add(resource_1)
+        collection.save()
+        resource_2 = Resource.objects.create(name='second_resource')
+        value_3 = ConceptEntity.objects.create(name='Xiaomi')
+        relation = Relation.objects.create(source=resource_2, predicate=predicate_author, target=value_3)
+        value_4 = ConceptEntity.objects.create(name='Ned')
+        relation = Relation.objects.create(source=resource_2, predicate=predicate_author, target=value_4)
+        collection.native_resources.add(resource_2)
         collection.save()
 
 
         graph = operations.generate_graph_coauthor_data(collection)
-        self.assertEqual(nx.number_of_nodes(graph), 4, 'Node not added, number of nodes is %d, nodes are %s' % (nx.number_of_nodes(graph), nx.get_node_attributes(graph, 'name')))
-        self.assertEqual(nx.get_node_attributes(graph, 'name').values(), ['Sanjana', 'Vasudevan', 'Xiaomi', 'Ned'], 'Nodes not added to graph')
-        self.assertEqual(nx.edges(graph), [(value_1.id, value_2.id), (value_3.id, value_4.id)], 'The edges are %s' %nx.edges(graph))
+        self.assertEqual(graph.order(), 4, 'Since there are four authors in the Collection, there should be four'
+                         'unique nodes in the resulting graph.')
+        self.assertEqual(set(nx.get_node_attributes(graph, 'name').values()),
+                         set(['Bradshaw', 'Conan', 'Xiaomi', 'Ned']),
+                         'The nodes do not match with the authors in the Collection')
+        self.assertTrue(graph.has_edge(value_1.id, value_2.id),
+                        'There is no edge between the authors in the first resource')
+        self.assertTrue(graph.has_edge(value_3.id, value_4.id),
+                        'There is no edge between the authors in the second resource')
+
+    def test_collection_with_no_resource(self):
+        """ Collection has no resource instance
+        The graph has no node and no edges. """
+
+        collection = Collection.objects.create(name='first_collection')
+
+        graph = operations.generate_graph_coauthor_data(collection)
+        self.assertEqual(graph.order(), 0, 'Since there are no resources,'
+                         'graph should be empty but has %d nodes' %graph.order())
+
+    def test_collection_with_no_author_relations(self):
+        """ Collection has no author relations.
+        The graph has no node and no edges. """
+
+        resource = Resource.objects.create(name='first_resource')
+        collection = Collection.objects.create(name='first_collection')
+        collection.native_resources.add(resource)
+        collection.save()
+
+        graph = operations.generate_graph_coauthor_data(collection)
+        self.assertEqual(graph.order(), 0, 'Since there are no author relations, graph should be empty but has %d nodes' %graph.order())
 
 
     def tearDown(self):

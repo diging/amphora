@@ -1212,6 +1212,9 @@ def export_coauthor_data(request, collection_id):
 
     graph = operations.generate_graph_coauthor_data(collection)
 
+    if graph.order() == 0:
+        return HttpResponse('The collection has no co author data to export', status=404)
+
     # Graphml file for the user to download
     time_now = '{:%Y-%m-%d%H:%M:%S}'.format(datetime.datetime.now())
     file_name = collection.name + time_now + ".graphml"
