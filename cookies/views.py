@@ -1209,11 +1209,14 @@ def export_coauthor_data(request, collection_id):
     if not authorization.check_authorization('view_collection', request.user, collection):
         return HttpResponse('You do not have permission to view this collection', status=401)
 
-
-    graph = operations.generate_graph_coauthor_data(collection)
+    try:
+        graph = operations.generate_graph_coauthor_data(collection)
+    except RuntimeError:
+        return HttpResponse('Invalid collection given to export co-author data', status=404)
 
     if graph.order() == 0:
-        return HttpResponse('The collection has no co author data to export', status=404)
+        return HttpResponse('There are no author relations in the collection to\
+                            extract co-author data', status=200)
 
     # Graphml file for the user to download
     time_now = '{:%Y-%m-%d%H:%M:%S}'.format(datetime.datetime.now())

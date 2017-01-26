@@ -323,13 +323,27 @@ def generate_graph_coauthor_data(collection):
     """
     graph = nx.Graph()
 
+    if not isinstance(collection, Collection):
+        raise RuntimeError("Invalid collection to export co-author data from")
+
     for resource in collection.native_resources.all():
         # All authors associated with a resource are loaded from database
         authors = resource.relations_from.prefetch_related('target').filter(predicate__uri="http://purl.org/net/biblio#authors")
-        edges = list(combinations([author.target.id for author in authors], 2))
-        graph.add_edges_from(edges)
 
-        if len(authors) == 1:
+        # Removing duplicate ConceptEntity instances from a resource
+        author_ids = []
+        for author in authors:
+            if author.target.id not in author_ids:
+                author_ids.append(author.target.id)
+        edges = list(combinations(author_ids, 2))
+
+        for edge in edges:
+            if edge not in graph.edges():
+                graph.add_edge(edge[0], edge[1], number_of_resources=1)
+            else:
+                graph[edge[0]][edge[1]]['number_of_resources'] = graph[edge[0]][edge[1]]['number_of_resources']  + 1
+
+        if len(author_ids) == 1:
             graph.add_node(author.target.id)
 
         # Adding node attributes for a particular resource
