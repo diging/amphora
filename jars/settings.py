@@ -180,7 +180,7 @@ FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'uploads')
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend', # default
     'guardian.backends.ObjectPermissionBackend',
-    'social.backends.github.GithubOAuth2',
+    'social_core.backends.github.GithubOAuth2',
 )
 ANONYMOUS_USER_ID = -1
 
