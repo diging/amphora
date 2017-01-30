@@ -277,8 +277,8 @@ class TestExportCoauthorData(unittest.TestCase):
     operations module.
 
     The function takes :class:`.Collection` as input parameter. It returns a
-    graph that has co-author data for all :class:`.Resource` instances in a
-    collection.
+    :class:`networkx.Graph` instance that has co-author data for all
+    :class:`.Resource` instances in a collection.
     """
 
     def setUp(self):

@@ -10,7 +10,7 @@ from django.conf import settings
 from cookies import giles
 from cookies.models import *
 
-from social.apps.django_app.default.models import UserSocialAuth
+from social_django.models import UserSocialAuth
 
 import unittest, mock, json, os
 from collections import Counter

@@ -4,7 +4,7 @@ from rest_framework import HTTP_HEADER_ENCODING, exceptions
 import requests
 from requests.auth import HTTPBasicAuth
 from cookies.models import *
-from social.apps.django_app.default.models import UserSocialAuth
+from social_django.models import UserSocialAuth
 from django.conf import settings
 from rest_framework.authentication import BaseAuthentication, get_authorization_header
 logger = settings.LOGGER
