@@ -12,6 +12,7 @@ from itertools import combinations
 
 from cookies.exceptions import *
 import networkx as nx
+from collections import Counter
 logger = settings.LOGGER
 
 
@@ -308,46 +309,83 @@ def isolate_conceptentity(instance):
     merge_conceptentities(entities, user=instance.created_by)
 
 
-def generate_graph_coauthor_data(collection):
+def generate_collection_coauthor_graph(collection,
+                                       author_predicate_uri="http://purl.org/net/biblio#authors"):
     """
-    Exports co-author data from a collection.
+    Create a graph describing co-occurrences of :class:`.ConceptEntity` instances
+    linked to individual :class:`.Resource` instances via an authorship
+    :class:`.Relation` instance.
 
     Parameters
-    -------------
+    ----------
     collection : :class:`.Collection`
-        The :class:`.Collection` instance from which authors will be used to create a graph.
+    author_predicate_uri : str
+        Defaults to the Biblio #authors predicate. This is the predicate that will be used to
+        identify author :class:`.Relation` instances.
 
     Returns
-    ---------
-    graph : A networkx graph that has nodes and edges of co-author data
+    -------
+    :class:`networkx.Graph`
+        Nodes will be :class:`.ConceptEntity` PK ids (int), edges will indicate co-authorship;
+        each edge should have a ``weight`` attribute indicatingg the number of :class:`.Resource`
+        instances on which the pair of CEs are co-located.
     """
-    graph = nx.Graph()
 
+    # This is a check to see if the collection parameter is an instance of the
+    #  :class:`.Collection`. If it is not a RuntimeError exception is raised.
     if not isinstance(collection, Collection):
         raise RuntimeError("Invalid collection to export co-author data from")
 
-    for resource in collection.native_resources.all():
-        # All authors associated with a resource are loaded from database
-        authors = resource.relations_from.prefetch_related('target').filter(predicate__uri="http://purl.org/net/biblio#authors")
+    resource_type_id = ContentType.objects.get_for_model(Resource).id
 
-        # Removing duplicate ConceptEntity instances from a resource
-        author_ids = []
-        for author in authors:
-            if author.target.id not in author_ids:
-                author_ids.append(author.target.id)
-        edges = list(combinations(author_ids, 2))
+    # This will hold node attributes for all ConceptEntity instances across the
+    #  entire collection.
+    node_labels = {}
+    node_uris = {}
 
-        for edge in edges:
-            if edge not in graph.edges():
-                graph.add_edge(edge[0], edge[1], number_of_resources=1)
-            else:
-                graph[edge[0]][edge[1]]['number_of_resources'] = graph[edge[0]][edge[1]]['number_of_resources']  + 1
+    # Since a particular pair of ConceptEntity instances may co-occur on more
+    #  than one Resource in this Collection, we compile the number of co-occurrences
+    #  prior to building the networkx Graph object.
+    edges = Counter()
 
-        if len(author_ids) == 1:
-            graph.add_node(author.target.id)
+    # The co-occurrence graph will be comprised of ConceptEntity instances (identified
+    #  by their PK ids. An edge between two nodes indicates that the two constituent
+    #  CEs occur together on the same Resource (with an author Relation). A ``weight``
+    #  attribute on each edge will record the number of Resource instances on which
+    #  each respective pair of CEs co-occur.
+    for resource_id in collection.native_resources.values_list('id', flat=True):
+        # We only need a few columns from the ConceptEntity table, from rows referenced
+        #  by responding Relations.
+        author_relations = Relation.objects\
+                .filter(source_type_id=resource_type_id, source_instance_id=resource_id)\
+                .filter(predicate__uri=author_predicate_uri)\
+                .prefetch_related('target')
 
-        # Adding node attributes for a particular resource
-        for author in authors:
-            graph.node[author.target.id]['name'] = author.target.name
+        # If there are no author relations, there are no nodes to be created for the resource.
+        if len(author_relations) > 1:
+            ids, labels, uris = zip(*((x.target.id, x.target.name, x.target.uri) for x in author_relations))
+        else:
+            ids = labels = uris = ()
+
+        # It doesn't matter if we overwrite node attribute values, since they never change.
+        node_labels.update(dict(zip(ids, labels)))
+        node_uris.update(dict(zip(ids, uris)))
+
+        # The keys here are ConceptEntity PK ids, which will be the primary identifiers
+        #  used in the graph.
+        for edge in combinations(node_labels.keys(), 2):
+            edges[edge] += 1
+
+    # Instantiate the Graph from the edge data generated above.
+    graph = nx.Graph()
+    for (u, v), weight in edges.iteritems():
+        graph.add_edge(u, v, weight=weight)
+
+    # This is more efficient than setting the node attribute as we go along.
+    #  If there is only one author, there is no need to set node attributes as
+    #  there is no co-authorship for that Collection.
+    if len(node_labels.keys()) > 1:
+        nx.set_node_attributes(graph, 'label', node_labels)
+        nx.set_node_attributes(graph, 'uri', node_uris)
 
     return graph

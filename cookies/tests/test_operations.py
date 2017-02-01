@@ -273,8 +273,8 @@ class TestIsolationOperations(unittest.TestCase):
 
 class TestExportCoauthorData(unittest.TestCase):
     """
-    Class contains unit test cases for :func:`export_coauthor_data` in
-    operations module.
+    Class contains unit test cases for :func:`generate_collection_coauthor_graph`
+    in operations module.
 
     The function takes :class:`.Collection` as input parameter. It returns a
     :class:`networkx.Graph` instance that has co-author data for all
@@ -304,14 +304,14 @@ class TestExportCoauthorData(unittest.TestCase):
         collection.native_resources.add(resource)
         collection.save()
 
-        graph = operations.generate_graph_coauthor_data(collection)
+        graph = operations.generate_collection_coauthor_graph(collection)
         self.assertIsInstance(graph, nx.classes.graph.Graph)
         self.assertEqual(graph.order(), 2,
                          "Since there are two authors in the Collection,"
                          " there should be two nodes in the graph")
-        self.assertEqual(set(nx.get_node_attributes(graph, 'name').values()),
+        self.assertEqual(set(nx.get_node_attributes(graph, 'label').values()),
                          set(['Bradshaw', 'Conan']),
-                         "Each node should have a 'name' attribute, the value"
+                         "Each node should have a 'label' attribute, the value"
                          " of which should correspond to the ``name`` property"
                          " of the ``ConceptEntity`` that it represents.")
         self.assertTrue(graph.has_edge(author_1.id, author_2.id),
@@ -335,14 +335,11 @@ class TestExportCoauthorData(unittest.TestCase):
         collection.native_resources.add(resource)
         collection.save()
 
-        graph = operations.generate_graph_coauthor_data(collection)
-        self.assertEqual(graph.order(), 1,
+        graph = operations.generate_collection_coauthor_graph(collection)
+        self.assertEqual(graph.order(), 0,
                          "Since there is one author in the only resource in the"
-                         " collection, there should be one node in the graph")
-        self.assertEqual(nx.get_node_attributes(graph, 'name').values(), ['Bradshaw'],
-                         "The node in the graph has a 'name' attribute that"
-                         " should correspond to the ``name`` property of the"
-                         " ``ConceptEntity`` that it represents")
+                         " collection, there should be no nodes in the graph"
+                         " indicating no co-authorship")
         self.assertEqual(graph.size(), 0,
                          "Since there is only one author relation in the"
                          " resource instance for that collection, there should"
@@ -378,13 +375,13 @@ class TestExportCoauthorData(unittest.TestCase):
         collection.save()
 
 
-        graph = operations.generate_graph_coauthor_data(collection)
+        graph = operations.generate_collection_coauthor_graph(collection)
         self.assertEqual(graph.order(), 4,
                          "Since there are four authors in the collection, there"
                          " should be four unique nodes in the resulting graph.")
-        self.assertEqual(set(nx.get_node_attributes(graph, 'name').values()),
+        self.assertEqual(set(nx.get_node_attributes(graph, 'label').values()),
                          set(['Bradshaw', 'Conan', 'Xiaomi', 'Ned']),
-                         "The nodes in the graph have a 'name' attribute that"
+                         "The nodes in the graph have a 'label' attribute that"
                          " should match with the ``name`` property of the"
                          " ``ConceptEntity`` that it reperesents")
         self.assertTrue(graph.has_edge(author_1.id, author_2.id),
@@ -404,7 +401,7 @@ class TestExportCoauthorData(unittest.TestCase):
 
         collection = Collection.objects.create(name='first_collection')
 
-        graph = operations.generate_graph_coauthor_data(collection)
+        graph = operations.generate_collection_coauthor_graph(collection)
         self.assertEqual(graph.order(), 0,
                          "Since there are no resources in the collection,"
                          " graph should be empty but has %d nodes" %graph.order())
@@ -422,7 +419,7 @@ class TestExportCoauthorData(unittest.TestCase):
         collection.native_resources.add(resource)
         collection.save()
 
-        graph = operations.generate_graph_coauthor_data(collection)
+        graph = operations.generate_collection_coauthor_graph(collection)
         self.assertEqual(graph.order(), 0,
                          "Since there are no author relations in any of the"
                          " resources in the collection, graph should be empty"
@@ -459,22 +456,22 @@ class TestExportCoauthorData(unittest.TestCase):
         collection.save()
 
 
-        graph = operations.generate_graph_coauthor_data(collection)
-        names = nx.get_node_attributes(graph, 'name')
+        graph = operations.generate_collection_coauthor_graph(collection)
+        names = nx.get_node_attributes(graph, 'label')
         self.assertEqual(author_1.name, names[author_1.id],
-                         "The node and node attribute 'name' should correspond"
+                         "The node and node attribute 'label' should correspond"
                          " to the ``id`` and ``name`` property of the"
                          " ``ConceptEntity`` that it represents")
         self.assertEqual(author_2.name, names[author_2.id],
-                         "The node and node attribute 'name' should correspond"
+                         "The node and node attribute 'label' should correspond"
                          " to the ``id`` and ``name`` property of the"
                          " ``ConceptEntity`` that it represents")
         self.assertEqual(author_3.name, names[author_3.id],
-                         "The node and node attribute 'name' should correspond"
+                         "The node and node attribute 'label' should correspond"
                          " to the ``id`` and ``name`` property of the"
                          " ``ConceptEntity`` that it represents")
         self.assertEqual(author_4.name, names[author_4.id],
-                         "The node and node attribute 'name' should correspond"
+                         "The node and node attribute 'label' should correspond"
                          " to the ``id`` and ``name`` property of the"
                          " ``ConceptEntity`` that it represents")
 
@@ -492,23 +489,17 @@ class TestExportCoauthorData(unittest.TestCase):
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource,
                                 predicate=self.author_predicate, target=author_1)
-        author_2 = author_1
         Relation.objects.create(source=resource,
-                                predicate=self.author_predicate, target=author_2)
+                                predicate=self.author_predicate, target=author_1)
         collection = Collection.objects.create(name='first_collection')
         collection.native_resources.add(resource)
         collection.save()
 
-        graph = operations.generate_graph_coauthor_data(collection)
-        self.assertEqual(graph.order(), 1,
+        graph = operations.generate_collection_coauthor_graph(collection)
+        self.assertEqual(graph.order(), 0,
                          "Since there are two authors in the Collection with"
-                         " the same ConceptEntity instance, only one node is"
-                         " created in the graph")
-        self.assertEqual(set(nx.get_node_attributes(graph, 'name').values()),
-                         set(['Bradshaw']),
-                         "Each node should have a 'name' attribute, the value"
-                         " of which should correspond to the ``name`` property"
-                         " of the ``ConceptEntity`` that it represents.")
+                         " the same ConceptEntity instance, no node is created"
+                         " as there is no co-authorship in the graph")
         self.assertEqual(graph.size(), 0,
                         "Since there is only one ConceptEntity instance, there"
                         " there should be no edges between them")
@@ -534,12 +525,10 @@ class TestExportCoauthorData(unittest.TestCase):
         collection.native_resources.add(resource_1)
         collection.save()
         resource_2 = Resource.objects.create(name='second_resource')
-        author_3 = author_1
         Relation.objects.create(source=resource_2,
-                                predicate=self.author_predicate, target=author_3)
-        author_4 = author_2
+                                predicate=self.author_predicate, target=author_1)
         Relation.objects.create(source=resource_2,
-                                predicate=self.author_predicate, target=author_4)
+                                predicate=self.author_predicate, target=author_2)
         author_5 = ConceptEntity.objects.create(name='Xiaomi')
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate, target=author_5)
@@ -549,12 +538,12 @@ class TestExportCoauthorData(unittest.TestCase):
         collection.native_resources.add(resource_2)
         collection.save()
 
-        graph = operations.generate_graph_coauthor_data(collection)
-        self.assertEqual(graph[author_1.id][author_2.id]['number_of_resources'], 2,
+        graph = operations.generate_collection_coauthor_graph(collection)
+        self.assertEqual(graph[author_1.id][author_2.id]['weight'], 2,
                          "Since the ConceptEntity instances are authors in two"
                          " resources of the collection, the 'number_of_resources'"
                          " edge attribute should be 2")
-        self.assertEqual(graph[author_5.id][author_6.id]['number_of_resources'], 1,
+        self.assertEqual(graph[author_5.id][author_6.id]['weight'], 1,
                          "Since the ConceptEntity instances are authors in only"
                          " one resource of the collection, the"
                          " 'number_of_resources' edge attribute should be 1")
@@ -568,8 +557,9 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         collection = Resource.objects.create(name='first_resource')
-        self.assertRaises(RuntimeError, operations.generate_graph_coauthor_data, collection)
+        self.assertRaises(RuntimeError, operations.generate_collection_coauthor_graph, collection)
 
     def tearDown(self):
         Resource.objects.all().delete()
         Collection.objects.all().delete()
+        Relation.objects.all().delete()

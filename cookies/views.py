@@ -1210,7 +1210,7 @@ def export_coauthor_data(request, collection_id):
         return HttpResponse('You do not have permission to view this collection', status=401)
 
     try:
-        graph = operations.generate_graph_coauthor_data(collection)
+        graph = operations.generate_collection_coauthor_graph(collection)
     except RuntimeError:
         return HttpResponse('Invalid collection given to export co-author data', status=404)
 
