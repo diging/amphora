@@ -4,6 +4,7 @@
 from django.contrib.contenttypes.models import ContentType
 
 import unittest, mock, json, os
+import networkx as nx
 
 os.environ.setdefault('LOGLEVEL', 'ERROR')
 
@@ -268,3 +269,297 @@ class TestIsolationOperations(unittest.TestCase):
 
         instance = ConceptEntity.objects.create(name='TestEntity', created_by=u)
         operations.isolate_conceptentity(instance)
+
+
+class TestExportCoauthorData(unittest.TestCase):
+    """
+    Class contains unit test cases for :func:`generate_collection_coauthor_graph`
+    in operations module.
+
+    The function takes :class:`.Collection` as input parameter. It returns a
+    :class:`networkx.Graph` instance that has co-author data for all
+    :class:`.Resource` instances in a collection.
+    """
+
+    def setUp(self):
+        self.author_predicate = Field.objects.create(name='Authors', uri="http://purl.org/net/biblio#authors")
+
+    def test_collection_with_one_resource(self):
+        """
+        This is a test case for a :class:`.Collection` that has only one
+        :class:`.Resource` instance.
+
+        The nodes are authors of that resource. Edges connect each node to the
+        other as all are co-authors of the same resource.
+        """
+
+        resource = Resource.objects.create(name='first_resource')
+        author_1 = ConceptEntity.objects.create(name='Bradshaw')
+        Relation.objects.create(source=resource,
+                                predicate=self.author_predicate, target=author_1)
+        author_2 = ConceptEntity.objects.create(name='Conan')
+        Relation.objects.create(source=resource,
+                                predicate=self.author_predicate, target=author_2)
+        collection = Collection.objects.create(name='first_collection')
+        collection.native_resources.add(resource)
+        collection.save()
+
+        graph = operations.generate_collection_coauthor_graph(collection)
+        self.assertIsInstance(graph, nx.classes.graph.Graph)
+        self.assertEqual(graph.order(), 2,
+                         "Since there are two authors in the Collection,"
+                         " there should be two nodes in the graph")
+        self.assertEqual(set(nx.get_node_attributes(graph, 'label').values()),
+                         set(['Bradshaw', 'Conan']),
+                         "Each node should have a 'label' attribute, the value"
+                         " of which should correspond to the ``name`` property"
+                         " of the ``ConceptEntity`` that it represents.")
+        self.assertTrue(graph.has_edge(author_1.id, author_2.id),
+                        "Since the authors are of the same resource in the Collection,"
+                        " there should be an edge between them")
+
+    def test_collection_with_one_author(self):
+        """
+        This is a test case for a :class:`.Collection` that has only one
+        :class:`.Resource` instance and one author relation for that resource.
+
+        The resultant graph has only one node of that author and no edges as
+        there are no co-authors.
+        """
+
+        resource = Resource.objects.create(name='first_resource')
+        author = ConceptEntity.objects.create(name='Bradshaw')
+        Relation.objects.create(source=resource,
+                                predicate=self.author_predicate, target=author)
+        collection = Collection.objects.create(name='first_collection')
+        collection.native_resources.add(resource)
+        collection.save()
+
+        graph = operations.generate_collection_coauthor_graph(collection)
+        self.assertEqual(graph.order(), 0,
+                         "Since there is one author in the only resource in the"
+                         " collection, there should be no nodes in the graph"
+                         " indicating no co-authorship")
+        self.assertEqual(graph.size(), 0,
+                         "Since there is only one author relation in the"
+                         " resource instance for that collection, there should"
+                         " be no edges in the graph")
+
+    def test_collection_with_resources(self):
+        """
+        This is a test case for a :class:`.Collection` that has two
+        :class:`.Resource` instances.
+
+        The nodes are all the authors of the resources.
+        The edges are between the authors of the same resource.
+        """
+
+        resource_1 = Resource.objects.create(name='first_resource')
+        author_1 = ConceptEntity.objects.create(name='Bradshaw')
+        Relation.objects.create(source=resource_1,
+                                predicate=self.author_predicate, target=author_1)
+        author_2 = ConceptEntity.objects.create(name='Conan')
+        Relation.objects.create(source=resource_1,
+                                predicate=self.author_predicate, target=author_2)
+        collection = Collection.objects.create(name='first_collection')
+        collection.native_resources.add(resource_1)
+        collection.save()
+        resource_2 = Resource.objects.create(name='second_resource')
+        author_3 = ConceptEntity.objects.create(name='Xiaomi')
+        Relation.objects.create(source=resource_2,
+                                predicate=self.author_predicate, target=author_3)
+        author_4 = ConceptEntity.objects.create(name='Ned')
+        Relation.objects.create(source=resource_2,
+                                predicate=self.author_predicate, target=author_4)
+        collection.native_resources.add(resource_2)
+        collection.save()
+
+
+        graph = operations.generate_collection_coauthor_graph(collection)
+        self.assertEqual(graph.order(), 4,
+                         "Since there are four authors in the collection, there"
+                         " should be four unique nodes in the resulting graph.")
+        self.assertEqual(set(nx.get_node_attributes(graph, 'label').values()),
+                         set(['Bradshaw', 'Conan', 'Xiaomi', 'Ned']),
+                         "The nodes in the graph have a 'label' attribute that"
+                         " should match with the ``name`` property of the"
+                         " ``ConceptEntity`` that it reperesents")
+        self.assertTrue(graph.has_edge(author_1.id, author_2.id),
+                        "The authors in the first resource should have an"
+                        " edge between them as they are co-authors for that resource")
+        self.assertTrue(graph.has_edge(author_3.id, author_4.id),
+                        "The authors in the second resource should have an"
+                        " edge between them as they are co-authors for that resource")
+
+    def test_collection_with_no_resource(self):
+        """
+        This is a test case for a :class:`.Collection` that has no
+        :class:`.Resource` instance.
+
+        The resultant graph is an empty graph that has no nodes and no edges.
+        """
+
+        collection = Collection.objects.create(name='first_collection')
+
+        graph = operations.generate_collection_coauthor_graph(collection)
+        self.assertEqual(graph.order(), 0,
+                         "Since there are no resources in the collection,"
+                         " graph should be empty but has %d nodes" %graph.order())
+
+    def test_collection_with_no_author_relations(self):
+        """
+        This is a test case for a :class:`.Collection` that contains
+        :class:`.Resource` instances that have no author relations.
+
+        The resultant graph is an empty graph that has no nodes and no edges.
+        """
+
+        resource = Resource.objects.create(name='first_resource')
+        collection = Collection.objects.create(name='first_collection')
+        collection.native_resources.add(resource)
+        collection.save()
+
+        graph = operations.generate_collection_coauthor_graph(collection)
+        self.assertEqual(graph.order(), 0,
+                         "Since there are no author relations in any of the"
+                         " resources in the collection, graph should be empty"
+                         " but has %d nodes" %graph.order())
+
+    def test_node_matches_node_attribute(self):
+        """
+        This is a test case to check if each node of the graph has the 'name'
+        attribute that corresponds to the name property of the
+        :class:`.ConceptEntity` instance.
+
+        The nodes are all the authors of the resources.
+        The edges are between the authors of the same resource.
+        """
+
+        resource_1 = Resource.objects.create(name='first_resource')
+        author_1 = ConceptEntity.objects.create(name='Bradshaw')
+        Relation.objects.create(source=resource_1,
+                                predicate=self.author_predicate, target=author_1)
+        author_2 = ConceptEntity.objects.create(name='Conan')
+        Relation.objects.create(source=resource_1,
+                                predicate=self.author_predicate, target=author_2)
+        collection = Collection.objects.create(name='first_collection')
+        collection.native_resources.add(resource_1)
+        collection.save()
+        resource_2 = Resource.objects.create(name='second_resource')
+        author_3 = ConceptEntity.objects.create(name='Xiaomi')
+        Relation.objects.create(source=resource_2,
+                                predicate=self.author_predicate, target=author_3)
+        author_4 = ConceptEntity.objects.create(name='Ned')
+        Relation.objects.create(source=resource_2,
+                                predicate=self.author_predicate, target=author_4)
+        collection.native_resources.add(resource_2)
+        collection.save()
+
+
+        graph = operations.generate_collection_coauthor_graph(collection)
+        names = nx.get_node_attributes(graph, 'label')
+        self.assertEqual(author_1.name, names[author_1.id],
+                         "The node and node attribute 'label' should correspond"
+                         " to the ``id`` and ``name`` property of the"
+                         " ``ConceptEntity`` that it represents")
+        self.assertEqual(author_2.name, names[author_2.id],
+                         "The node and node attribute 'label' should correspond"
+                         " to the ``id`` and ``name`` property of the"
+                         " ``ConceptEntity`` that it represents")
+        self.assertEqual(author_3.name, names[author_3.id],
+                         "The node and node attribute 'label' should correspond"
+                         " to the ``id`` and ``name`` property of the"
+                         " ``ConceptEntity`` that it represents")
+        self.assertEqual(author_4.name, names[author_4.id],
+                         "The node and node attribute 'label' should correspond"
+                         " to the ``id`` and ``name`` property of the"
+                         " ``ConceptEntity`` that it represents")
+
+    def test_author_relations_with_same_conceptentity(self):
+        """
+        This is a test case for a :class:`.Collection` that has only one
+        :class:`.Resource` instance with mulitple author relations pointing to
+        the same :class:`.ConceptEntity` instance.
+
+        There is only node corresponding to the ConceptEntity of that resource.
+        There are no edges as there is only one ConceptEntity instance.
+        """
+
+        resource = Resource.objects.create(name='first_resource')
+        author_1 = ConceptEntity.objects.create(name='Bradshaw')
+        Relation.objects.create(source=resource,
+                                predicate=self.author_predicate, target=author_1)
+        Relation.objects.create(source=resource,
+                                predicate=self.author_predicate, target=author_1)
+        collection = Collection.objects.create(name='first_collection')
+        collection.native_resources.add(resource)
+        collection.save()
+
+        graph = operations.generate_collection_coauthor_graph(collection)
+        self.assertEqual(graph.order(), 0,
+                         "Since there are two authors in the Collection with"
+                         " the same ConceptEntity instance, no node is created"
+                         " as there is no co-authorship in the graph")
+        self.assertEqual(graph.size(), 0,
+                        "Since there is only one ConceptEntity instance, there"
+                        " there should be no edges between them")
+
+    def test_edge_attribute(self):
+        """
+        This is a test case to check if each edge of the graph has the
+        'number_of_resources' attribute that corresponds to the number of
+        resources the :class:`.ConceptEntity` instances have co-authored.
+
+        The nodes are all the authors of the resources.
+        The edges are between the authors of the same resource.
+        """
+
+        resource_1 = Resource.objects.create(name='first_resource')
+        author_1 = ConceptEntity.objects.create(name='Bradshaw')
+        Relation.objects.create(source=resource_1,
+                                predicate=self.author_predicate, target=author_1)
+        author_2 = ConceptEntity.objects.create(name='Conan')
+        Relation.objects.create(source=resource_1,
+                                predicate=self.author_predicate, target=author_2)
+        collection = Collection.objects.create(name='first_collection')
+        collection.native_resources.add(resource_1)
+        collection.save()
+        resource_2 = Resource.objects.create(name='second_resource')
+        Relation.objects.create(source=resource_2,
+                                predicate=self.author_predicate, target=author_1)
+        Relation.objects.create(source=resource_2,
+                                predicate=self.author_predicate, target=author_2)
+        author_5 = ConceptEntity.objects.create(name='Xiaomi')
+        Relation.objects.create(source=resource_2,
+                                predicate=self.author_predicate, target=author_5)
+        author_6 = ConceptEntity.objects.create(name='Ned')
+        Relation.objects.create(source=resource_2,
+                                predicate=self.author_predicate, target=author_6)
+        collection.native_resources.add(resource_2)
+        collection.save()
+
+        graph = operations.generate_collection_coauthor_graph(collection)
+        self.assertEqual(graph[author_1.id][author_2.id]['weight'], 2,
+                         "Since the ConceptEntity instances are authors in two"
+                         " resources of the collection, the 'number_of_resources'"
+                         " edge attribute should be 2")
+        self.assertEqual(graph[author_5.id][author_6.id]['weight'], 1,
+                         "Since the ConceptEntity instances are authors in only"
+                         " one resource of the collection, the"
+                         " 'number_of_resources' edge attribute should be 1")
+
+    def test_invalid_collection(self):
+        """
+        This is a test case to check if :func:`generate_graph_coauthor_data`
+        raises an exception for an invalid :class:`.Collection` instance.
+
+        A RuntimeError is thrown from the function.
+        """
+
+        collection = Resource.objects.create(name='first_resource')
+        self.assertRaises(RuntimeError, operations.generate_collection_coauthor_graph, collection)
+
+    def tearDown(self):
+        Resource.objects.all().delete()
+        Collection.objects.all().delete()
+        Relation.objects.all().delete()

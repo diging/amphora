@@ -126,4 +126,6 @@
     <a class="btn btn-success" href="{% url "create-collection" %}?parent_collection={{ collection.id }}">Create a sub collection</a>
 </div>
 
+<div class="text-center">
+  <a class="btn btn-success" href="{% url "export-coauthor-data" collection.id %}">Export co-author data</a>
 {% endblock %}

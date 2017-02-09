@@ -8,8 +8,11 @@ from cookies import authorization
 
 import jsonpickle, datetime, copy
 from itertools import groupby
+from itertools import combinations
 
 from cookies.exceptions import *
+import networkx as nx
+from collections import Counter
 logger = settings.LOGGER
 
 
@@ -304,3 +307,85 @@ def isolate_conceptentity(instance):
 
         entities.append(clone)
     merge_conceptentities(entities, user=instance.created_by)
+
+
+def generate_collection_coauthor_graph(collection,
+                                       author_predicate_uri="http://purl.org/net/biblio#authors"):
+    """
+    Create a graph describing co-occurrences of :class:`.ConceptEntity` instances
+    linked to individual :class:`.Resource` instances via an authorship
+    :class:`.Relation` instance.
+
+    Parameters
+    ----------
+    collection : :class:`.Collection`
+    author_predicate_uri : str
+        Defaults to the Biblio #authors predicate. This is the predicate that will be used to
+        identify author :class:`.Relation` instances.
+
+    Returns
+    -------
+    :class:`networkx.Graph`
+        Nodes will be :class:`.ConceptEntity` PK ids (int), edges will indicate co-authorship;
+        each edge should have a ``weight`` attribute indicatingg the number of :class:`.Resource`
+        instances on which the pair of CEs are co-located.
+    """
+
+    # This is a check to see if the collection parameter is an instance of the
+    #  :class:`.Collection`. If it is not a RuntimeError exception is raised.
+    if not isinstance(collection, Collection):
+        raise RuntimeError("Invalid collection to export co-author data from")
+
+    resource_type_id = ContentType.objects.get_for_model(Resource).id
+
+    # This will hold node attributes for all ConceptEntity instances across the
+    #  entire collection.
+    node_labels = {}
+    node_uris = {}
+
+    # Since a particular pair of ConceptEntity instances may co-occur on more
+    #  than one Resource in this Collection, we compile the number of co-occurrences
+    #  prior to building the networkx Graph object.
+    edges = Counter()
+
+    # The co-occurrence graph will be comprised of ConceptEntity instances (identified
+    #  by their PK ids. An edge between two nodes indicates that the two constituent
+    #  CEs occur together on the same Resource (with an author Relation). A ``weight``
+    #  attribute on each edge will record the number of Resource instances on which
+    #  each respective pair of CEs co-occur.
+    for resource_id in collection.native_resources.values_list('id', flat=True):
+        # We only need a few columns from the ConceptEntity table, from rows referenced
+        #  by responding Relations.
+        author_relations = Relation.objects\
+                .filter(source_type_id=resource_type_id, source_instance_id=resource_id)\
+                .filter(predicate__uri=author_predicate_uri)\
+                .prefetch_related('target')
+
+        # If there are no author relations, there are no nodes to be created for the resource.
+        if len(author_relations) > 1:
+            ids, labels, uris = zip(*((x.target.id, x.target.name, x.target.uri) for x in author_relations))
+        else:
+            ids = labels = uris = ()
+
+        # It doesn't matter if we overwrite node attribute values, since they never change.
+        node_labels.update(dict(zip(ids, labels)))
+        node_uris.update(dict(zip(ids, uris)))
+
+        # The keys here are ConceptEntity PK ids, which will be the primary identifiers
+        #  used in the graph.
+        for edge in combinations(node_labels.keys(), 2):
+            edges[edge] += 1
+
+    # Instantiate the Graph from the edge data generated above.
+    graph = nx.Graph()
+    for (u, v), weight in edges.iteritems():
+        graph.add_edge(u, v, weight=weight)
+
+    # This is more efficient than setting the node attribute as we go along.
+    #  If there is only one author, there is no need to set node attributes as
+    #  there is no co-authorship for that Collection.
+    if len(node_labels.keys()) > 1:
+        nx.set_node_attributes(graph, 'label', node_labels)
+        nx.set_node_attributes(graph, 'uri', node_uris)
+
+    return graph

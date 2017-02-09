@@ -23,6 +23,7 @@ from celery.result import AsyncResult
 import iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle
 from hashlib import sha1
 import time, os, json, base64, hmac, urllib, datetime
+import networkx as nx
 
 # TODO: clean this up!!
 from cookies.forms import *
@@ -1178,3 +1179,52 @@ def resource_content(request, resource_id):
                 target += '?accessToken=' + auth_token
         return HttpResponseRedirect(target)
     return HttpResponse('Nope')
+
+def export_coauthor_data(request, collection_id):
+    """
+    Exporting coauthor data from a collection detail view
+    Parameters
+    ----------
+    collection_id : int
+        The primary key of the :class:`.Collection` to use for the
+        extraction of coauthor data.
+
+    Returns
+    -------
+    A graphml file for the user to download
+    """
+
+    context = RequestContext(request, {})
+
+    if not collection_id:
+        return HttpResponse('There is no collection selected for exporting coauthor data', status=401)
+
+    # Prefetching resources and relations from collection db
+    try:
+        collection = Collection.objects.prefetch_related('native_resources__relations_from').get(id=collection_id)
+    except Collection.DoesNotExist:
+        return HttpResponse('There is no collection with the given id', status=404)
+
+    # Check if user has permission to view the collection
+    if not authorization.check_authorization('view_collection', request.user, collection):
+        return HttpResponse('You do not have permission to view this collection', status=401)
+
+    try:
+        graph = operations.generate_collection_coauthor_graph(collection)
+    except RuntimeError:
+        return HttpResponse('Invalid collection given to export co-author data', status=404)
+
+    if graph.order() == 0:
+        return HttpResponse('There are no author relations in the collection to\
+                            extract co-author data', status=200)
+
+    # Graphml file for the user to download
+    time_now = '{:%Y-%m-%d%H:%M:%S}'.format(datetime.datetime.now())
+    file_name = collection.name + time_now + ".graphml"
+    nx.write_graphml(graph, file_name.encode('utf-8'))
+
+    file = open(file_name.encode('utf-8'), 'r')
+    response = HttpResponse(file.read(), content_type='application/graphml')
+    response['Content-Disposition'] = 'attachment; filename="%s"' %file_name
+
+    return response

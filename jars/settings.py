@@ -40,8 +40,8 @@ TEMPLATE_CONTEXT_PROCESSORS = (
 if not TEST:    # These are removed for test performance.
     TEMPLATE_CONTEXT_PROCESSORS += (
         "django.core.context_processors.request",
-        'social.apps.django_app.context_processors.backends',
-        'social.apps.django_app.context_processors.login_redirect',
+        'social_django.context_processors.backends',
+        'social_django.context_processors.login_redirect',
         #    "audit_log.middleware.UserLoggingMiddleware",
     )
 
@@ -67,7 +67,7 @@ INSTALLED_APPS = (
     'rest_framework',
     'rest_framework.authtoken',
     'guardian',
-     'social.apps.django_app.default',
+     'social_django',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -180,7 +180,7 @@ FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'uploads')
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend', # default
     'guardian.backends.ObjectPermissionBackend',
-    'social.backends.github.GithubOAuth2',
+    'social_core.backends.github.GithubOAuth2',
 )
 ANONYMOUS_USER_ID = -1
 
