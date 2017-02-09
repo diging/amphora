@@ -6,13 +6,13 @@ from cookies.models import *
 from concepts.models import Concept
 from cookies import authorization
 
-import jsonpickle, datetime, copy
-from itertools import groupby
-from itertools import combinations
+import jsonpickle, datetime, copy, requests
+from itertools import groupby, combinations
+from collections import Counter
+import networkx as nx
 
 from cookies.exceptions import *
-import networkx as nx
-from collections import Counter
+
 logger = settings.LOGGER
 
 
@@ -389,3 +389,14 @@ def generate_collection_coauthor_graph(collection,
         nx.set_node_attributes(graph, 'uri', node_uris)
 
     return graph
+
+
+def ping_remote_resource(path):
+    """
+    Check whether a remote resource is accessible.
+    """
+    try:
+        response = requests.head(path)
+    except requests.exceptions.ConnectTimeout:
+        return False, {}
+    return response.status_code == requests.codes.ok, response.headers

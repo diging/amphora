@@ -1,9 +1,8 @@
 from django.shortcuts import render, render_to_response, get_object_or_404
 from django import forms
+from django.forms import formset_factory
 from django.forms.utils import ErrorList
 from django.forms.extras.widgets import SelectDateWidget
-from django.forms import formset_factory
-
 from django.http import (JsonResponse, HttpResponse, HttpResponseBadRequest,
                          HttpResponseRedirect, Http404, HttpResponseForbidden)
 from django.contrib.auth.decorators import login_required
@@ -13,16 +12,16 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.urlresolvers import reverse
 from django.template import RequestContext, loader
-from django.db.models.query import QuerySet
 from django.db.models import Q
+from django.db.models.query import QuerySet
 from django.conf import settings
-from rest_framework.pagination import LimitOffsetPagination
 
+from rest_framework.pagination import LimitOffsetPagination
 from celery.result import AsyncResult
 
-import iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle
+import (iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle,
+        time, os, json, base64, hmac, urllib, datetime)
 from hashlib import sha1
-import time, os, json, base64, hmac, urllib, datetime
 import networkx as nx
 
 # TODO: clean this up!!
@@ -51,13 +50,6 @@ def _get_collection_by_id(request, collection_id, *args):
 def _get_entity_by_id(request, entity_id, *args):
     return get_object_or_404(ConceptEntity, pk=entity_id)
 
-
-def _ping_resource(path):
-    try:
-        response = requests.head(path)
-    except requests.exceptions.ConnectTimeout:
-        return False, {}
-    return response.status_code == requests.codes.ok, response.headers
 
 
 def check_authorization(request, instance, permission):
@@ -303,7 +295,7 @@ def create_resource_url(request):
         form = UserResourceURLForm(request.POST)
         if form.is_valid():
             url = form.cleaned_data.get('url')
-            exists, headers = _ping_resource(url)
+            exists, headers = operations.ping_remote_resource(url)
             if exists:
                 content, created = Resource.objects.get_or_create(**{
                     'location': url,
