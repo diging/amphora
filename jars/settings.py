@@ -211,6 +211,7 @@ MAX_GILES_UPLOADS = 20
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
 URI_NAMESPACE = 'http://diging.asu.edu/amphora'
+PROVENANCE = 'http://purl.org/dc/terms/provenance'
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'ERROR')
 # LOGLEVEL = 'ERROR'

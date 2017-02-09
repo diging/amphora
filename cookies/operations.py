@@ -17,21 +17,41 @@ logger = settings.LOGGER
 
 
 def add_creation_metadata(resource, user):
-    __provenance__, _ = Field.objects.get_or_create(uri='http://purl.org/dc/terms/provenance')
-    now = str(datetime.datetime.now())
-    creation_message = u'Added by %s on %s' % (user.username, now)
+    """
+    Convenience function for creating a provenance relation when a
+    :class:`.User` adds a :class:`.Resource`\.
+
+    Parameters
+    ----------
+    resource : :class:`.Resource`
+    user : :class:`.User`
+    """
+    __provenance__, _ = Field.objects.get_or_create(uri=settings.PROVENANCE)
+    _now = str(datetime.datetime.now())
+    _creation_message = u'Added by %s on %s' % (user.username, _now)
     Relation.objects.create(**{
         'source': resource,
         'predicate': __provenance__,
         'target': Value.objects.create(**{
-            '_value': jsonpickle.encode(creation_message),
+            '_value': jsonpickle.encode(_creation_message),
         })
     })
 
 
 def _transfer_all_relations(from_instance, to_instance_id, content_type):
     """
-    Traferring relations from one :class:`.Resource` instance to another
+    Transfers relations from one model instance to another.
+
+    Parameters
+    ----------
+    from_instance : object
+        An instance of any model, usually a :class:`.Resource` or
+        :class:`.ConceptEntity`\.
+    to_instance_id : int
+        PK id of the model instance that will inherit relations.
+    content_type : :class:`.ContentType`
+        :class:`.ContentType` for the model of the instance that will inherit
+        relations.
     """
     from_instance.relations_from.update(source_type=content_type,
                                         source_instance_id=to_instance_id)
@@ -41,7 +61,17 @@ def _transfer_all_relations(from_instance, to_instance_id, content_type):
 
 def prune_relations(resource, user=None):
     """
-    Search for and remove duplicate relations for a :class:`.Resource`\.
+    Search for and aggressively remove duplicate relations for a
+    :class:`.Resource`\.
+
+    Use at your own peril.
+
+    Parameters
+    ----------
+    resource : :class:`.Resource`
+    user : :class:`.User`
+        If provided, data manipulation will be limited to by the authorizations
+        attached to a specific user. Default is ``None`` (superuser auths).
     """
     value_type = ContentType.objects.get_for_model(Value)
 
@@ -55,23 +85,22 @@ def prune_relations(resource, user=None):
         #  (if a Value) has the same value/content.
         for pred, pr_relations in groupby(relations, lambda o: o[0]):
             for ctype, ct_relations in groupby(pr_relations, lambda o: o[1]):
-                # We need to use this iterator twice, so we'll solidify
-                #  it as a list.
-                ct_relations = [o for o in ct_relations]
+                # We need to use this iterator twice, so we consume it now, and
+                #  keep it around as a list.
+                ct_r = list(ct_relations)
 
                 for iid, id_relations in groupby(ct_relations, lambda o: o[2]):
-                    _delete_dupes(list(id_relations)) # Target is precisely the same.
+                    _delete_dupes(list(id_relations))    # Target is the same.
 
                 if ctype != value_type.id:    # Only applies to Value instances.
                     continue
 
-                values = Value.objects.filter(pk__in=zip(*ct_relations)[2])\
-                            .order_by('id').values('id', '_value')
+                values = Value.objects.filter(pk__in=zip(*ct_r)[2]) \
+                                      .order_by('id').values('id', '_value')
 
                 key = lambda *o: o[0][1]['_value']
-                for value, vl_relations in groupby(sorted(zip(ct_relations, values), key=key), key):
-                    v_relations = zip(*list(vl_relations))[0]
-                    _delete_dupes(v_relations)    # Target has the same value.
+                for _, vl_r in groupby(sorted(zip(ct_r, values), key=key), key):
+                    _delete_dupes(zip(*list(vl_r))[0])
 
     fields = ['predicate_id', 'target_type', 'target_instance_id', 'id']
     relations_from = resource.relations_from.all()

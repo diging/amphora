@@ -19,8 +19,8 @@ from django.conf import settings
 from rest_framework.pagination import LimitOffsetPagination
 from celery.result import AsyncResult
 
-import (iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle,
-        time, os, json, base64, hmac, urllib, datetime)
+import iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle, \
+       time, os, json, base64, hmac, urllib, datetime
 from hashlib import sha1
 import networkx as nx
 
