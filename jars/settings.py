@@ -225,3 +225,6 @@ CELERYD_TASK_TIME_LIMIT = 300000
 
 GOAT = os.environ.get('GOAT', 'http://black-goat.herokuapp.com')
 GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN')
+
+ADMIN_EMAIL = u'erick.peirson@asu.edu'
+REPOSITORY_NAME = u'Amphora'
