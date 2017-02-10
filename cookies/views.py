@@ -51,7 +51,6 @@ def _get_entity_by_id(request, entity_id, *args):
     return get_object_or_404(ConceptEntity, pk=entity_id)
 
 
-
 def check_authorization(request, instance, permission):
     authorized = request.user.has_perm('cookies.%s' % permission, instance)
     # TODO: simplify this.

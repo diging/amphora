@@ -341,23 +341,24 @@ def isolate_conceptentity(instance):
 def generate_collection_coauthor_graph(collection,
                                        author_predicate_uri="http://purl.org/net/biblio#authors"):
     """
-    Create a graph describing co-occurrences of :class:`.ConceptEntity` instances
-    linked to individual :class:`.Resource` instances via an authorship
-    :class:`.Relation` instance.
+    Create a graph describing co-occurrences of :class:`.ConceptEntity`
+    instances linked to individual :class:`.Resource` instances via an
+    authorship :class:`.Relation` instance.
 
     Parameters
     ----------
     collection : :class:`.Collection`
     author_predicate_uri : str
-        Defaults to the Biblio #authors predicate. This is the predicate that will be used to
-        identify author :class:`.Relation` instances.
+        Defaults to the Biblio #authors predicate. This is the predicate that
+        will be used to identify author :class:`.Relation` instances.
 
     Returns
     -------
     :class:`networkx.Graph`
-        Nodes will be :class:`.ConceptEntity` PK ids (int), edges will indicate co-authorship;
-        each edge should have a ``weight`` attribute indicatingg the number of :class:`.Resource`
-        instances on which the pair of CEs are co-located.
+        Nodes will be :class:`.ConceptEntity` PK ids (int), edges will indicate
+        co-authorship; each edge should have a ``weight`` attribute indicating
+        the number of :class:`.Resource` instances on which the pair of CEs are
+        co-located.
     """
 
     # This is a check to see if the collection parameter is an instance of the
@@ -373,8 +374,8 @@ def generate_collection_coauthor_graph(collection,
     node_uris = {}
 
     # Since a particular pair of ConceptEntity instances may co-occur on more
-    #  than one Resource in this Collection, we compile the number of co-occurrences
-    #  prior to building the networkx Graph object.
+    #  than one Resource in this Collection, we compile the number of
+    #  co-occurrences prior to building the networkx Graph object.
     edges = Counter()
 
     # The co-occurrence graph will be comprised of ConceptEntity instances (identified
@@ -383,25 +384,30 @@ def generate_collection_coauthor_graph(collection,
     #  attribute on each edge will record the number of Resource instances on which
     #  each respective pair of CEs co-occur.
     for resource_id in collection.native_resources.values_list('id', flat=True):
-        # We only need a few columns from the ConceptEntity table, from rows referenced
-        #  by responding Relations.
+        # We only need a few columns from the ConceptEntity table, from rows
+        #  referenced by responding Relations.
         author_relations = Relation.objects\
-                .filter(source_type_id=resource_type_id, source_instance_id=resource_id)\
-                .filter(predicate__uri=author_predicate_uri)\
+                .filter(source_type_id=resource_type_id,
+                        source_instance_id=resource_id,
+                        predicate__uri=author_predicate_uri)\
                 .prefetch_related('target')
 
-        # If there are no author relations, there are no nodes to be created for the resource.
-        if len(author_relations) > 1:
-            ids, labels, uris = zip(*((x.target.id, x.target.name, x.target.uri) for x in author_relations))
-        else:
-            ids = labels = uris = ()
+        # If there are no author relations, there are no nodes to be created for
+        #  the resource.
+        if author_relations.count() <= 1:
+            continue
 
-        # It doesn't matter if we overwrite node attribute values, since they never change.
+        ids, labels, uris = zip(*((r.target.id, r.target.name, r.target.uri)
+                                  for r in author_relations))
+
+
+        # It doesn't matter if we overwrite node attribute values, since they
+        #  won't vary.
         node_labels.update(dict(zip(ids, labels)))
         node_uris.update(dict(zip(ids, uris)))
 
-        # The keys here are ConceptEntity PK ids, which will be the primary identifiers
-        #  used in the graph.
+        # The keys here are ConceptEntity PK ids, which will be the primary
+        #  identifiers used in the graph.
         for edge in combinations(node_labels.keys(), 2):
             edges[edge] += 1
 
