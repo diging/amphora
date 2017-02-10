@@ -375,11 +375,12 @@ def generate_collection_coauthor_graph(collection,
     #  co-occurrences prior to building the networkx Graph object.
     edges = Counter()
 
-    # The co-occurrence graph will be comprised of ConceptEntity instances (identified
-    #  by their PK ids. An edge between two nodes indicates that the two constituent
-    #  CEs occur together on the same Resource (with an author Relation). A ``weight``
-    #  attribute on each edge will record the number of Resource instances on which
-    #  each respective pair of CEs co-occur.
+    # The co-occurrence graph will be comprised of ConceptEntity instances
+    #  (identified by their PK ids. An edge between two nodes indicates that
+    #  the two constituent CEs occur together on the same Resource (with an
+    #  author Relation). A ``weight`` attribute on each edge will record the
+    #  number of Resource instances on which each respective pair of CEs
+    #  co-occur.
     for resource_id in collection.native_resources.values_list('id', flat=True):
         # We only need a few columns from the ConceptEntity table, from rows
         #  referenced by responding Relations.
@@ -405,7 +406,7 @@ def generate_collection_coauthor_graph(collection,
 
         # The keys here are ConceptEntity PK ids, which will be the primary
         #  identifiers used in the graph.
-        for edge in combinations(node_labels.keys(), 2):
+        for edge in combinations(ids, 2):
             edges[edge] += 1
 
     # Instantiate the Graph from the edge data generated above.
