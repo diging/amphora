@@ -395,9 +395,7 @@ def generate_collection_coauthor_graph(collection,
         if author_relations.count() <= 1:
             continue
 
-        ids, labels, uris = zip(*((r.target.id, r.target.name, r.target.uri)
-                                  for r in author_relations))
-
+        ids, labels, uris = zip(*list(set(((r.target.id, r.target.name, r.target.uri) for r in author_relations))))
 
         # It doesn't matter if we overwrite node attribute values, since they
         #  won't vary.
