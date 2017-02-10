@@ -194,10 +194,7 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
         representative = master,
     )
     identity.entities.add(*entities)
-    for ent in entities:
-        ent.identities.update(representative=master)
-
-
+    map(lambda e: e.identities.update(representative=master), entities)
     return master
 
 

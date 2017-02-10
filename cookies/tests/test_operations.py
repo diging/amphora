@@ -488,9 +488,11 @@ class TestExportCoauthorData(unittest.TestCase):
         resource = Resource.objects.create(name='first_resource')
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource,
-                                predicate=self.author_predicate, target=author_1)
+                                predicate=self.author_predicate,
+                                target=author_1)
         Relation.objects.create(source=resource,
-                                predicate=self.author_predicate, target=author_1)
+                                predicate=self.author_predicate,
+                                target=author_1)
         collection = Collection.objects.create(name='first_collection')
         collection.native_resources.add(resource)
         collection.save()
@@ -517,36 +519,43 @@ class TestExportCoauthorData(unittest.TestCase):
         resource_1 = Resource.objects.create(name='first_resource')
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource_1,
-                                predicate=self.author_predicate, target=author_1)
+                                predicate=self.author_predicate,
+                                target=author_1)
         author_2 = ConceptEntity.objects.create(name='Conan')
         Relation.objects.create(source=resource_1,
-                                predicate=self.author_predicate, target=author_2)
+                                predicate=self.author_predicate,
+                                target=author_2)
         collection = Collection.objects.create(name='first_collection')
         collection.native_resources.add(resource_1)
         collection.save()
         resource_2 = Resource.objects.create(name='second_resource')
         Relation.objects.create(source=resource_2,
-                                predicate=self.author_predicate, target=author_1)
+                                predicate=self.author_predicate,
+                                target=author_1)
         Relation.objects.create(source=resource_2,
-                                predicate=self.author_predicate, target=author_2)
+                                predicate=self.author_predicate,
+                                target=author_2)
         author_5 = ConceptEntity.objects.create(name='Xiaomi')
         Relation.objects.create(source=resource_2,
-                                predicate=self.author_predicate, target=author_5)
+                                predicate=self.author_predicate,
+                                target=author_5)
         author_6 = ConceptEntity.objects.create(name='Ned')
         Relation.objects.create(source=resource_2,
-                                predicate=self.author_predicate, target=author_6)
+                                predicate=self.author_predicate,
+                                target=author_6)
         collection.native_resources.add(resource_2)
         collection.save()
 
         graph = operations.generate_collection_coauthor_graph(collection)
         self.assertEqual(graph[author_1.id][author_2.id]['weight'], 2,
                          "Since the ConceptEntity instances are authors in two"
-                         " resources of the collection, the 'number_of_resources'"
+                         " resources of the collection, the 'weight'"
                          " edge attribute should be 2")
+        print graph.edges(data=True)
         self.assertEqual(graph[author_5.id][author_6.id]['weight'], 1,
                          "Since the ConceptEntity instances are authors in only"
                          " one resource of the collection, the"
-                         " 'number_of_resources' edge attribute should be 1")
+                         " 'weight' edge attribute should be 1")
 
     def test_invalid_collection(self):
         """
