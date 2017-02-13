@@ -967,6 +967,7 @@ def entity_change(request, entity_id):
 @authorization.authorization_required('change_conceptentity', _get_entity_by_id)
 def entity_change_concept(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
+    concepts_data = None
     if request.method == 'GET':
         initial_data = {}
         if entity.concept:
@@ -977,24 +978,48 @@ def entity_change_concept(request, entity_id):
             form = ConceptEntityLinkForm()
 
     if request.method == 'POST':
-        form = ConceptEntityLinkForm(request.POST)
-        if form.is_valid():
-            uri = form.cleaned_data.get('uri')
-            try:
-                concept, _ = Concept.objects.get_or_create(uri=uri)
-            except ValueError as E:
-                errors = form._errors.setdefault("uri", ErrorList())
-                errors.append(E.args[0])
-                concept = None
+        if 'save' in request.POST:
+            form = ConceptEntityLinkForm(request.POST)
+            if form.is_valid():
+                uri = form.cleaned_data.get('uri')
+                try:
+                    concept, _ = Concept.objects.get_or_create(uri=uri)
+                except ValueError as E:
+                    errors = form._errors.setdefault("uri", ErrorList())
+                    errors.append(E.args[0])
+                    concept = None
 
-            if concept:
-                entity.concept = concept
-                entity.save()
-                return HttpResponseRedirect(entity.get_absolute_url())
+                if concept:
+                    entity.concept = concept
+                    entity.save()
+                    return HttpResponseRedirect(entity.get_absolute_url())
+
+
+        if 'search' in request.POST:
+            form = ConceptEntityLinkForm(request.POST)
+            search = ''
+            if form.is_valid():
+                search = form.cleaned_data.get('search_input')
+
+            #URIs are searched based on the input provided using BlackGoat API.
+            try:
+                concepts = operations.concept_search(search)
+            except RuntimeError as E:
+                return HttpResponse(E, status=200)
+
+            #If there are URIs obtained from the API, then the name, source and
+            # URI are retrieved, to display to the user.
+            if concepts:
+                concepts_data = []
+                for concept in concepts:
+                    concepts_data.append([concept.__dict__['data']['name'],
+                                          concept.__dict__['data']['authority']['name'],
+                                          concept.__dict__['identifier']])
 
     context = RequestContext(request, {
         'entity': entity,
         'form': form,
+        'concepts_data': concepts_data,
     })
 
     template = loader.get_template('entity_change_concept.html')

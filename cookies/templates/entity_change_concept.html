@@ -89,10 +89,16 @@ var bindAutocomplete = function(selector) {
         {% endfor %}
         <div class="row">
             <div class="col-sm-6">
-                <div class="form-group">
-                    <label>Search</label>
-                    <input id="search-input" type="text" name="label" class="form-control"  target="id_uri" value="{{entity.concept.label}}" />
-                </div>
+              {% with form.search_input as field %}
+              <div class="form-group">
+                {% for error in field.errors %}
+                <div class="alert alert-warning">{{ error }}</div>
+                {% endfor %}
+                <label>{{ field.label }}</label>
+                {{ field|addcss:"form-control" }}
+                <p class="text-muted">{{ field.help_text }}</p>
+              </div>
+              {% endwith %}
             </div>
             <div class="col-sm-6">
                 {% with form.uri as field %}
@@ -122,8 +128,26 @@ var bindAutocomplete = function(selector) {
             </div>
         </div> -->
         <div class="text-center">
-            <input class="btn btn-success" type="submit" value="Save">
+            <input class="btn btn-success" type="submit" name="search" value="Search">
+            <input class="btn btn-success" type="submit" name="save" value="Save">
         </div>
+        <table style="width:100%" border="1">
+            {% if concepts_data %}
+            Search results:
+                  <tr>
+                    <th>Name</th>
+                    <th>Source</th>
+                    <th>URI</th>
+                  </tr>
+                  {% endif %}
+                  {% for concept in concepts_data %}
+                  <tr>
+                    <td>{{ concept.0 }}</td>
+                    <td>{{ concept.1 }}</td>
+                    <td><a href="{{ concept.2 }}">{{ concept.2 }}</a></td>
+                  </tr>
+                  {% endfor %}
+      </table>
 </form>
 <script>
 bindAutocomplete($('#search-input'));

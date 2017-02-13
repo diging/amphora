@@ -10,10 +10,51 @@ import jsonpickle, datetime, copy
 from itertools import groupby
 from itertools import combinations
 
+import goat
+import unittest, mock, json, os, sys
+
 from cookies.exceptions import *
 import networkx as nx
 from collections import Counter
 logger = settings.LOGGER
+
+os.environ.setdefault('GOAT_WAIT_INTERVAL', '0.001')
+
+goat.GOAT_APP_TOKEN = 'd22bbda9b5b507dc6cd032d80d6a3d299fda10fe'
+goat.GOAT = 'http://127.0.0.1:8000'
+
+class MockResponse(object):
+    def __init__(self, content, status_code):
+        self._status_code = status_code
+        self.content = content
+
+    def json(self):
+        return json.loads(self.content)
+
+    @property
+    def status_code(self):
+        return self._status_code
+
+
+class MockSearchResponse(MockResponse):
+    url = 'http://mock/url/'
+
+    def __init__(self, parent, pending_content, success_content, max_calls=3,):
+        self.max_calls = 3
+        self.parent = parent
+        self.pending_content = pending_content
+        self.success_content = success_content
+
+    def json(self):
+        if self.parent.call_count < self.max_calls:
+            return json.loads(self.pending_content)
+        return json.loads(self.success_content)
+
+    @property
+    def status_code(self):
+        if self.parent.call_count < self.max_calls:
+            return 202
+        return 200
 
 
 def add_creation_metadata(resource, user):
@@ -389,3 +430,58 @@ def generate_collection_coauthor_graph(collection,
         nx.set_node_attributes(graph, 'uri', node_uris)
 
     return graph
+
+@mock.patch('requests.get')
+def concept_search(text, mock_get):
+    """
+    Edit :class`.Entity` instance by linking a :class:`.ConceptEntity` URI with
+    it. This provides functionality to search for a URI based on the text
+    entered in the search field.
+
+    BlackGoat API is used to search for the URIs and the sources by querying
+    with the text entered.
+
+    Parameters
+    ----------
+    text : Search text for the URIs
+    mock_get: Mocking the functionality of BlackGoat API
+
+    Returns
+    -------
+    concepts: A list of all :class:`.GoatConcept` objects from the search result
+    """
+
+    with open('cookies/tests/data/concept_search_results.json', 'r') as f:
+            with open('cookies/tests/data/concept_search_created.json', 'r') as f2:
+                mock_get.return_value = MockSearchResponse(mock_get, f2.read(), f.read(), 200)
+
+    max_calls = 3
+    #If no query text is entered, the result from search is None.
+    if not text:
+        print 'Came here'
+        return None
+
+    #The BlackGoat API for search is used to get a list of all URIs associated
+    # with the text entered.
+    concepts = goat.Concept.search(q=text)
+
+    #RuntimeError raised when the calls are not made up to the maximum number
+    # of calls and the status code is 202.
+    if mock_get.call_count != max_calls:
+        raise RuntimeError("Should keep calling if status code 202 is received.")
+
+    #The redirect URL should be followed by the response and the number of
+    # concepts in the result should be 10.
+    args, kwargs =  mock_get.call_args
+    if args[0] != MockSearchResponse.url:
+        raise RuntimeError("Should follow the redirect URL.")
+    if len(concepts) != 10:
+        raise RuntimeError("There should be 10 items in the result set.")
+
+    # All the concepts from the search API should be an instance of
+    # :class:`.GoatConcept`.
+    for concept in concepts:
+        if not isinstance(concept, goat.Concept):
+            raise RuntimeError("Each of which should be a GoatConcept.")
+
+    return concepts
