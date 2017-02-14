@@ -551,7 +551,6 @@ class TestExportCoauthorData(unittest.TestCase):
                          "Since the ConceptEntity instances are authors in two"
                          " resources of the collection, the 'weight'"
                          " edge attribute should be 2")
-        print graph.edges(data=True)
         self.assertEqual(graph[author_5.id][author_6.id]['weight'], 1,
                          "Since the ConceptEntity instances are authors in only"
                          " one resource of the collection, the"
