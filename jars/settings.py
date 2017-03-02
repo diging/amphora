@@ -211,6 +211,7 @@ MAX_GILES_UPLOADS = 20
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
 URI_NAMESPACE = 'http://diging.asu.edu/amphora'
+PROVENANCE = 'http://purl.org/dc/terms/provenance'
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'ERROR')
 # LOGLEVEL = 'ERROR'
@@ -225,3 +226,6 @@ CELERYD_TASK_TIME_LIMIT = 300000
 
 GOAT = os.environ.get('GOAT', 'http://black-goat.herokuapp.com')
 GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN')
+
+ADMIN_EMAIL = u'erick.peirson@asu.edu'
+REPOSITORY_NAME = u'Amphora'
