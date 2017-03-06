@@ -142,9 +142,9 @@ var bindAutocomplete = function(selector) {
                   {% endif %}
                   {% for concept in concepts_data %}
                   <tr>
-                    <td>{{ concept.0 }}</td>
-                    <td>{{ concept.1 }}</td>
-                    <td><a href="{{ concept.2 }}">{{ concept.2 }}</a></td>
+                    <td>{{ concept.name }}</td>
+                    <td>{{ concept.source }}</td>
+                    <td><a href="{{ concept.uri }}">{{ concept.uri }}</a></td>
                   </tr>
                   {% endfor %}
       </table>

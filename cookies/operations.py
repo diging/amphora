@@ -12,16 +12,15 @@ from collections import Counter
 import networkx as nx
 
 import goat
-import unittest, mock, json, os, sys
+import os
 
 from cookies.exceptions import *
 
 logger = settings.LOGGER
 
 os.environ.setdefault('GOAT_WAIT_INTERVAL', '0.001')
-
-goat.GOAT_APP_TOKEN = 'd22bbda9b5b507dc6cd032d80d6a3d299fda10fe'
-goat.GOAT = 'http://127.0.0.1:8000'
+goat.GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN','')
+goat.GOAT = os.environ.get('GOAT_URI','')
 
 class MockResponse(object):
     def __init__(self, content, status_code):
@@ -472,3 +471,50 @@ def ping_remote_resource(path):
     except requests.exceptions.ConnectTimeout:
         return False, {}
     return response.status_code == requests.codes.ok, response.headers
+
+
+def concept_search(query):
+    """
+    Edit :class`.Entity` instance by linking a :class:`.ConceptEntity` URI with
+    it. This provides functionality to search for a URI based on the text
+    entered in the search field.
+
+    BlackGoat API is used to search for the URIs and the sources by querying
+    with the text entered.
+
+    Parameters
+    ----------
+    query : str
+    This is the search text that will be used by BlackGoat API to query for
+    the URIs.
+
+    Returns
+    -------
+    concepts: list
+    This is a list of all :class:`.GoatConcept` objects obtained from the
+    search result of the BlackGoat API.
+    """
+
+    #If no query text is entered, the result from search is None.
+    if not query:
+        return None
+
+    concepts = None
+    #The BlackGoat API for search is used to get a list of all URIs associated
+    # with the text entered.
+    try:
+        concepts = goat.Concept.search(q=query)
+    except Exception as e:
+        raise e
+
+    #All the concepts from the search API are iterated to get a dictionary of
+    # lists containing the name, source and uri
+    concept_data = None
+    if concepts:
+        concept_data = []
+        for concept in concepts:
+            concept_data.append({'name':concept.__dict__['data']['name'],
+                                'source': concept.__dict__['data']['authority']['name'],
+                                'uri':concept.__dict__['identifier']})
+
+    return concept_data

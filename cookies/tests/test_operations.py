@@ -11,6 +11,41 @@ os.environ.setdefault('LOGLEVEL', 'ERROR')
 from cookies import operations
 from cookies.models import *
 from concepts.models import Concept
+
+
+class MockResponse(object):
+    def __init__(self, content, status_code):
+        self._status_code = status_code
+        self.content = content
+
+    def json(self):
+        return json.loads(self.content)
+
+    @property
+    def status_code(self):
+        return self._status_code
+
+
+class MockSearchResponse(MockResponse):
+    url = 'http://mock/url/'
+
+    def __init__(self, parent, pending_content, success_content, max_calls=3,):
+        self.max_calls = 3
+        self.parent = parent
+        self.pending_content = pending_content
+        self.success_content = success_content
+
+    def json(self):
+        if self.parent.call_count < self.max_calls:
+            return json.loads(self.pending_content)
+        return json.loads(self.success_content)
+
+    @property
+    def status_code(self):
+        if self.parent.call_count < self.max_calls:
+            return 202
+        return 200
+
 #
 #
 # class TestPruneRelations(unittest.TestCase):
@@ -571,3 +606,68 @@ class TestExportCoauthorData(unittest.TestCase):
         Resource.objects.all().delete()
         Collection.objects.all().delete()
         Relation.objects.all().delete()
+
+
+class TestConceptSearch(unittest.TestCase):
+    """
+    Class contains unit test cases for :func:`concept_search` in operations
+    module.
+
+    The function takes str as input parameter. It returns a list of
+    :class:`.GoatConcept` objects obtained from the search result of the
+    BlackGoat API.
+    """
+
+
+    def test_concept_with_no_query(self):
+        """
+        When no query text is given and the search button is clicked,
+        :func:`concept_search` returns None
+        """
+
+        concepts = operations.concept_search('')
+
+        self.assertEqual(concepts, None)
+
+
+    @mock.patch('cookies.operations.goat.requests.get')
+    def test_concept_with_query(self, mock_get):
+        """
+        When query text is given and the search button is clicked,
+        a dictionary of lists is obtained where each element in the list is a
+        BlackGoat concept and the dictionary contains name, source and uri of
+        the concept.
+        """
+
+        with open('cookies/tests/data/concept_search_results.json', 'r') as f:
+            with open('cookies/tests/data/concept_search_created.json', 'r') as f2:
+                mock_get.return_value = MockSearchResponse(mock_get, f2.read(), f.read(), 200)
+
+        concepts = operations.concept_search('Bradshaw')
+        for concept in concepts:
+            self.assertTrue('name' in concept)
+            self.assertTrue('source' in concept)
+            self.assertTrue('uri' in concept)
+
+
+    @mock.patch('cookies.operations.goat.Concept.search')
+    def test_concept_with_exception(self, mock_search):
+        """
+        When BlackGoat client API throws an exception,
+        it is raised as an exception to the function that calls it.
+        """
+
+        mock_search.side_effect = Exception
+
+        self.assertRaises(Exception, operations.concept_search, 'Bradshaw')
+
+    @mock.patch('cookies.operations.goat.Concept.search')
+    def test_concept_with_no_output_from_goat(self, mock_search):
+        """
+        When BlackGoat client API does not return any value,
+        :func:`concept_search` returns an empty list.
+        """
+
+        mock_search.return_value = None
+
+        self.assertEqual(operations.concept_search('Bradshaw'), None)
