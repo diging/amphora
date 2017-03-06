@@ -958,7 +958,7 @@ def entity_change(request, entity_id):
 @authorization.authorization_required('change_conceptentity', _get_entity_by_id)
 def entity_change_concept(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
-    concepts_data = None
+    concepts = None
     if request.method == 'GET':
         initial_data = {}
         if entity.concept:
@@ -969,6 +969,9 @@ def entity_change_concept(request, entity_id):
             form = ConceptEntityLinkForm()
 
     if request.method == 'POST':
+        #If the save button is clicked on the html page, the URI is obtained
+        # from the text field and Concept object is created to be linked with
+        # the entity.
         if 'save' in request.POST:
             form = ConceptEntityLinkForm(request.POST)
             if form.is_valid():
@@ -985,37 +988,29 @@ def entity_change_concept(request, entity_id):
                     entity.save()
                     return HttpResponseRedirect(entity.get_absolute_url())
 
-
+        #If the search button is clicked on the html page, the query text is
+        # obtained and concept URIs are searched for. The results are displayed
+        # on the html page.
         if 'search' in request.POST:
             form = ConceptEntityLinkForm(request.POST)
             search = ''
             if form.is_valid():
                 search = form.cleaned_data.get('search_input')
 
-            #URIs are searched based on the input provided using BlackGoat API.
             try:
+                #URIs are searched based on the input provided using BlackGoat API.
                 concepts = operations.concept_search(search)
-            except RuntimeError as E:
-                return HttpResponse(E, status=200)
-
-            #If there are URIs obtained from the API, then the name, source and
-            # URI are retrieved, to display to the user.
-            if concepts:
-                concepts_data = []
-                for concept in concepts:
-                    concepts_data.append([concept.__dict__['data']['name'],
-                                          concept.__dict__['data']['authority']['name'],
-                                          concept.__dict__['identifier']])
+            except Exception as E:
+                return HttpResponse(E,status=500)
 
     context = RequestContext(request, {
         'entity': entity,
         'form': form,
-        'concepts_data': concepts_data,
+        'concepts_data': concepts,
     })
 
     template = loader.get_template('entity_change_concept.html')
     return HttpResponse(template.render(context))
-
 
 @authorization.authorization_required('change_resource', _get_resource_by_id)
 def resource_prune(request, resource_id):

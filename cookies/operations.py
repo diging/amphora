@@ -22,39 +22,6 @@ os.environ.setdefault('GOAT_WAIT_INTERVAL', '0.001')
 goat.GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN','')
 goat.GOAT = os.environ.get('GOAT_URI','')
 
-class MockResponse(object):
-    def __init__(self, content, status_code):
-        self._status_code = status_code
-        self.content = content
-
-    def json(self):
-        return json.loads(self.content)
-
-    @property
-    def status_code(self):
-        return self._status_code
-
-
-class MockSearchResponse(MockResponse):
-    url = 'http://mock/url/'
-
-    def __init__(self, parent, pending_content, success_content, max_calls=3,):
-        self.max_calls = 3
-        self.parent = parent
-        self.pending_content = pending_content
-        self.success_content = success_content
-
-    def json(self):
-        if self.parent.call_count < self.max_calls:
-            return json.loads(self.pending_content)
-        return json.loads(self.success_content)
-
-    @property
-    def status_code(self):
-        if self.parent.call_count < self.max_calls:
-            return 202
-        return 200
-
 
 def add_creation_metadata(resource, user):
     """
