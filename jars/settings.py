@@ -13,7 +13,7 @@ contents of which will be passed to :func:`os.environ.setdefault()`\. This can
 be a useful way to manage secrets if the configuration file is secure.
 """
 
-import os, socket, sys, requests
+import os, socket, sys, requests, dj_database_url
 from urlparse import urlparse
 from datetime import timedelta
 
