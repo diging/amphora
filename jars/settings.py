@@ -197,7 +197,7 @@ MAX_GILES_UPLOADS = 20
 # Metadata globals.
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
-URI_NAMESPACE = os.environ.get('NAMESPACE, 'http://diging.asu.edu/amphora')
+URI_NAMESPACE = os.environ.get('NAMESPACE', 'http://diging.asu.edu/amphora')
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'ERROR')
 # LOGLEVEL = 'ERROR'
