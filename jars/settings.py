@@ -197,7 +197,8 @@ MAX_GILES_UPLOADS = 20
 
 # Metadata globals.
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
-LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'PROVENANCE = 'http://purl.org/dc/terms/provenance'
+LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
+PROVENANCE = 'http://purl.org/dc/terms/provenance'
 
 URI_NAMESPACE = os.environ.get('NAMESPACE', 'http://diging.asu.edu/amphora')
 
