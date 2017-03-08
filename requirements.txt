@@ -20,7 +20,7 @@ django-oauth-plus==2.2.8
 django-oauth-toolkit==0.9.0
 django-oauth2==1.1
 django-oauth2-provider==0.2.6.1
-django-querysetsequence>=0.5
+django-querysetsequence
 django-storages==1.1.8
 djangorestframework==3.3.3
 djangorestframework-oauth==1.0.1
