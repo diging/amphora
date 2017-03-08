@@ -114,15 +114,9 @@ WSGI_APPLICATION = 'jars.wsgi.application'
 if DEVELOP or TEST:
     if os.environ.get('BACKEND', 'sqlite') == 'postgres':
         DATABASES = {
-           'default': {
-               'ENGINE': 'django.db.backends.postgresql_psycopg2',
-               'NAME': 'jars',
-               'USER': 'jars',
-               'PASSWORD': 'jars',
-               'HOST': 'localhost',
-               'PORT': '5432',
-           }
+            'default': dj_database_url.config()
         }
+        DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql_psycopg2'
     else:
         DATABASES = {
             'default': {
