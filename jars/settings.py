@@ -126,15 +126,9 @@ if DEVELOP or TEST:
         }
 else:
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.environ.get('DJANGO_DB_NAME', 'jars'),
-            'USER': os.environ.get('DJANGO_DB_USER', 'jars'),
-            'PASSWORD': os.environ.get('DJANGO_DB_PASSWORD', 'jars'),
-            'HOST': os.environ.get('DJANGO_DB_HOST', 'localhost'),
-            'PORT': os.environ.get('DJANGO_DB_PORT', '3306'),
-        }
+        'default': dj_database_url.config()
     }
+    DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql_psycopg2'
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
