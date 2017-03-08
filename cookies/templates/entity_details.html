@@ -114,6 +114,18 @@
                         {% with relation.source.get_absolute_url as resource_url %}
                         {% if resource_url %}<a href="{{resource_url}}">{% endif %}{{ relation.source.name|truncatechars:100 }}{% if resource_url %}</a>{% endif %}
                         <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.source.entity_type.schema }}">{{ relation.source.entity_type.name }}</span>
+                        <div>
+                          {% for i in relation.source.relations_from.all %}
+                            <ul>
+                              {% if i.predicate.name == 'Date' %}
+                                {{ i.predicate.name }}: {{ i.target.name }}
+                              {% endif %}
+                              {% if i.predicate.name == 'Abstract' %}
+                                {{ i.predicate.name }}: {{ i.target.name }}
+                              {% endif %}
+                            </ul>
+                          {% endfor %}
+                        </div>
                         {% endwith %}
                     </li>
                     {% endfor %}

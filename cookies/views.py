@@ -1,9 +1,8 @@
 from django.shortcuts import render, render_to_response, get_object_or_404
 from django import forms
+from django.forms import formset_factory
 from django.forms.utils import ErrorList
 from django.forms.extras.widgets import SelectDateWidget
-from django.forms import formset_factory
-
 from django.http import (JsonResponse, HttpResponse, HttpResponseBadRequest,
                          HttpResponseRedirect, Http404, HttpResponseForbidden)
 from django.contrib.auth.decorators import login_required
@@ -13,16 +12,17 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.urlresolvers import reverse
 from django.template import RequestContext, loader
-from django.db.models.query import QuerySet
 from django.db.models import Q
+from django.db.models.query import QuerySet
 from django.conf import settings
-from rest_framework.pagination import LimitOffsetPagination
 
+from rest_framework.pagination import LimitOffsetPagination
 from celery.result import AsyncResult
 
-import iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle
+import iso8601, urlparse, inspect, magic, requests, urllib3, copy, jsonpickle, \
+       time, os, json, base64, hmac, urllib, datetime
 from hashlib import sha1
-import time, os, json, base64, hmac, urllib, datetime
+import networkx as nx
 
 # TODO: clean this up!!
 from cookies.forms import *
@@ -51,14 +51,6 @@ def _get_entity_by_id(request, entity_id, *args):
     return get_object_or_404(ConceptEntity, pk=entity_id)
 
 
-def _ping_resource(path):
-    try:
-        response = requests.head(path)
-    except requests.exceptions.ConnectTimeout:
-        return False, {}
-    return response.status_code == requests.codes.ok, response.headers
-
-
 def check_authorization(request, instance, permission):
     authorized = request.user.has_perm('cookies.%s' % permission, instance)
     # TODO: simplify this.
@@ -69,6 +61,10 @@ def check_authorization(request, instance, permission):
 
 @authorization.authorization_required('view_resource', _get_resource_by_id)
 def resource(request, obj_id):
+    """
+    Display the resource with the given id
+    """
+
     resource = _get_resource_by_id(request, obj_id)
 
     # Get a fresh Giles auth token, if needed.
@@ -100,6 +96,10 @@ def resource_by_uri(request):
 
 
 def resource_list(request):
+    """
+    Display the set of resources
+    """
+
     # Either the resource is public, or owned by the requesting user.
     qset_resources = Resource.objects.filter(content_resource=False,
                                              is_part=False,
@@ -134,6 +134,10 @@ def resource_list(request):
 
 @authorization.authorization_required('view_resource', _get_collection_by_id)
 def collection(request, obj_id):
+    """
+    Display the collection for the given id
+    """
+
     collection = _get_collection_by_id(request, obj_id)
     resources = collection.native_resources.filter(content_resource=False, hidden=False)
 
@@ -152,6 +156,10 @@ def collection(request, obj_id):
 
 
 def collection_list(request):
+    """
+    Display the set of collections
+    """
+
     queryset = Collection.objects.filter(content_resource=False, hidden=False, part_of__isnull=True)
     queryset = authorization.apply_filter(request.user, 'view_resource', queryset)
     filtered_objects = CollectionFilter(request.GET, queryset=queryset)
@@ -286,7 +294,7 @@ def create_resource_url(request):
         form = UserResourceURLForm(request.POST)
         if form.is_valid():
             url = form.cleaned_data.get('url')
-            exists, headers = _ping_resource(url)
+            exists, headers = operations.ping_remote_resource(url)
             if exists:
                 content, created = Resource.objects.get_or_create(**{
                     'location': url,
@@ -788,8 +796,8 @@ def entity_details(request, entity_id):
     relations_to = entity.relations_to.all()
     relations_to = [(g[0].predicate, g) for g in metadata.group_relations(relations_to)]
 
-    represents = entity.represents.values_list('entities__id', 'entities__name').distinct('entities__id')
-    represented_by = entity.identities.filter(~Q(representative=entity)).values_list('representative_id', 'representative__name').distinct('representative_id')
+    represents = entity.represents.values_list('entities__id', 'entities__name').distinct()
+    represented_by = entity.identities.filter(~Q(representative=entity)).values_list('representative_id', 'representative__name').distinct()
 
     context = RequestContext(request, {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
@@ -896,6 +904,10 @@ def collection_authorization_create(request, collection_id):
 
 # Authorization is handled internally.
 def entity_merge(request):
+    """
+    User can merge selected entities.
+    """
+
     entity_ids = request.GET.getlist('entity', [])
     if len(entity_ids) <= 1:
         raise ValueError('')
@@ -1002,7 +1014,6 @@ def entity_prune(request, entity_id):
     return HttpResponseRedirect(entity.get_absolute_url())
 
 
-
 def resource_merge(request):
     """
     Curator can merge resources.
@@ -1095,7 +1106,7 @@ def bulk_action_resource(request):
 @login_required
 def bulk_add_tag_to_resource(request):
     """
-
+    Adding tag to selected resources.
     """
     if request.method == 'GET':
         resource_ids = request.GET.getlist('resource', [])
@@ -1159,3 +1170,52 @@ def resource_content(request, resource_id):
                 target += '?accessToken=' + auth_token
         return HttpResponseRedirect(target)
     return HttpResponse('Nope')
+
+def export_coauthor_data(request, collection_id):
+    """
+    Exporting coauthor data from a collection detail view
+    Parameters
+    ----------
+    collection_id : int
+        The primary key of the :class:`.Collection` to use for the
+        extraction of coauthor data.
+
+    Returns
+    -------
+    A graphml file for the user to download
+    """
+
+    context = RequestContext(request, {})
+
+    if not collection_id:
+        return HttpResponse('There is no collection selected for exporting coauthor data', status=401)
+
+    # Prefetching resources and relations from collection db
+    try:
+        collection = Collection.objects.prefetch_related('native_resources__relations_from').get(id=collection_id)
+    except Collection.DoesNotExist:
+        return HttpResponse('There is no collection with the given id', status=404)
+
+    # Check if user has permission to view the collection
+    if not authorization.check_authorization('view_collection', request.user, collection):
+        return HttpResponse('You do not have permission to view this collection', status=401)
+
+    try:
+        graph = operations.generate_collection_coauthor_graph(collection)
+    except RuntimeError:
+        return HttpResponse('Invalid collection given to export co-author data', status=404)
+
+    if graph.order() == 0:
+        return HttpResponse('There are no author relations in the collection to\
+                            extract co-author data', status=200)
+
+    # Graphml file for the user to download
+    time_now = '{:%Y-%m-%d%H:%M:%S}'.format(datetime.datetime.now())
+    file_name = collection.name + time_now + ".graphml"
+    nx.write_graphml(graph, file_name.encode('utf-8'))
+
+    file = open(file_name.encode('utf-8'), 'r')
+    response = HttpResponse(file.read(), content_type='application/graphml')
+    response['Content-Disposition'] = 'attachment; filename="%s"' %file_name
+
+    return response

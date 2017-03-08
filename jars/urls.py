@@ -20,7 +20,7 @@ router.register(r'concept', views_rest.ConceptViewSet)
 
 
 urlpatterns = patterns('',
-    url('', include('social.apps.django_app.urls', namespace='social')),
+    url('', include('social_django.urls', namespace='social')),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^autocomplete/$', EntityAutocomplete.as_view(create_field='name'), name='autocomplete'),
     url(r'^logout/$', views.logout_view, name='logout'),
@@ -53,6 +53,7 @@ urlpatterns = patterns('',
     url(r'^collection/$', views.collection_list, name="collections"),
     url(r'^collection/create/$', views.create_collection, name="create-collection"),
     url(r'^metadata/$', views.list_metadata, name='list-metadata'),
+    url(r'^collection/export/([0-9]+)/$',views.export_coauthor_data, name="export-coauthor-data"),
 
     url(r'^entity/$', views.entity_list, name='entity-list'),
     url(r'^entity/merge/$', views.entity_merge, name='entity-merge'),

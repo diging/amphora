@@ -6,27 +6,53 @@ from cookies.models import *
 from concepts.models import Concept
 from cookies import authorization
 
-import jsonpickle, datetime, copy
-from itertools import groupby
+import jsonpickle, datetime, copy, requests
+from itertools import groupby, combinations
+from collections import Counter
+import networkx as nx
 
 from cookies.exceptions import *
+
 logger = settings.LOGGER
 
 
 def add_creation_metadata(resource, user):
-    __provenance__, _ = Field.objects.get_or_create(uri='http://purl.org/dc/terms/provenance')
-    now = str(datetime.datetime.now())
-    creation_message = u'Added by %s on %s' % (user.username, now)
+    """
+    Convenience function for creating a provenance relation when a
+    :class:`.User` adds a :class:`.Resource`\.
+
+    Parameters
+    ----------
+    resource : :class:`.Resource`
+    user : :class:`.User`
+    """
+    __provenance__, _ = Field.objects.get_or_create(uri=settings.PROVENANCE)
+    _now = str(datetime.datetime.now())
+    _creation_message = u'Added by %s on %s' % (user.username, _now)
     Relation.objects.create(**{
         'source': resource,
         'predicate': __provenance__,
         'target': Value.objects.create(**{
-            '_value': jsonpickle.encode(creation_message),
+            '_value': jsonpickle.encode(_creation_message),
         })
     })
 
 
 def _transfer_all_relations(from_instance, to_instance_id, content_type):
+    """
+    Transfers relations from one model instance to another.
+
+    Parameters
+    ----------
+    from_instance : object
+        An instance of any model, usually a :class:`.Resource` or
+        :class:`.ConceptEntity`\.
+    to_instance_id : int
+        PK id of the model instance that will inherit relations.
+    content_type : :class:`.ContentType`
+        :class:`.ContentType` for the model of the instance that will inherit
+        relations.
+    """
     from_instance.relations_from.update(source_type=content_type,
                                         source_instance_id=to_instance_id)
     from_instance.relations_to.update(target_type=content_type,
@@ -35,7 +61,17 @@ def _transfer_all_relations(from_instance, to_instance_id, content_type):
 
 def prune_relations(resource, user=None):
     """
-    Search for and remove duplicate relations for a :class:`.Resource`\.
+    Search for and aggressively remove duplicate relations for a
+    :class:`.Resource`\.
+
+    Use at your own peril.
+
+    Parameters
+    ----------
+    resource : :class:`.Resource`
+    user : :class:`.User`
+        If provided, data manipulation will be limited to by the authorizations
+        attached to a specific user. Default is ``None`` (superuser auths).
     """
     value_type = ContentType.objects.get_for_model(Value)
 
@@ -49,23 +85,22 @@ def prune_relations(resource, user=None):
         #  (if a Value) has the same value/content.
         for pred, pr_relations in groupby(relations, lambda o: o[0]):
             for ctype, ct_relations in groupby(pr_relations, lambda o: o[1]):
-                # We need to use this iterator twice, so we'll solidify
-                #  it as a list.
-                ct_relations = [o for o in ct_relations]
+                # We need to use this iterator twice, so we consume it now, and
+                #  keep it around as a list.
+                ct_r = list(ct_relations)
 
                 for iid, id_relations in groupby(ct_relations, lambda o: o[2]):
-                    _delete_dupes(list(id_relations)) # Target is precisely the same.
+                    _delete_dupes(list(id_relations))    # Target is the same.
 
                 if ctype != value_type.id:    # Only applies to Value instances.
                     continue
 
-                values = Value.objects.filter(pk__in=zip(*ct_relations)[2])\
-                            .order_by('id').values('id', '_value')
+                values = Value.objects.filter(pk__in=zip(*ct_r)[2]) \
+                                      .order_by('id').values('id', '_value')
 
                 key = lambda *o: o[0][1]['_value']
-                for value, vl_relations in groupby(sorted(zip(ct_relations, values), key=key), key):
-                    v_relations = zip(*list(vl_relations))[0]
-                    _delete_dupes(v_relations)    # Target has the same value.
+                for _, vl_r in groupby(sorted(zip(ct_r, values), key=key), key):
+                    _delete_dupes(zip(*list(vl_r))[0])
 
     fields = ['predicate_id', 'target_type', 'target_instance_id', 'id']
     relations_from = resource.relations_from.all()
@@ -159,16 +194,34 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
         representative = master,
     )
     identity.entities.add(*entities)
-    for ent in entities:
-        ent.identities.update(representative=master)
-
-
+    map(lambda e: e.identities.update(representative=master), entities)
     return master
 
 
 def merge_resources(resources, master_id=None, delete=True, user=None):
     """
+    Merge selected resources to a single resource.
+
+    Parameters
+    -------------
+    resources : ``QuerySet``
+        The :class:`.Resource` instances that will be merged.
+    master_id : int
+        (optional) The primary key of the :class:`.Resource` to use as the
+        "master" instance into which the remaining instances will be merged.
+
+    Returns
+    -------
+    master : :class:`.Resource`
+
+    Raises
+    ------
+    RuntimeError
+        If less than two :class:`.Resource` instances are present in
+        ``resources``, or if :class:`.Resource` instances are not the
+        same with respect to content.
     """
+
     resource_type = ContentType.objects.get_for_model(Resource)
     if resources.count() < 2:
         raise RuntimeError("Need more than one Resource instance to merge")
@@ -280,3 +333,101 @@ def isolate_conceptentity(instance):
 
         entities.append(clone)
     merge_conceptentities(entities, user=instance.created_by)
+
+
+def generate_collection_coauthor_graph(collection,
+                                       author_predicate_uri="http://purl.org/net/biblio#authors"):
+    """
+    Create a graph describing co-occurrences of :class:`.ConceptEntity`
+    instances linked to individual :class:`.Resource` instances via an
+    authorship :class:`.Relation` instance.
+
+    Parameters
+    ----------
+    collection : :class:`.Collection`
+    author_predicate_uri : str
+        Defaults to the Biblio #authors predicate. This is the predicate that
+        will be used to identify author :class:`.Relation` instances.
+
+    Returns
+    -------
+    :class:`networkx.Graph`
+        Nodes will be :class:`.ConceptEntity` PK ids (int), edges will indicate
+        co-authorship; each edge should have a ``weight`` attribute indicating
+        the number of :class:`.Resource` instances on which the pair of CEs are
+        co-located.
+    """
+
+    # This is a check to see if the collection parameter is an instance of the
+    #  :class:`.Collection`. If it is not a RuntimeError exception is raised.
+    if not isinstance(collection, Collection):
+        raise RuntimeError("Invalid collection to export co-author data from")
+
+    resource_type_id = ContentType.objects.get_for_model(Resource).id
+
+    # This will hold node attributes for all ConceptEntity instances across the
+    #  entire collection.
+    node_labels = {}
+    node_uris = {}
+
+    # Since a particular pair of ConceptEntity instances may co-occur on more
+    #  than one Resource in this Collection, we compile the number of
+    #  co-occurrences prior to building the networkx Graph object.
+    edges = Counter()
+
+    # The co-occurrence graph will be comprised of ConceptEntity instances
+    #  (identified by their PK ids. An edge between two nodes indicates that
+    #  the two constituent CEs occur together on the same Resource (with an
+    #  author Relation). A ``weight`` attribute on each edge will record the
+    #  number of Resource instances on which each respective pair of CEs
+    #  co-occur.
+    for resource_id in collection.native_resources.values_list('id', flat=True):
+        # We only need a few columns from the ConceptEntity table, from rows
+        #  referenced by responding Relations.
+        author_relations = Relation.objects\
+                .filter(source_type_id=resource_type_id,
+                        source_instance_id=resource_id,
+                        predicate__uri=author_predicate_uri)\
+                .prefetch_related('target')
+
+        # If there are no author relations, there are no nodes to be created for
+        #  the resource.
+        if author_relations.count() <= 1:
+            continue
+
+        ids, labels, uris = zip(*list(set(((r.target.id, r.target.name, r.target.uri) for r in author_relations))))
+
+        # It doesn't matter if we overwrite node attribute values, since they
+        #  won't vary.
+        node_labels.update(dict(zip(ids, labels)))
+        node_uris.update(dict(zip(ids, uris)))
+
+        # The keys here are ConceptEntity PK ids, which will be the primary
+        #  identifiers used in the graph.
+        for edge in combinations(ids, 2):
+            edges[edge] += 1
+
+    # Instantiate the Graph from the edge data generated above.
+    graph = nx.Graph()
+    for (u, v), weight in edges.iteritems():
+        graph.add_edge(u, v, weight=weight)
+
+    # This is more efficient than setting the node attribute as we go along.
+    #  If there is only one author, there is no need to set node attributes as
+    #  there is no co-authorship for that Collection.
+    if len(node_labels.keys()) > 1:
+        nx.set_node_attributes(graph, 'label', node_labels)
+        nx.set_node_attributes(graph, 'uri', node_uris)
+
+    return graph
+
+
+def ping_remote_resource(path):
+    """
+    Check whether a remote resource is accessible.
+    """
+    try:
+        response = requests.head(path)
+    except requests.exceptions.ConnectTimeout:
+        return False, {}
+    return response.status_code == requests.codes.ok, response.headers

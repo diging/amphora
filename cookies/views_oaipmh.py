@@ -1,7 +1,16 @@
+"""
+These views support `Open Archives Initiative Protocol for Metadata Harvesting
+(OAI-PMH) <https://www.openarchives.org/pmh/>`_.
+
+Implements inferfaces from the `oaipmh <https://github.com/infrae/pyoai>`_
+module.
+"""
+
 from django.core.urlresolvers import reverse
 from django.db.models import Min, Max
-from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect, Http404
-
+from django.conf import settings
+from django.http import (JsonResponse, HttpResponse, HttpResponseBadRequest,
+                         HttpResponseRedirect, Http404)
 
 from cookies.models import *
 
@@ -9,8 +18,7 @@ from oaipmh.server import BatchingServer, BatchingResumption
 from oaipmh.interfaces import IBatchingOAI, IHeader, IIdentify
 from oaipmh.error import CannotDisseminateFormatError, BadArgumentError
 
-import pytz
-import datetime
+import pytz, datetime
 from lxml.etree import Element
 
 
@@ -21,8 +29,12 @@ METADATA_FORMATS = [
  ]
 
 
-class JARSMetadataWriter(object):
-
+class AmphoraMetadataWriter(object):
+    """
+    Factory XML metadata writer. This was probably intended to be a singleton
+    in the original design, but there's no real need for that in the current
+    implementation.
+    """
     def __call__(self, element, metadata):
         for field, value in metadata.getMap():
             tag = field.uri.split('/')[-1].split('#')[-1]
@@ -37,12 +49,15 @@ class JARSMetadataWriter(object):
         return element
 
 
-class JARSIdentify(IIdentify):
+class AmphoraIdentify(IIdentify):
+    """
+    Identification information for this Amphora instance.
+    """
     def repositoryName(self):
         """
         Name of repository.
         """
-        return u'Amphora'
+        return settings.REPOSITORY_NAME
 
     def baseURL(self):
         """
@@ -52,7 +67,7 @@ class JARSIdentify(IIdentify):
 
     def protocolVersion(self):
         """
-        OAI-PMH protocol version (should always be '2.0')
+        OAI-PMH protocol version (should always be '2.0').
         """
         return u'2.0'
 
@@ -60,7 +75,7 @@ class JARSIdentify(IIdentify):
         """
         List of email addresses of repository administrators.
         """
-        return u'erick.peirson@asu.edu'
+        return settings.ADMIN_EMAIL
 
     def earliestDateStamp(self):
         """
@@ -73,7 +88,7 @@ class JARSIdentify(IIdentify):
         Way the repository handles deleted records.
         Either 'no', 'transient' or 'persistent'.
         """
-        return u'no'
+        return u'no'    # TODO: Is this correct?
 
     def granularity(self):
         """Datetime granularity of datestamps in repository.
@@ -89,7 +104,10 @@ class JARSIdentify(IIdentify):
         return u'identity'
 
 
-class JARSHeader(IHeader):
+class AmphoraHeader(IHeader):
+    """
+    Header information for a single :class:`.Resource` instance.
+    """
     def __init__(self, resource):
         self.resource = resource
 
@@ -104,22 +122,26 @@ class JARSHeader(IHeader):
         Datetime of creation, last modification or deletion of the record.
         This can be used for selective harvesting.
         """
-        return self.resource.created.astimezone(pytz.timezone('UTC')).replace(tzinfo=None)
+        return self.resource.created.astimezone(pytz.timezone('UTC'))\
+                                    .replace(tzinfo=None)
 
     def setSpec(self):
         """
         A list of sets this record is a member of.
         """
-        return [unicode(i) for i in self.resource.part_of.values_list('id', flat=True)]
+        return map(unicode, self.resource.part_of.values_list('id', flat=True))
 
     def isDeleted(self):
         """
         If true, record has been deleted.
         """
-        return False
+        return self.resource.hidden
 
 
-class JARSMetadata(object):
+class AmphoraMetadata(object):
+    """
+    Metadata for a :class:`.Resource` instance.
+    """
     def __init__(self, resource):
         self.resource = resource
 
@@ -127,16 +149,14 @@ class JARSMetadata(object):
         return self.resource
 
     def getMap(self):
-        elements = []
-        for relation in self.resource.relations_from.all():
-            elements.append((relation.predicate, relation.target.name))
-        return elements
+        return map(lambda r: (r.predicate, r.target.name),
+                   self.resource.relations_from.all())
 
-    def getField(self, name):
-        return self.resource.relations_from.filter(predicate__uri=name)
+    def getField(self, uri):
+        return self.resource.relations_from.filter(predicate__uri=uri)
 
 
-class JARSBatchingOAI(IBatchingOAI):
+class AmphoraBatchingOAI(IBatchingOAI):
     def _check_metadataPrefix(self, metadataPrefix):
         if metadataPrefix != 'oai_dc':
             raise CannotDisseminateFormatError('%s not implemented' % metadataPrefix)
@@ -164,31 +184,60 @@ class JARSBatchingOAI(IBatchingOAI):
         self._check_metadataPrefix(metadataPrefix)
 
     def identify(self):
-        return JARSIdentify()
+        return AmphoraIdentify()
 
-    def listIdentifiers(self, metadataPrefix, setSpec=None, from_=None, until=None,
-                        cursor=0, batch_size=10, **kwargs):
+    def listIdentifiers(self, metadataPrefix, setSpec=None, from_=None,
+                        until=None, cursor=0, batch_size=10, **kwargs):
+        """
+        Generate header information for responding :class:`.Resource` instances.
+        """
+        # Raise CannotDisseminateFormatError if the client asks for an
+        #  unsuported format.
         self._check_metadataPrefix(metadataPrefix)
-        resources = self._get_resources(setSpec, from_, until, cursor, batch_size, **kwargs)
-        return [JARSHeader(obj) for obj in resources]
+        return map(AmphoraHeader,
+                   self._get_resources(setSpec, from_, until, cursor,
+                                       batch_size, **kwargs))
 
     def listMetadataFormats(self, identifier=None):
         return METADATA_FORMATS
 
     def listRecords(self, metadataPrefix, setSpec=None, from_=None, until=None,
                     cursor=0, batch_size=10, **kwargs):
-        print 'listRecords'
+        """
+        Generate full metadata records for responding :class:`.Resource`
+        instances.
+        """
+        # Raise CannotDisseminateFormatError if the client asks for an
+        #  unsuported format.
         self._check_metadataPrefix(metadataPrefix)
-        print 'checked'
-        resources = self._get_resources(setSpec, from_, until, cursor, batch_size, **kwargs)
-        return [(JARSHeader(obj), JARSMetadata(obj), []) for obj in resources]
+        return map(lambda r: (AmphoraHeader(r), AmphoraMetadata(r), []),
+                   self._get_resources(setSpec, from_, until, cursor,
+                                       batch_size, **kwargs))
 
     def listSets(self):
-        return [unicode(i) for i in Collection.objects.values_list('id', flat=True)]
+        """
+        Generate a list of resource set identifiers.
+        """
+        # The closest thing that we have to a concept of a "set" is our
+        #  ``Collection`` model.
+        # TODO: verify that OAIPMH wants int identifiers here, and not URIs.
+        return map(unicode, Collection.objects.values_list('id', flat=True))
 
 
 def oaipmh(request):
-    print [s.prefix for s in  Schema.objects.all()]
-    server = BatchingServer(JARSBatchingOAI(), nsmap={schema.prefix: schema.uri for schema in Schema.objects.all()})
-    server._tree_server._metadata_registry.registerWriter('oai_dc', JARSMetadataWriter())
-    return HttpResponse(server.handleRequest(request.GET), content_type='application/xml')
+    """
+    The heroic OAIPMH API view.
+    """
+    # TODO: Do we need to tell the world about every Schema in the system?
+    _nsmap = dict(Schema.objects.values_list('prefix', 'uri'))
+
+    # BatchingServer was probably intended to be a singleton, but that seems
+    #  kind of silly in this case.
+    server = BatchingServer(AmphoraBatchingOAI(), nsmap=_nsmap)
+
+    # TODO: Why are we accessing private properties so eggregiously?
+    server._tree_server._metadata_registry\
+                              .registerWriter('oai_dc', AmphoraMetadataWriter())
+
+    return HttpResponse(server.handleRequest(request.GET),
+                        content_type='application/xml')

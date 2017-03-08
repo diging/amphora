@@ -40,8 +40,8 @@ TEMPLATE_CONTEXT_PROCESSORS = (
 if not TEST:    # These are removed for test performance.
     TEMPLATE_CONTEXT_PROCESSORS += (
         "django.core.context_processors.request",
-        'social.apps.django_app.context_processors.backends',
-        'social.apps.django_app.context_processors.login_redirect',
+        'social_django.context_processors.backends',
+        'social_django.context_processors.login_redirect',
         #    "audit_log.middleware.UserLoggingMiddleware",
     )
 
@@ -67,7 +67,7 @@ INSTALLED_APPS = (
     'rest_framework',
     'rest_framework.authtoken',
     'guardian',
-     'social.apps.django_app.default',
+     'social_django',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -92,14 +92,15 @@ REST_FRAMEWORK = {
         'rest_framework_xml.parsers.XMLParser',
     ),
     'DEFAULT_RENDERER_CLASSES': (
-        'rest_framework_xml.renderers.XMLRenderer',
         'rest_framework.renderers.JSONRenderer',
+        # 'rest_framework_xml.renderers.XMLRenderer',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         # 'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
         'oauth2_provider.ext.rest_framework.OAuth2Authentication',
+        'jars.auth.GithubTokenBackend',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 10,
@@ -167,7 +168,7 @@ FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'uploads')
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend', # default
     'guardian.backends.ObjectPermissionBackend',
-    'social.backends.github.GithubOAuth2',
+    'social_core.backends.github.GithubOAuth2',
 )
 ANONYMOUS_USER_ID = -1
 
@@ -186,7 +187,7 @@ LOGIN_URL = BASE_URL + 'login/github/'
 LOGIN_REDIRECT_URL = 'index'
 
 # Giles and HTTP.
-GILES = os.environ.get('GILES', 'https://diging.asu.edu/giles')
+GILES = os.environ.get('GILES', 'https://diging-dev.asu.edu/giles-review')
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 GET = requests.get
 POST = requests.post
@@ -197,7 +198,10 @@ MAX_GILES_UPLOADS = 20
 # Metadata globals.
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
+PROVENANCE = 'http://purl.org/dc/terms/provenance'
+
 URI_NAMESPACE = os.environ.get('NAMESPACE', 'http://diging.asu.edu/amphora')
+
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'ERROR')
 # LOGLEVEL = 'ERROR'
@@ -208,6 +212,13 @@ LOGGER.setLevel(LOGLEVEL)
 
 
 CELERYD_TASK_TIME_LIMIT = 300000
+
+
+GOAT = os.environ.get('GOAT', 'http://black-goat.herokuapp.com')
+GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN')
+
+ADMIN_EMAIL = u'erick.peirson@asu.edu'
+REPOSITORY_NAME = u'Amphora'
 
 SECURE_SSL_REDIRECT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

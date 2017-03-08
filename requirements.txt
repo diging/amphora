@@ -33,6 +33,7 @@ iso8601==0.1.10
 isodate==0.5.1
 kombu==3.0.35
 Markdown==2.6.2
+networkx==1.10
 oauth2==1.9.0.post1
 oauth2-provider==0.0
 oauthlib==1.0.1
@@ -52,8 +53,8 @@ wheel==0.24.0
 whitenoise==2.0.4
 jsonpickle
 -e git://github.com/erickpeirson/django-pagination.git#egg=django-pagination
-python-social-auth==0.3.6
-social-auth-app-django==1.1.0
+social-auth-core
+social-auth-app-django
 pyoai==2.4.5
 python-Levenshtein==0.12.0
-psycopg2==2.6.2
+black-goat-client>=0.2
