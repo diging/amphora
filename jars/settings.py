@@ -13,7 +13,7 @@ contents of which will be passed to :func:`os.environ.setdefault()`\. This can
 be a useful way to manage secrets if the configuration file is secure.
 """
 
-import os, socket, sys, requests
+import os, socket, sys, requests, dj_database_url
 from urlparse import urlparse
 from datetime import timedelta
 
@@ -115,15 +115,9 @@ WSGI_APPLICATION = 'jars.wsgi.application'
 if DEVELOP or TEST:
     if os.environ.get('BACKEND', 'sqlite') == 'postgres':
         DATABASES = {
-           'default': {
-               'ENGINE': 'django.db.backends.postgresql_psycopg2',
-               'NAME': 'jars',
-               'USER': 'jars',
-               'PASSWORD': 'jars',
-               'HOST': 'localhost',
-               'PORT': '5432',
-           }
+            'default': dj_database_url.config()
         }
+        DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql_psycopg2'
     else:
         DATABASES = {
             'default': {
@@ -133,15 +127,9 @@ if DEVELOP or TEST:
         }
 else:
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.environ.get('DJANGO_DB_NAME', 'jars'),
-            'USER': os.environ.get('DJANGO_DB_USER', 'jars'),
-            'PASSWORD': os.environ.get('DJANGO_DB_PASSWORD', 'jars'),
-            'HOST': os.environ.get('DJANGO_DB_HOST', 'localhost'),
-            'PORT': os.environ.get('DJANGO_DB_PORT', '3306'),
-        }
+        'default': dj_database_url.config()
     }
+    DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql_psycopg2'
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
@@ -209,9 +197,10 @@ MAX_GILES_UPLOADS = 20
 
 # Metadata globals.
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
-LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
-URI_NAMESPACE = 'http://diging.asu.edu/amphora'
-PROVENANCE = 'http://purl.org/dc/terms/provenance'
+LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'PROVENANCE = 'http://purl.org/dc/terms/provenance'
+
+URI_NAMESPACE = os.environ.get('NAMESPACE', 'http://diging.asu.edu/amphora')
+
 
 LOGLEVEL = os.environ.get('LOGLEVEL', 'ERROR')
 # LOGLEVEL = 'ERROR'
@@ -229,3 +218,6 @@ GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN')
 
 ADMIN_EMAIL = u'erick.peirson@asu.edu'
 REPOSITORY_NAME = u'Amphora'
+
+SECURE_SSL_REDIRECT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
