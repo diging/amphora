@@ -21,3 +21,7 @@ Some notable features:
 
 The target audience is primarily scholars working with digitized texts that need a more
 robust storage facility than whatever mess is on their harddrive, and need stable URIs.
+
+Deployment
+----------
+For a sample deployment on CentOS 7, see [diging/ansible-role-amphora](https://github.com/diging/ansible-role-amphora)
