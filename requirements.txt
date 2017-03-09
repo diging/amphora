@@ -57,3 +57,5 @@ social-auth-app-django
 pyoai==2.4.5
 python-Levenshtein==0.12.0
 black-goat-client>=0.2
+psycopg2==2.6.2
+django-querysetsequence>=0.7
