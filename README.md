@@ -24,4 +24,4 @@ robust storage facility than whatever mess is on their harddrive, and need stabl
 
 Deployment
 ----------
-For a sample deployment on CentOS 7, see [diging/ansible-role-amphora](https://github.com/diging/ansible-role-amphora)
+For a sample deployment on CentOS 7, see [diging/ansible-amphora-role](https://github.com/diging/ansible-amphora-role)
