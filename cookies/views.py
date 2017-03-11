@@ -992,9 +992,11 @@ def entity_change_concept(request, entity_id):
         # obtained and concept URIs are searched for. The results are displayed
         # on the html page.
         if 'search' in request.POST:
+            print '::: search :::'
             form = ConceptEntityLinkForm(request.POST)
             search = ''
             if form.is_valid():
+                print form.cleaned_data
                 search = form.cleaned_data.get('search_input')
 
             try:

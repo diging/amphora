@@ -19,8 +19,8 @@ from cookies.exceptions import *
 logger = settings.LOGGER
 
 os.environ.setdefault('GOAT_WAIT_INTERVAL', '0.001')
-goat.GOAT_APP_TOKEN = os.environ.get('GOAT_APP_TOKEN','')
-goat.GOAT = os.environ.get('GOAT_URI','')
+goat.GOAT_APP_TOKEN = settings.GOAT_APP_TOKEN
+goat.GOAT = settings.GOAT
 
 
 def add_creation_metadata(resource, user):
@@ -461,7 +461,7 @@ def concept_search(query):
     This is a list of all :class:`.GoatConcept` objects obtained from the
     search result of the BlackGoat API.
     """
-
+    print '::: concept_search :::'
     #If no query text is entered, the result from search is None.
     if not query:
         return None
@@ -480,8 +480,8 @@ def concept_search(query):
     if concepts:
         concept_data = []
         for concept in concepts:
-            concept_data.append({'name':concept.__dict__['data']['name'],
-                                'source': concept.__dict__['data']['authority']['name'],
-                                'uri':concept.__dict__['identifier']})
+            concept_data.append({'name':concept.data['name'],
+                                'source': concept.data['authority']['name'],
+                                'uri':concept.data['identifier']})
 
     return concept_data
