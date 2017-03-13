@@ -244,6 +244,9 @@ class ContentRelation(models.Model):
     Associates a :class:`.Resource` with its content representation(s).
     """
 
+    objects = models.Manager()
+    active = ActiveManager()
+
     for_resource = models.ForeignKey('Resource', related_name='content')
     content_resource = models.ForeignKey('Resource', related_name='parent')
     content_type = models.CharField(max_length=100, null=True, blank=True)
@@ -254,6 +257,7 @@ class ContentRelation(models.Model):
     updated = models.DateTimeField(auto_now=True)
     container = models.ForeignKey('ResourceContainer',
                                   related_name='content_relations')
+    is_deleted = models.BooleanField(default=False)
 
 
 class Collection(ResourceBase):

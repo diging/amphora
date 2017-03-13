@@ -51,7 +51,6 @@ def concept_search(query):
     if not query:
         return []
 
-
     #The BlackGoat API for search is used to get a list of all URIs associated
     # with the text entered.
     concepts = goat.Concept.search(q=query)

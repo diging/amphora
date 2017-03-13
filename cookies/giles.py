@@ -16,6 +16,8 @@ ACCEPTED = 202
 def handle_status_exception(func):
     def wrapper(user, *args, **kwargs):
         response = func(user, *args, **kwargs)
+        if isinstance(user, str):    # May be a username, rather than a User.
+            user = User.objects.get(username=user)
         if response.status_code == 401:    # Auth token expired.
             try:
                 user.giles_token.delete()
@@ -115,7 +117,7 @@ def get_auth_token(user, **kwargs):
 
 @api_request
 @handle_status_exception
-def send_to_giles(username, file_name, public=True, **kwargs):
+def send_to_giles(username, file_name, public=False, **kwargs):
     """
 
     Parameters
@@ -201,7 +203,7 @@ def create_giles_upload(resource_id, content_relation_id, username,
         'resource':resource,
         'file_path': content_resource.file.name,
         'state': GilesUpload.PENDING,
-        'creator': user,
+        'created_by': user,
     }
     if delete_on_complete:
         data.update({
@@ -215,7 +217,7 @@ def create_giles_upload(resource_id, content_relation_id, username,
 
 
 def _create_content_resource(parent_resource, resource_type, creator, uri, url,
-                             public=True, **meta):
+                             public=False, **meta):
     """
 
     Parameters
@@ -275,7 +277,7 @@ def _create_content_resource(parent_resource, resource_type, creator, uri, url,
 
 
 def _create_page_resource(parent_resource, page_nr, resource_type, creator, uri,
-                          url, public=True, **meta):
+                          url, public=False, **meta):
     """
 
     Parameters
@@ -314,7 +316,7 @@ def _create_page_resource(parent_resource, page_nr, resource_type, creator, uri,
         'source': resource,
         'target': parent_resource,
         'predicate': __part__,
-        'container': container,
+        'container': parent_resource.container,
     })
     return resource
 
@@ -337,7 +339,7 @@ def format_giles_url(url, username, dw=300):
 
 @api_request
 @handle_status_exception
-def check_upload_status(upload_id, username, **kwargs):
+def check_upload_status(username, upload_id , **kwargs):
     """
     Poll Giles for the status of a POSTed upload.
     """
@@ -364,8 +366,10 @@ def process_on_complete(on_complete):
     from cookies import models
     import os
     def _delete(obj):
-        if obj.file and os.path.isfile(obj.file.path):
-            os.remove(obj.file.path)
+        if getattr(obj, 'file', None):
+            path = os.path.join(settings.MEDIA_ROOT, obj.file.name)
+            if os.path.isfile(path):
+                os.remove(path)
         obj.file = None
         obj.is_deleted = True
         obj.save()
@@ -389,7 +393,7 @@ def process_upload(upload_id, username):
     upload_id : str
     username : str
     """
-    import datetime
+    import datetime, jsonpickle
 
     user = User.objects.get(username=username)
 
@@ -402,7 +406,7 @@ def process_upload(upload_id, username):
 
     try:
         upload.last_checked = datetime.datetime.now()
-        code, data = check_upload_status(upload_id, username)
+        code, data = check_upload_status(username, upload_id)
     except Exception as E:
         upload.message = str(E)
         upload.state = GilesUpload.GILES_ERROR
@@ -420,7 +424,6 @@ def process_upload(upload_id, username):
         if not upload.resource:
             upload.resource = resource
             upload.save()
-
     except Exception as E:    # We f***ed something up.
         upload.message = str(E)
         upload.state = GilesUpload.PROCESS_ERROR
@@ -430,13 +433,13 @@ def process_upload(upload_id, username):
     # Depending on configuration, we may want to do things like delete local
     #  copies of files.
     if upload.on_complete:
-        try:
-            process_on_complete(upload.on_complete)
-        except Exception as E:
-            upload.message = str(E)
-            upload.state = GilesUpload.CALLBACK_ERROR
-            upload.save()
-            return
+        # try:
+        process_on_complete(jsonpickle.decode(upload.on_complete))
+        # except Exception as E:
+        #     upload.message = str(E)
+        #     upload.state = GilesUpload.CALLBACK_ERROR
+        #     upload.save()
+        #     return
 
     # Woohoo!
     upload.state = GilesUpload.DONE
@@ -448,11 +451,16 @@ def process_details(data, upload_id, username):
     """
     Process document data from Giles.
     """
+    if isinstance(data, list):
+        if len(data) == 0:
+            raise ValueError('data is empty')
+        data = data[0]
+
     upload = GilesUpload.objects.get(upload_id=upload_id)
     resource = upload.resource
     creator = User.objects.get(username=username)
 
-    giles = kwargs.get('giles', settings.GILES)
+    giles = settings.GILES
     __text__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Text')
     __image__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Image')
     __document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
@@ -477,7 +485,7 @@ def process_details(data, upload_id, username):
                 'external_source': Resource.GILES,
             })
         container = ResourceContainer.objects.create(primary=resource,
-                                                     created_by=creator.id)
+                                                     created_by=creator)
         resource.container = container
         resource.save()
 
@@ -557,21 +565,17 @@ def send_giles_upload(upload_pk, username):
     upload = GilesUpload.objects.get(pk=upload_pk)
 
     # This will trigger an actual upload, and we don't want to do it twice.
-    if not upload.state == GilesUpload.PENDING:
+    if upload.state != GilesUpload.PENDING:
         return
 
-    # Resource should be public unless expressly forbidden.
-    if upload.resource and not upload.resource.public:
-        public = False
-    else:
-        public = True
+    public = False    # For now, we'll set everything private.
 
     try:
-        result = send_to_giles(content_resource.file.name, username, public=public)
+        code, result = send_to_giles(username, upload.file_path, public=public)
     except Exception as E:
         upload.message = str(E)
         upload.state = GilesUpload.SEND_ERROR
-        upload_save()
+        upload.save()
         return
 
     upload.upload_id = result.get('id')
