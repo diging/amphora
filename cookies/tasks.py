@@ -120,26 +120,9 @@ def send_to_giles(file_name, creator, resource=None, public=True, gilesupload_id
 
 
 @shared_task
-def check_giles_upload(resource, creator, upload_id, checkURL,
-                       gilesupload_id):
-    upload = GilesUpload.objects.get(pk=gilesupload_id)
-    try:
-        status, content = giles.check_upload_status(creator, checkURL)
-        if status == 202:    # Accepted.
-            logger.debug('Accepted, retrying in 30 seconds')
-            return
-    except:
-        logger.error("send_to_giles: failing permanently for %i" % upload.id)
-        upload.fail = True
-        upload.save()
-        return
-
-    giles.process_file_upload(resource, creator, content)
-
-    upload.response = json.dumps(content)
-    upload.resolved = True
-    upload.save()
-
+def check_giles_upload(upload_id, username):
+    print '::async:: check_giles_upload', upload_id, username
+    return giles.process_upload(upload_id, username)
 
 
 @shared_task

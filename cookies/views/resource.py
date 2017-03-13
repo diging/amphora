@@ -596,9 +596,6 @@ def resource_prune(request, resource_id):
     return HttpResponseRedirect(resource.get_absolute_url())
 
 
-
-
-
 @login_required
 def sign_s3(request):
     object_name = urllib.quote_plus(request.GET.get('file_name'))
@@ -630,73 +627,3 @@ def sign_s3(request):
 
 def test_upload(request):
     return render(request, 'testupload.html', {})
-
-
-@login_required
-def handle_giles_upload(request):
-    try:
-        session = giles.handle_giles_callback(request)
-    except ValueError:
-        return HttpResponseRedirect(reverse('create-resource'))
-
-    return HttpResponseRedirect(reverse('create-process-giles', args=(session.id,)))
-
-
-@login_required
-def process_giles_upload(request, session_id):
-    """
-    """
-    session = get_object_or_404(GilesSession, pk=session_id)
-    context = {'session': session,}
-
-    if request.method == 'GET':
-        form = ChooseCollectionForm()
-        form.fields['collection'].queryset = form.fields['collection'].queryset.filter(created_by_id=request.user.id)
-        if session.collection:
-            collection_id = session.collection
-        else:
-            collection_id = request.GET.get('collection_id', None)
-        if collection_id:
-            form.fields['collection'].initial = collection_id
-            context.update({'collection_id': collection_id})
-
-    elif request.method == 'POST':
-        form = ChooseCollectionForm(request.POST)
-        form.fields['collection'].queryset = form.fields['collection'].queryset.filter(created_by_id=request.user.id)
-        if form.is_valid():
-            collection = form.cleaned_data.get('collection', None)
-            name = form.cleaned_data.get('name', None)
-            if not collection and name:
-                collection = Collection.objects.create(**{
-                    'created_by_id': request.user.id,
-                    'name': name,
-                })
-                operations.add_creation_metadata(collection, request.user)
-            session.collection = collection
-            session.save()
-            form.fields['collection'].initial = collection.id
-            form.fields['name'].widget.attrs['disabled'] = True
-    context.update({'form': form})
-    template = 'create_process_giles_upload.html'
-    return render(request, template, context)
-
-
-@auth.authorization_required(ResourceAuthorization.EDIT, _get_resource_by_id)
-def trigger_giles_submission(request, resource_id, relation_id):
-    resource = _get_resource_by_id(request, resource_id)
-    instance = resource.content.get(pk=relation_id)
-    import mimetypes
-    content_type = instance.content_resource.content_type or mimetypes.guess_type(instance.content_resource.file.name)[0]
-    if instance.content_resource.is_local and instance.content_resource.file.name is not None:
-        # PDFs and images should be stored in Digilib via Giles.
-        if content_type in ['image/png', 'image/tiff', 'image/jpeg', 'application/pdf']:
-            logger.debug('%s has a ContentResource; sending to Giles' % instance.content_resource.name)
-            try:
-                task = send_to_giles.delay(instance.content_resource.file.name,
-                                    instance.for_resource.created_by, resource=instance.for_resource,
-                                    public=instance.for_resource.public)
-            except ConnectionError:
-                logger.error("send_pdfs_and_images_to_giles: there was an error"
-                             " connecting to the redis message passing"
-                             " backend.")
-            return HttpResponse(task)

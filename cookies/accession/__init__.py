@@ -293,6 +293,7 @@ class IngestManager(object):
         data.update({
             'for_resource': resource,
             'content_resource': content_resource,
+            'container': resource.container,
         })
         if content_type:    # May have been explicitly provided.
             data.update({'content_type': content_type})

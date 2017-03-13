@@ -187,6 +187,8 @@ LOGIN_REDIRECT_URL = 'index'
 
 # Giles and HTTP.
 GILES = os.environ.get('GILES', 'https://diging-dev.asu.edu/giles-review')
+if GILES.endswith('/'):
+    GILES = GILES[:-1]
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 GET = requests.get
 POST = requests.post
@@ -221,3 +223,8 @@ REPOSITORY_NAME = u'Amphora'
 
 SECURE_SSL_REDIRECT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+
+# If True, files will be deleted as soon as they are successfully added to
+#  Giles.
+DELETE_LOCAL_FILES = True

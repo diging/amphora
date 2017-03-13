@@ -11,7 +11,7 @@ from cookies import authorization as auth
 
 from itertools import groupby
 
-from . import resource, collection, async, conceptentity, metadata
+from . import resource, collection, async, conceptentity, metadata, giles
 
 
 def index(request):

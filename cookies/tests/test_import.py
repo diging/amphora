@@ -14,6 +14,7 @@ from cookies.accession.zotero import ZoteroIngest
 from cookies import tasks
 os.environ.setdefault('LOGLEVEL', 'ERROR')
 
+
 class TestImport(unittest.TestCase):
     def setUp(self):
         self.factory = IngesterFactory()

@@ -252,6 +252,8 @@ class ContentRelation(models.Model):
     created_by = models.ForeignKey(User, null=True, blank=True)
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
+    container = models.ForeignKey('ResourceContainer',
+                                  related_name='content_relations')
 
 
 class Collection(ResourceBase):
@@ -493,62 +495,45 @@ class UserJob(models.Model):
 
 
 class GilesUpload(models.Model):
-    """
-    Represents a single upload.
-    """
-
-    created = models.DateTimeField(auto_now_add=True)
-    sent = models.DateTimeField(null=True, blank=True)
-    """The datetime when the file was uploaded."""
-
     upload_id = models.CharField(max_length=255, blank=True, null=True)
-    """Returned by Giles upon upload."""
+    resource = models.ForeignKey('Resource', related_name='giles_uploads',
+                                 blank=True, null=True)
+    """
+    If the upload originated from Amphora, it should be associated with a
+    :class:`.Resource` instance.
+    """
 
-    content_resource = models.ForeignKey('Resource', null=True, blank=True,
-                                         related_name='giles_upload')
-    """This is the resource that directly 'owns' the uploaded file."""
-
-    response = models.TextField(blank=True, null=True)
-    """This should be raw JSON."""
-
-    resolved = models.BooleanField(default=False)
-    """When a successful response is received, this should be set ``True``."""
-
-    fail = models.BooleanField(default=False)
-    """If ``True``, should not be retried."""
-
-    @property
-    def pending(self):
-        return not self.resolved
-
-
-class GilesSession(models.Model):
-    created_by = models.ForeignKey(User, related_name='giles_sessions')
+    created_by = models.ForeignKey(User, related_name='giles_uploads')
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
-    _file_ids = models.TextField()
-    _file_details = models.TextField()
+    last_checked = models.DateTimeField(blank=True, null=True)
 
+    PENDING = 'PD'
+    SENT = 'ST'
+    DONE = 'DO'
+    SEND_ERROR = 'SE'
+    GILES_ERROR = 'GE'
+    PROCESS_ERROR = 'PE'
+    CALLBACK_ERROR = 'CE'
+    STATES = (
+        (PENDING, 'Pending'),
+        (SENT, 'Sent'),
+        (DONE, 'Done'),
+        (SEND_ERROR, 'Send error'),
+        (GILES_ERROR, 'Giles error'),
+        (PROCESS_ERROR, 'Process error'),
+        (CALLBACK_ERROR, 'Callback error')
+    )
+    state  = models.CharField(max_length=2, choices=STATES)
 
-    content_resources = models.ManyToManyField('Resource', related_name='content_in_giles_sessions')
-    resources = models.ManyToManyField('Resource', related_name='giles_sessions')
-    collection = models.ForeignKey('Collection', null=True, blank=True)
+    message = models.TextField()
+    """Error messages, etc."""
 
-    def _get_file_ids(self):
-        return json.loads(self._file_ids)
+    on_complete = models.TextField()
+    """Serialized callback instructions."""
 
-    def _set_file_ids(self, value):
-        self._file_ids = json.dumps(value)
-
-    def _get_file_details(self):
-        return json.loads(self._file_details)
-
-    def _set_file_details(self, value):
-        self._file_details = json.dumps(value)
-
-    file_ids = property(_get_file_ids, _set_file_ids)
-    file_details = property(_get_file_details, _set_file_details)
-
+    file_path = models.CharField(max_length=1000, blank=True, null=True)
+    """Relative to MEDIA_ROOT."""
 
 
 class GilesToken(models.Model):
@@ -625,6 +610,7 @@ class ResourceAuthorization(models.Model):
     VIEW = 'VW'
     EDIT = 'ED'
     SHARE = 'SH'
+    DELETE = 'DL'
     AUTH_ACTIONS = (
         (VIEW, 'View'),
         (EDIT, 'Edit'),
