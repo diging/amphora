@@ -191,7 +191,7 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
             master = entities[0]
 
     if _uri is not None:
-        master.concept = Concept.objects.get(uri=_uri)
+        master.concept.add(Concept.objects.get(uri=_uri))
         master.save()
 
     identity = Identity.objects.create(

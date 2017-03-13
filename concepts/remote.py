@@ -47,7 +47,6 @@ def concept_search(query):
         This is a list of all :class:`.GoatConcept` objects obtained from the
         search result of the BlackGoat API.
     """
-    print '::: concept_search :::'
     #If no query text is entered, the result from search is None.
     if not query:
         return []
@@ -56,6 +55,8 @@ def concept_search(query):
     #The BlackGoat API for search is used to get a list of all URIs associated
     # with the text entered.
     concepts = goat.Concept.search(q=query)
+    if not concepts:
+        return []
 
     #All the concepts from the search API are iterated to get a dictionary of
     # lists containing the name, source and uri

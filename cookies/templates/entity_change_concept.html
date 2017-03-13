@@ -107,7 +107,9 @@ var bindAutocomplete = function(selector) {
                 <label>{{ field.label }}</label>
                 <div class="input-group">
                     {{ field|addcss:"form-control" }}
-                    <span class="input-group-btn"><input class="btn btn-success" type="submit" value="Search"></input></span>
+                    <span class="input-group-btn">
+                        <input class="btn btn-success" type="submit" value="Search"></input>
+                    </span>
                 </div>
                 <p class="text-muted">{{ field.help_text }}</p>
               </div>

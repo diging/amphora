@@ -9,6 +9,7 @@ import networkx as nx
 os.environ.setdefault('LOGLEVEL', 'ERROR')
 
 from cookies import operations
+from concepts import remote
 from cookies.models import *
 from concepts.models import Concept
 
@@ -169,14 +170,12 @@ class TestMergeConceptEntities(unittest.TestCase):
         for i in xrange(5):
             c = ConceptEntity.objects.create(name='entity %i' % i)
             if i == 3:
-                c.concept = Concept.objects.create(uri=uri)
+                c.concept.add(Concept.objects.create(uri=uri))
                 c.save()
 
         entities = ConceptEntity.objects.all()
         master = operations.merge_conceptentities(entities, user=User.objects.create(username='TestUser'))
-        self.assertEqual(master.concept.uri, uri,
-                         "The concept for the master ConceptEntity was not"
-                         " set correctly.")
+        self.assertIn(uri, master.concept.values_list('uri', flat=True))
 
     def test_cannot_merge_with_two_concepts(self):
         """
@@ -185,7 +184,7 @@ class TestMergeConceptEntities(unittest.TestCase):
         for i in xrange(5):
             c = ConceptEntity.objects.create(name='entity %i' % i)
             if i == 3 or i == 1:
-                c.concept = Concept.objects.create(uri='http://f%i.ake' % i)
+                c.concept.add(Concept.objects.create(uri='http://f%i.ake' % i))
                 c.save()
 
         entities = ConceptEntity.objects.all()
@@ -632,15 +631,15 @@ class TestConceptSearch(unittest.TestCase):
     def test_concept_with_no_query(self):
         """
         When no query text is given and the search button is clicked,
-        :func:`concept_search` returns None
+        :func:`concept_search` returns an empty list.
         """
 
-        concepts = operations.concept_search('')
+        concepts = remote.concept_search('')
 
-        self.assertEqual(concepts, None)
+        self.assertEqual(concepts, [])
 
 
-    @mock.patch('cookies.operations.goat.requests.get')
+    @mock.patch('concepts.remote.goat.requests.get')
     def test_concept_with_query(self, mock_get):
         """
         When query text is given and the search button is clicked,
@@ -653,14 +652,14 @@ class TestConceptSearch(unittest.TestCase):
             with open('cookies/tests/data/concept_search_created.json', 'r') as f2:
                 mock_get.return_value = MockSearchResponse(mock_get, f2.read(), f.read(), 200)
 
-        concepts = operations.concept_search('Bradshaw')
+        concepts = remote.concept_search('Bradshaw')
         for concept in concepts:
             self.assertTrue('name' in concept)
             self.assertTrue('source' in concept)
             self.assertTrue('uri' in concept)
 
 
-    @mock.patch('cookies.operations.goat.Concept.search')
+    @mock.patch('concepts.remote.goat.Concept.search')
     def test_concept_with_exception(self, mock_search):
         """
         When BlackGoat client API throws an exception,
@@ -669,15 +668,15 @@ class TestConceptSearch(unittest.TestCase):
 
         mock_search.side_effect = Exception
 
-        self.assertRaises(Exception, operations.concept_search, 'Bradshaw')
+        self.assertRaises(Exception, remote.concept_search, 'Bradshaw')
 
-    @mock.patch('cookies.operations.goat.Concept.search')
+    @mock.patch('concepts.remote.goat.Concept.search')
     def test_concept_with_no_output_from_goat(self, mock_search):
         """
         When BlackGoat client API does not return any value,
-        :func:`concept_search` returns an empty list.
+        :func:`.concept_search` returns an empty list.
         """
 
         mock_search.return_value = None
 
-        self.assertEqual(operations.concept_search('Bradshaw'), None)
+        self.assertEqual(remote.concept_search('Bradshaw'), [])
