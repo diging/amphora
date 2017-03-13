@@ -43,8 +43,8 @@
             </div>
 
             <dl class="dl-horizontal">
-                <dt>Belongs to</dt>
-                <dd><a href="{{ resource.belongs_to.get_absolute_url }}">{{ resource.belongs_to.name }}</a></dd>
+                <dt>Collection</dt>
+                <dd><a href="{% url "collection" part_of.id %}">{{ part_of.name }}</a></dd>
                 <dt>Created</dt>
                 <dd>{{ resource.created }}</dd>
                 <dt>Created by</dt>
@@ -74,22 +74,11 @@
                 {% endif %}
             </dl>
         </div>
-        <h3>Collections</h2>
-        <div class="resource_collections">
-            <ul class="list-group">
-                {% for collection in part_of %}
-                <a href="{% url "collection" collection.id %}"
-                    class="list-group-item">
-                    {{ collection.name }}
-                </a>
-                {% endfor %}
-            </ul>
-        </div>
 
         <h3>Metadata</h2>
         <div class="resource_relations">
             <dl class="dl-horizontal">
-                {% for relation in resource.relations_from.all %}
+                {% for relation in relations_from %}
                 <dt class="predicate"
                     id="predicate_{{ relation.predicate.id }}"
                     uri="{{ relation.predicate.uri }}">

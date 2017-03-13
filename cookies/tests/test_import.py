@@ -54,7 +54,7 @@ class TestHandleBulkWithZotero(unittest.TestCase):
         collection = tasks.handle_bulk(self.file_path, self.form_data, self.file_name, self.job)
         self.assertIsInstance(collection, dict)
         instance = Collection.objects.get(pk=collection['id'])
-        self.assertEqual(instance.native_resources.count(), 20)
+        self.assertEqual(instance.resourcecontainer_set.count(), 20)
 
     def tearDown(self):
         User.objects.all().delete()

@@ -15,16 +15,8 @@
 
 {% block content %}
 {% autopaginate filtered_objects.qs 10 as resources %}
-<div class="row">
-    <div class="col-xs-4">
-        <span class="h2">Resources</span>
-    </div>
-    <div class="col-xs-4">
-        <span class="text-center">
-            {% paginate %}
-        </span>
-    </div>
-    <div class="col-xs-4"></div>
+<div class="text-center">
+    {% paginate %}
 </div>
 
 <div class="panel-group">
@@ -45,17 +37,61 @@
         <div id="filters" class="panel-collapse collapse">
             <div class="panel-body">
                 <form class="form" action="." method="GET">
-                {% for field in filtered_objects.form %}
-                    {% for error in field.errors %}
-                    <div class="alert alert-warning">{{ error }}</div>
-                    {% endfor %}
-                    <div class="form-group">
-                        <label>{{ field.label }}</label>
-                        {{ field|addcss:"form-control" }}
-                    </div>
+                    <div class="row">
+                        <div class="col-xs-6">
+                            {% with filtered_objects.form.name as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>{{ field.label }}</label>
+                                {{ field|addcss:"form-control" }}
+                            </div>
+                            {% endwith %}
 
-                {% endfor %}
-                <input type="submit" class="pull-right btn btn-success" value="Apply">
+                            {% with filtered_objects.form.content as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>{{ field.label }}</label>
+                                {{ field|addcss:"form-control" }}
+                            </div>
+                            {% endwith %}
+
+                            {% with filtered_objects.form.entity_type as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>{{ field.label }}</label>
+                                {{ field|addcss:"form-control" }}
+                            </div>
+                            {% endwith %}
+                        </div>
+                        <div class="col-xs-6">
+                            {% with filtered_objects.form.created_by as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>{{ field.label }}</label>
+                                {{ field|addcss:"form-control" }}
+                            </div>
+                            {% endwith %}
+
+                            {% with filtered_objects.form.o as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>{{ field.label }}</label>
+                                {{ field|addcss:"form-control" }}
+                            </div>
+                            {% endwith %}
+                        </div>
+                    </div>
+                <input type="submit" class="pull-right btn btn-success btn-xs" value="Apply">
                 </form>
             </div>
         </div>
@@ -63,24 +99,19 @@
 </div>
 
 <div class="row">
-    <div class="col-sm-3">
+    <div class="col-md-2 col-sm-3">
         <!-- {% with "/resource/" as base_tag_url %} -->
         {% include "fragment_tag_panel.html" %}
         <!-- {% endwith %} -->
     </div>
-    <div class="col-sm-9">
+    <div class="col-md-10 col-sm-9">
         {% include "fragment_resource_list.html" %}
     </div>
 </div>
-<div class="pagination container text-center">
+
+<div class="text-center">
     {% paginate %}
 </div>
-
-{% if user.is_staff %}
-<div class="text-center">
-    <a class="btn btn-success" href="{% url "resource-merge" %}?{% for resource in resources %}resource={{resource.id}}&{% endfor %}">Merge all resources on this page</a>
-</div>
-{% endif %}
 
 
 {% endblock %}

@@ -68,7 +68,6 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
 
     # User can indicate a default Type to assign to each new Resource.
     default_type = form_data.pop('default_type', None)
-
     upload_resource = Resource.objects.create(
         created_by=creator,
         name=file_name,
@@ -77,21 +76,20 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
         upload_resource.file.save(file_name, File(f), True)
 
     ingester = IngesterFactory().get(ingester)(upload_resource.file.path)
-    ingester.Resource = authorization.apply_filter(creator, 'change_resource', ingester.Resource)
-    ingester.Collection = authorization.apply_filter(creator, 'change_collection', ingester.Collection)
-    ingester.ConceptEntity = authorization.apply_filter(creator, 'change_conceptentity', ingester.ConceptEntity)
+    ingester.Resource = authorization.apply_filter(ResourceAuthorization.EDIT, creator, ingester.Resource)
+    ingester.Collection = authorization.apply_filter(ResourceAuthorization.EDIT, creator, ingester.Collection)
+    ingester.ConceptEntity = authorization.apply_filter(ResourceAuthorization.EDIT, creator, ingester.ConceptEntity)
     ingester.set_resource_defaults(entity_type=default_type,
-                                   belongs_to=collection,
+                                   collection=collection,
                                    created_by=creator, **form_data)
 
     N = len(ingester)
     for resource in ingester:
-        resource.belongs_to = collection
-        resource.save()
+        resource.container.part_of = collection
+        resource.container.save()
         # collection.resources.add(resource)
         operations.add_creation_metadata(resource, creator)
-        authorization.update_authorizations(Resource.DEFAULT_AUTHS, creator,
-                                            resource)
+
         if job:
             job.progress += 1./N
             job.save()
@@ -142,11 +140,6 @@ def check_giles_upload(resource, creator, upload_id, checkURL,
     upload.resolved = True
     upload.save()
 
-
-
-@shared_task
-def update_authorizations(auths, user, obj, by_user=None):
-    authorization.update_authorizations(auths, user, obj, by_user=by_user)
 
 
 @shared_task

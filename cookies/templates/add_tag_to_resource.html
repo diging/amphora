@@ -20,21 +20,24 @@
   {% csrf_token %}
     <div class="text-info">You have selected {{ resources.count }} resource{% if resources.count > 1 %}s{% endif %}.</div>
     {% for field in form %}
-        <label>{{ field.label }}</label>
-        {% if field.label == 'Resources' %}
-            {{ field }}
-            {% for resource in resources %}
-            <li class="list-group-item">{{ resource.name }}</li>
-            {% endfor %}
-        {% else %}
+        <div class="form-group">
+            <label>{{ field.label }}</label>
+            {% if field.label == 'Resources' %}
+                {{ field }}
+                {% for resource in resources %}
+                <li class="list-group-item">{{ resource.name }}</li>
+                {% endfor %}
+            {% else %}
 
-            {{ field|addcss:"form-control" }}
-            <p class="text-muted">{{ field.help_text }}</p>
-        {% endif %}
+                {{ field|addcss:"form-control" }}
+                <p class="text-muted">{{ field.help_text }}</p>
+            {% endif %}
+        </div>
     {% endfor %}
 
 
-    <input type="submit" class="btn btn-success" />
+        <input type="submit" class="btn btn-success" value="Add tag" />
+    
 </form>
 {% else %}
 <div class="alert alert-warning">

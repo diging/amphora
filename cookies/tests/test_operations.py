@@ -329,14 +329,15 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource = Resource.objects.create(name='first_resource')
+        container = ResourceContainer.objects.create(primary=resource)
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
-        Relation.objects.create(source=resource,
+        Relation.objects.create(source=resource, container=container,
                                 predicate=self.author_predicate, target=author_1)
         author_2 = ConceptEntity.objects.create(name='Conan')
-        Relation.objects.create(source=resource,
+        Relation.objects.create(source=resource, container=container,
                                 predicate=self.author_predicate, target=author_2)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource)
+        collection.resourcecontainer_set.add(container)
         collection.save()
 
         graph = operations.generate_collection_coauthor_graph(collection)
@@ -363,11 +364,12 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource = Resource.objects.create(name='first_resource')
+        container = ResourceContainer.objects.create(primary=resource)
         author = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource,
                                 predicate=self.author_predicate, target=author)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource)
+        collection.resourcecontainer_set.add(container)
         collection.save()
 
         graph = operations.generate_collection_coauthor_graph(collection)
@@ -390,6 +392,7 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource_1 = Resource.objects.create(name='first_resource')
+        container_1 = ResourceContainer.objects.create(primary=resource_1)
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource_1,
                                 predicate=self.author_predicate, target=author_1)
@@ -397,16 +400,17 @@ class TestExportCoauthorData(unittest.TestCase):
         Relation.objects.create(source=resource_1,
                                 predicate=self.author_predicate, target=author_2)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource_1)
+        collection.resourcecontainer_set.add(container_1)
         collection.save()
         resource_2 = Resource.objects.create(name='second_resource')
+        container_2 = ResourceContainer.objects.create(primary=resource_2)
         author_3 = ConceptEntity.objects.create(name='Xiaomi')
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate, target=author_3)
         author_4 = ConceptEntity.objects.create(name='Ned')
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate, target=author_4)
-        collection.native_resources.add(resource_2)
+        collection.resourcecontainer_set.add(container_2)
         collection.save()
 
 
@@ -450,8 +454,9 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource = Resource.objects.create(name='first_resource')
+        container = ResourceContainer.objects.create(primary=resource)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource)
+        collection.resourcecontainer_set.add(container)
         collection.save()
 
         graph = operations.generate_collection_coauthor_graph(collection)
@@ -471,6 +476,7 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource_1 = Resource.objects.create(name='first_resource')
+        container_1 = ResourceContainer.objects.create(primary=resource_1)
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource_1,
                                 predicate=self.author_predicate, target=author_1)
@@ -478,16 +484,17 @@ class TestExportCoauthorData(unittest.TestCase):
         Relation.objects.create(source=resource_1,
                                 predicate=self.author_predicate, target=author_2)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource_1)
+        collection.resourcecontainer_set.add(container_1)
         collection.save()
         resource_2 = Resource.objects.create(name='second_resource')
+        container_2 = ResourceContainer.objects.create(primary=resource_2)
         author_3 = ConceptEntity.objects.create(name='Xiaomi')
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate, target=author_3)
         author_4 = ConceptEntity.objects.create(name='Ned')
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate, target=author_4)
-        collection.native_resources.add(resource_2)
+        collection.resourcecontainer_set.add(container_2)
         collection.save()
 
 
@@ -521,6 +528,7 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource = Resource.objects.create(name='first_resource')
+        container = ResourceContainer.objects.create(primary=resource)
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource,
                                 predicate=self.author_predicate,
@@ -529,7 +537,7 @@ class TestExportCoauthorData(unittest.TestCase):
                                 predicate=self.author_predicate,
                                 target=author_1)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource)
+        collection.resourcecontainer_set.add(container)
         collection.save()
 
         graph = operations.generate_collection_coauthor_graph(collection)
@@ -552,6 +560,7 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource_1 = Resource.objects.create(name='first_resource')
+        container_1 = ResourceContainer.objects.create(primary=resource_1)
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource_1,
                                 predicate=self.author_predicate,
@@ -561,9 +570,10 @@ class TestExportCoauthorData(unittest.TestCase):
                                 predicate=self.author_predicate,
                                 target=author_2)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource_1)
+        collection.resourcecontainer_set.add(container_1)
         collection.save()
         resource_2 = Resource.objects.create(name='second_resource')
+        container_2 = ResourceContainer.objects.create(primary=resource_2)
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate,
                                 target=author_1)
@@ -578,7 +588,7 @@ class TestExportCoauthorData(unittest.TestCase):
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate,
                                 target=author_6)
-        collection.native_resources.add(resource_2)
+        collection.resourcecontainer_set.add(container_2)
         collection.save()
 
         graph = operations.generate_collection_coauthor_graph(collection)

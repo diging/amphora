@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+{% load pagination_tags %}
+{% load addcss %}
+
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Collections' 'collections' %}
+    {% breadcrumb_url collection.name 'collection' collection.id  %}
+    {% breadcrumb_url 'Authorizations' 'collection-authorizations' collection.id  %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+<p>
+    <a href="{% url "collection-authorization-create" collection.id %}" class="btn btn-success btn-sm"><span class="glyphicon glyphicon-plus"></span> Add policy</a>
+</p>
+
+
+<div class="">
+    <ul class="list-group">
+        {% for user_auths in authorizations %}
+        <div><strong>{{ user_auths.user }}</strong></div>
+        {% for auth in user_auths.auths %}
+        <div class="list-group-item clearfix">
+            <span class="label label-primary">{{ auth.get_policy_display }}</span> {{ auth.get_action_display }}
+            <span class="btn-group pull-right">
+                {% if auth.heritable %}<span class="btn btn-xs"><span class="glyphicon glyphicon-globe"></span></span>{% endif %}
+                <a class="btn btn-xs" href="{% url "collection-authorization-remove" collection.id auth.id %}"><span class="glyphicon glyphicon-remove"></span></a>
+            </span>
+        </div>
+        {% endfor %}
+        {% endfor %}
+    </ul>
+</div>
+
+
+
+{% endblock %}

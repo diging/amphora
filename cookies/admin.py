@@ -275,7 +275,7 @@ class CollectionAdmin(admin.ModelAdmin):
     Admin interface for managing :class:`.Collection`\s.
     """
 
-    filter_horizontal = ('resources',)
+    # filter_horizontal = ('resources',)
     list_display = ('name',)
     exclude = ('entity_type','hidden','namespace','uri','indexable_content')
 

@@ -34,6 +34,11 @@ def _resource_file_name(instance, filename):
     return '/'.join([str(instance.id), 'content', filename])
 
 
+class ActiveManager(models.Manager):
+    def get_queryset(self):
+        return super(ActiveManager, self).get_queryset().filter(is_deleted=False)
+
+
 class Entity(models.Model):
     """
     A named object that represents some element in the data.
@@ -74,7 +79,6 @@ class Entity(models.Model):
                            " the system to assign one automatically"
                            " (recommended).")
 
-
     relations_from = GenericRelation('Relation',
                                      content_type_field='source_type',
                                      object_id_field='source_instance_id')
@@ -84,6 +88,8 @@ class Entity(models.Model):
                                    object_id_field='target_instance_id')
 
     is_deleted = models.BooleanField(default=False)
+
+    container = models.ForeignKey('ResourceContainer', blank=True, null=True)
 
     class Meta:
         verbose_name_plural = 'entities'
@@ -130,7 +136,7 @@ class ResourceBase(Entity):
         return False
 
     def get_absolute_url(self):
-        return reverse("cookies.views.resource", args=(self.id,))
+        return reverse("resource", args=(self.id,))
 
     @property
     def is_local(self):
@@ -154,17 +160,8 @@ class ResourceBase(Entity):
 
 
 class Resource(ResourceBase):
-    DEFAULT_AUTHS = ['change_resource', 'view_resource',
-                     'delete_resource', 'change_authorizations',
-                     'view_authorizations']
-
-    belongs_to = models.ForeignKey('Collection',
-                                   related_name='native_resources',
-                                   blank=True, null=True)
-    """
-    As of 0.4, a :class:`.Resource` instance belongs to one and only one
-    :class:`.Collection` instance.
-    """
+    objects = models.Manager()
+    active = ActiveManager()
 
     next_page = models.OneToOneField('Resource', related_name='previous_page',
                                      blank=True, null=True)
@@ -261,17 +258,13 @@ class Collection(ResourceBase):
     """
     A set of :class:`.Entity` instances.
     """
-    DEFAULT_AUTHS = ['change_collection', 'view_resource',
-                     'delete_collection', 'change_authorizations',
-                     'view_authorizations']
-
-    resources = models.ManyToManyField('Resource', related_name='part_of',
-                                        blank=True, null=True  )
+    objects = models.Manager()
+    active = ActiveManager()
 
     part_of = models.ForeignKey('Collection', blank=True, null=True)
 
     def get_absolute_url(self):
-        return reverse("cookies.views.collection", args=(self.id,))
+        return reverse("collection", args=(self.id,))
 
     @property
     def size(self):
@@ -381,6 +374,8 @@ class Value(models.Model):
 
     name = property(_get_value, _set_value)
 
+    container = models.ForeignKey('ResourceContainer', blank=True, null=True)
+
     def __unicode__(self):
         return unicode(self.name)
 
@@ -427,11 +422,6 @@ class Relation(Entity):
     target_instance_id = models.PositiveIntegerField(blank=True, null=True)
     target = GenericForeignKey('target_type', 'target_instance_id')
 
-    belongs_to = models.ForeignKey('Collection',
-                                   related_name='native_relations',
-                                   blank=True, null=True)
-
-
     class Meta:
         verbose_name = 'metadata relation'
         permissions = (
@@ -450,9 +440,8 @@ class Relation(Entity):
 
 
 class ConceptEntity(Entity):
-    DEFAULT_AUTHS = ['change_conceptentity', 'view_entity',
-                     'delete_conceptentity', 'change_authorizations',
-                     'view_authorizations']
+    objects = models.Manager()
+    active = ActiveManager()
 
     concept = models.ForeignKey('concepts.Concept', null=True, blank=True)
 
@@ -572,3 +561,81 @@ class GilesToken(models.Model):
     for_user = models.OneToOneField(User, related_name='giles_token')
     created = models.DateTimeField(auto_now_add=True)
     token = models.CharField(max_length=255)
+
+
+class ResourceContainer(models.Model):
+    """
+    Encapsulates a set of linked objects.
+    """
+    objects = models.Manager()
+    active = ActiveManager()
+
+    created_by = models.ForeignKey(User, related_name='containers', blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    primary = models.ForeignKey('Resource', related_name='is_primary_for',
+                                blank=True, null=True)
+
+    part_of = models.ForeignKey('Collection', blank=True, null=True)
+    is_deleted = models.BooleanField(default=False)
+
+
+class CollectionAuthorization(models.Model):
+    granted_by = models.ForeignKey(User, related_name='created_resource_auths')
+    granted_to = models.ForeignKey(User, related_name='resource_resource_auths')
+    for_resource = models.ForeignKey('Collection', related_name='authorizations')
+    heritable = models.BooleanField(default=True,
+                                    help_text="Policy applies to all resources"
+                                    " in this collection.")
+    """
+    If ``True``, this policy also applies to the :class:`.ResourceContainer`\s
+    in the :class:`.Collection`\.
+    """
+
+    VIEW = 'VW'    # User can view the collection (list its contents).
+    EDIT = 'ED'    # User can edit collection details.
+    ADD = 'AD'     # User can add resources.
+    REMOVE = 'RM'    # User can remove resources.
+    SHARE = 'SH'     # User can share the collection with others.
+    AUTH_ACTIONS = (
+        (VIEW, 'View'),
+        (EDIT, 'Edit'),
+        (ADD, 'Add'),
+        (REMOVE, 'Remove'),
+        (SHARE, 'Share'),
+    )
+    action = models.CharField(choices=AUTH_ACTIONS, max_length=2)
+
+    ALLOW = 'AL'
+    DENY = 'DY'
+    POLICIES = (
+        (ALLOW, 'Allow'),
+        (DENY, 'Deny'),
+    )
+    policy = models.CharField(choices=POLICIES, max_length=2)
+
+
+class ResourceAuthorization(models.Model):
+    granted_by = models.ForeignKey(User, related_name='created_collection_auths')
+    granted_to = models.ForeignKey(User, related_name='resource_collection_auths')
+    for_resource = models.ForeignKey('ResourceContainer',
+                                     related_name='authorizations')
+
+    VIEW = 'VW'
+    EDIT = 'ED'
+    SHARE = 'SH'
+    AUTH_ACTIONS = (
+        (VIEW, 'View'),
+        (EDIT, 'Edit'),
+        (SHARE, 'Share'),
+    )
+    action = models.CharField(choices=AUTH_ACTIONS, max_length=2)
+
+    ALLOW = 'AL'
+    DENY = 'DY'
+    POLICIES = (
+        (ALLOW, 'Allow'),
+        (DENY, 'Deny'),
+    )
+    policy = models.CharField(choices=POLICIES, max_length=2)

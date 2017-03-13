@@ -60,8 +60,13 @@
 </div>
 
 <div class="collection_resources">
-    <div class="pagination container text-center">
+    <div class="text-center">
         {% paginate %}
+    </div>
+    <div style="margin-bottom: 5px;">
+        <div class="btn-group">
+          <a class="btn btn-success btn-xs" href="{% url "entity-merge" %}">Merge</a>
+        </div>
     </div>
     <ul class="list-group">
         {% for entity in entities %}
@@ -72,13 +77,9 @@
         </a>
         {% endfor %}
     </ul>
-    <div class="pagination container text-center">
+    <div class="text-center">
         {% paginate %}
     </div>
-</div>
-
-<div class="text-center">
-    <a class="btn btn-success" href="{% url "entity-merge" %}?{% for entity in entities %}entity={{entity.id}}&{% endfor %}">Merge all entities on this page</a>
 </div>
 
 

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load pagination_tags %}
+{% load addcss %}
+{% load breadcrumbs %}
+{% load authorization %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Collections' 'collections' %}
+    {% breadcrumb_url collection.name 'collection' collection.id  %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+{{ form }}
+
+{% endblock %}

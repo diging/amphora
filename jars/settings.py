@@ -66,7 +66,6 @@ INSTALLED_APPS = (
     'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
-    'guardian',
      'social_django',
 )
 

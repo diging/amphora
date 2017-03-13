@@ -173,12 +173,12 @@ class CollectionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self, *args, **kwargs):
         qs = super(CollectionViewSet, self).get_queryset(*args, **kwargs)
-        return authorization.apply_filter(self.request.user, 'view_resource', qs)
+        return authorization.apply_filter(CollectionAuthorization.VIEW, self.request.user, qs)
 
     def retrieve(self, request, pk=None):
         queryset = self.get_queryset()
         collection = get_object_or_404(queryset, pk=pk)
-        if not authorization.check_authorization('view_resource', request.user, collection):
+        if not authorization.check_authorization(CollectionAuthorization.VIEW, request.user, collection):
             return HttpResponseForbidden('Nope')
         context = {'request': request}
         serializer = CollectionDetailSerializer(collection, context=context)
@@ -196,7 +196,7 @@ class RelationViewSet(viewsets.ModelViewSet):
         Extended to provide authorization filtering.
         """
         qs = super(RelationViewSet, self).get_queryset()
-        return authorization.apply_filter(self.request.user, 'view_relation', qs)
+        return authorization.apply_filter(ResourceAuthorization.VIEW, self.request.user, qs)
 
 
 class FieldViewSet(viewsets.ModelViewSet):
@@ -226,7 +226,7 @@ class ResourceViewSet(MultiSerializerViewSet):
         Extended to provide authorization filtering.
         """
         qs = super(ResourceViewSet, self).get_queryset()
-        qs = authorization.apply_filter(self.request.user, 'view', qs)
+        qs = authorization.apply_filter(ResourceAuthorization.VIEW, self.request.user, qs)
 
         if not self.kwargs.get('pk', None):
             qs = qs.filter(content_resource=False)

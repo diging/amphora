@@ -131,23 +131,31 @@ var bindAutocomplete = function(selector) {
             <input class="btn btn-success" type="submit" name="search" value="Search">
             <input class="btn btn-success" type="submit" name="save" value="Save">
         </div>
-        <table style="width:100%" border="1">
-            {% if concepts_data %}
-            Search results:
+        {% if concepts_data %}
+        Search results:
+        <table class="table table-responsive">
+
+            <thead>
                   <tr>
+                    <th></th>
                     <th>Name</th>
                     <th>Source</th>
                     <th>URI</th>
                   </tr>
-                  {% endif %}
+              </thead>
+              <tbody>
+
                   {% for concept in concepts_data %}
                   <tr>
+                      <td><a class="btn btn-xs btn-success"><span class="glyphicon glyphicon-link"</a></td>
                     <td>{{ concept.name }}</td>
                     <td>{{ concept.source }}</td>
                     <td><a href="{{ concept.uri }}">{{ concept.uri }}</a></td>
                   </tr>
                   {% endfor %}
+              </tbody>
       </table>
+      {% endif %}
 </form>
 <script>
 bindAutocomplete($('#search-input'));

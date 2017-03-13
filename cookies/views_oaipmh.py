@@ -13,6 +13,7 @@ from django.http import (JsonResponse, HttpResponse, HttpResponseBadRequest,
                          HttpResponseRedirect, Http404)
 
 from cookies.models import *
+import cookies.authorization as auth
 
 from oaipmh.server import BatchingServer, BatchingResumption
 from oaipmh.interfaces import IBatchingOAI, IHeader, IIdentify
@@ -163,22 +164,24 @@ class AmphoraBatchingOAI(IBatchingOAI):
 
     def _get_resources(self, setSpec=None, from_=None, until=None, cursor=0,
                        batch_size=10, **kwargs):
-        queryset = Resource.objects.filter(content_resource=False)
+        qs = ResourceContainer.objects.filter(primary__is_deleted=False)
+        qs = auth.apply_filter(ResourceAuthorization.VIEW, self.user, qs)
+
         if setSpec is None:
             setSpec = kwargs.get('set', None)
         if setSpec is not None:
-            queryset = queryset.filter(part_of__id=setSpec)
+            qs = qs.filter(part_of__id=setSpec)
 
         if from_ is not None and until is not None:
             if from_ > until:
                 raise BadArgumentError('``from`` cannot be later than ``until``')
 
         if from_ is not None:
-            queryset = queryset.filter(created__gte=from_)
+            qs = qs.filter(created__gte=from_)
         if until is not None:
-            queryset = queryset.filter(created__lte=until)
+            qs = qs.filter(created__lte=until)
 
-        return queryset.order_by('created')[cursor:cursor+batch_size]
+        return qs.order_by('created')[cursor:cursor+batch_size]
 
     def getRecord(self, metadataPrefix, identifier):
         self._check_metadataPrefix(metadataPrefix)
@@ -221,7 +224,9 @@ class AmphoraBatchingOAI(IBatchingOAI):
         # The closest thing that we have to a concept of a "set" is our
         #  ``Collection`` model.
         # TODO: verify that OAIPMH wants int identifiers here, and not URIs.
-        return map(unicode, Collection.objects.values_list('id', flat=True))
+        qs = Collection.active.all()
+        qs = auth.apply_filter(CollectionAuthorization.VIEW, self.user, qs)
+        return map(unicode, qs.values_list('id', flat=True))
 
 
 def oaipmh(request):
@@ -233,7 +238,9 @@ def oaipmh(request):
 
     # BatchingServer was probably intended to be a singleton, but that seems
     #  kind of silly in this case.
-    server = BatchingServer(AmphoraBatchingOAI(), nsmap=_nsmap)
+    oai = AmphoraBatchingOAI()
+    oai.user = request.user    # We still need to enforce authorizations.
+    server = BatchingServer(oai, nsmap=_nsmap)
 
     # TODO: Why are we accessing private properties so eggregiously?
     server._tree_server._metadata_registry\
