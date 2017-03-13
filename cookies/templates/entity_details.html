@@ -46,15 +46,17 @@
                 </dt>
                 <dd style="max-width: 50%; overflow-x: scroll;">{{ entity.uri }}</dd>
                 <dt class="resource_uri">Conceptpower URI</dt>
-                {% with entity.concept as concept %}
+                {% with entity.concept as concepts %}
                 <dd>
-                    {% if concept %}
-                    <i class="fa fa-anchor" aria-hidden="true"></i> {% if entity.concept.label %}{{ entity.concept.label }}{% else %}{{ entity.concept.uri }}{% endif %}
+                    {% if concepts.count > 0 %}
+                    {% for concept in concepts.all %}
+                    <i class="fa fa-anchor" aria-hidden="true"></i> {% if concept.label %}{{ concept.label }}{% else %}{{ concept.uri }}{% endif %}
                     {% if can_edit %}
                     <a href="{% url "entity-change-concept" entity.id %}">
                         <i class="glyphicon glyphicon-pencil"></i>
                     </a>
                     {% endif %}
+                    {% endfor %}
                     {% else %}
                     {% if can_edit %}
                     <a href="{% url "entity-change-concept" entity.id %}"><i class="fa fa-plus" aria-hidden="true"></i> Link or create record</a>

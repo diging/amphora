@@ -7,24 +7,10 @@ from django.conf import settings
 
 from cookies.models import *
 from cookies import content
-from cookies.tasks import handle_content, send_to_giles, update_authorizations
+from cookies.tasks import handle_content, send_to_giles
 from cookies.exceptions import *
 logger = settings.LOGGER
 
-
-@receiver(post_save, sender=Collection)
-@receiver(post_save, sender=Resource)
-@receiver(post_save, sender=Relation)
-@receiver(post_save, sender=ConceptEntity)
-def set_default_auths_for_instance(sender, **kwargs):
-    instance = kwargs.get('instance', None)
-    created = kwargs.get('created', False)
-    if created and instance.created_by:
-        update_authorizations(sender.DEFAULT_AUTHS, instance.created_by,
-                              instance, by_user=instance.created_by)
-        if getattr(instance, 'public', False):
-            anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
-            update_authorizations(['view'], anonymous, instance)
 
 
 @receiver(post_save, sender=User)

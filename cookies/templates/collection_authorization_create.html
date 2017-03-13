@@ -11,24 +11,43 @@
     <a href="{% url 'index' %}">{% trans 'Home' %}</a>
     {% breadcrumb_url 'Collections' 'collections' %}
     {% breadcrumb_url collection.name 'collection' collection.id  %}
-    {% breadcrumb_url 'Authorizations' 'collection-authorization-list' collection.id  %}
+    {% breadcrumb_url 'Authorizations' 'collection-authorizations' collection.id  %}
 </div>
 {% endblock %}
 
 {% block content %}
-<span class="h3 text-warning">{{ collection.name }}</span>
-<div class="h2">Authorizations</div>
-<p class="text-info">
-    Select a user to authorize.
-</p>
-<div class="">
-    <ul class="list-group">
-        {% for user in unauthorized_users %}
-        <a class="list-group-item" href="{% url "collection-authorization-change" collection.id user.id %}">{{ user.username }}</a>
+<span class="h3 text-warning">New authorization policy for collection: <span class="text-primary">{{ collection.name }}</span></span>
+
+<form class="form" action="." method="POST">
+    {% csrf_token %}
+
+    {% for field in form.hidden_fields %}
+        {{ field }}
+    {% endfor %}
+
+    {% for field in form.visible_fields %}
+
+    {% if field.label == 'Heritable' %}
+    <div class="form-group">
+        <div class="checkbox">
+            <span class="glyphicon glyphicon-globe"></span> 
+            <label>{{ field }} Heritable</label>
+            <p class="text-muted">{{ field.help_text }}</p>
+        </div>
+    </div>
+    {% else %}
+    <div class="form-group">
+        {% for error in field.errors %}
+        <div class="alert alert-warning">{{ error }}</div>
         {% endfor %}
-    </ul>
-</div>
+        <label>{{ field.label }}</label>
+        {{ field|addcss:"form-control" }}
+        <p class="text-muted">{{ field.help_text }}</p>
+    </div>
+    {% endif %}
 
-
+    {% endfor %}
+    <input type="submit" value="Submit" class="btn btn-md btn-success" />
+</form>
 
 {% endblock %}

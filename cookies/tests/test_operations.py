@@ -9,8 +9,44 @@ import networkx as nx
 os.environ.setdefault('LOGLEVEL', 'ERROR')
 
 from cookies import operations
+from concepts import remote
 from cookies.models import *
 from concepts.models import Concept
+
+
+class MockResponse(object):
+    def __init__(self, content, status_code):
+        self._status_code = status_code
+        self.content = content
+
+    def json(self):
+        return json.loads(self.content)
+
+    @property
+    def status_code(self):
+        return self._status_code
+
+
+class MockSearchResponse(MockResponse):
+    url = 'http://mock/url/'
+
+    def __init__(self, parent, pending_content, success_content, max_calls=3,):
+        self.max_calls = 3
+        self.parent = parent
+        self.pending_content = pending_content
+        self.success_content = success_content
+
+    def json(self):
+        if self.parent.call_count < self.max_calls:
+            return json.loads(self.pending_content)
+        return json.loads(self.success_content)
+
+    @property
+    def status_code(self):
+        if self.parent.call_count < self.max_calls:
+            return 202
+        return 200
+
 #
 #
 # class TestPruneRelations(unittest.TestCase):
@@ -134,14 +170,12 @@ class TestMergeConceptEntities(unittest.TestCase):
         for i in xrange(5):
             c = ConceptEntity.objects.create(name='entity %i' % i)
             if i == 3:
-                c.concept = Concept.objects.create(uri=uri)
+                c.concept.add(Concept.objects.create(uri=uri))
                 c.save()
 
         entities = ConceptEntity.objects.all()
         master = operations.merge_conceptentities(entities, user=User.objects.create(username='TestUser'))
-        self.assertEqual(master.concept.uri, uri,
-                         "The concept for the master ConceptEntity was not"
-                         " set correctly.")
+        self.assertIn(uri, master.concept.values_list('uri', flat=True))
 
     def test_cannot_merge_with_two_concepts(self):
         """
@@ -150,7 +184,7 @@ class TestMergeConceptEntities(unittest.TestCase):
         for i in xrange(5):
             c = ConceptEntity.objects.create(name='entity %i' % i)
             if i == 3 or i == 1:
-                c.concept = Concept.objects.create(uri='http://f%i.ake' % i)
+                c.concept.add(Concept.objects.create(uri='http://f%i.ake' % i))
                 c.save()
 
         entities = ConceptEntity.objects.all()
@@ -294,14 +328,15 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource = Resource.objects.create(name='first_resource')
+        container = ResourceContainer.objects.create(primary=resource)
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
-        Relation.objects.create(source=resource,
+        Relation.objects.create(source=resource, container=container,
                                 predicate=self.author_predicate, target=author_1)
         author_2 = ConceptEntity.objects.create(name='Conan')
-        Relation.objects.create(source=resource,
+        Relation.objects.create(source=resource, container=container,
                                 predicate=self.author_predicate, target=author_2)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource)
+        collection.resourcecontainer_set.add(container)
         collection.save()
 
         graph = operations.generate_collection_coauthor_graph(collection)
@@ -328,11 +363,12 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource = Resource.objects.create(name='first_resource')
+        container = ResourceContainer.objects.create(primary=resource)
         author = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource,
                                 predicate=self.author_predicate, target=author)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource)
+        collection.resourcecontainer_set.add(container)
         collection.save()
 
         graph = operations.generate_collection_coauthor_graph(collection)
@@ -355,6 +391,7 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource_1 = Resource.objects.create(name='first_resource')
+        container_1 = ResourceContainer.objects.create(primary=resource_1)
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource_1,
                                 predicate=self.author_predicate, target=author_1)
@@ -362,16 +399,17 @@ class TestExportCoauthorData(unittest.TestCase):
         Relation.objects.create(source=resource_1,
                                 predicate=self.author_predicate, target=author_2)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource_1)
+        collection.resourcecontainer_set.add(container_1)
         collection.save()
         resource_2 = Resource.objects.create(name='second_resource')
+        container_2 = ResourceContainer.objects.create(primary=resource_2)
         author_3 = ConceptEntity.objects.create(name='Xiaomi')
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate, target=author_3)
         author_4 = ConceptEntity.objects.create(name='Ned')
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate, target=author_4)
-        collection.native_resources.add(resource_2)
+        collection.resourcecontainer_set.add(container_2)
         collection.save()
 
 
@@ -415,8 +453,9 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource = Resource.objects.create(name='first_resource')
+        container = ResourceContainer.objects.create(primary=resource)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource)
+        collection.resourcecontainer_set.add(container)
         collection.save()
 
         graph = operations.generate_collection_coauthor_graph(collection)
@@ -436,6 +475,7 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource_1 = Resource.objects.create(name='first_resource')
+        container_1 = ResourceContainer.objects.create(primary=resource_1)
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource_1,
                                 predicate=self.author_predicate, target=author_1)
@@ -443,16 +483,17 @@ class TestExportCoauthorData(unittest.TestCase):
         Relation.objects.create(source=resource_1,
                                 predicate=self.author_predicate, target=author_2)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource_1)
+        collection.resourcecontainer_set.add(container_1)
         collection.save()
         resource_2 = Resource.objects.create(name='second_resource')
+        container_2 = ResourceContainer.objects.create(primary=resource_2)
         author_3 = ConceptEntity.objects.create(name='Xiaomi')
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate, target=author_3)
         author_4 = ConceptEntity.objects.create(name='Ned')
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate, target=author_4)
-        collection.native_resources.add(resource_2)
+        collection.resourcecontainer_set.add(container_2)
         collection.save()
 
 
@@ -486,6 +527,7 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource = Resource.objects.create(name='first_resource')
+        container = ResourceContainer.objects.create(primary=resource)
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource,
                                 predicate=self.author_predicate,
@@ -494,7 +536,7 @@ class TestExportCoauthorData(unittest.TestCase):
                                 predicate=self.author_predicate,
                                 target=author_1)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource)
+        collection.resourcecontainer_set.add(container)
         collection.save()
 
         graph = operations.generate_collection_coauthor_graph(collection)
@@ -517,6 +559,7 @@ class TestExportCoauthorData(unittest.TestCase):
         """
 
         resource_1 = Resource.objects.create(name='first_resource')
+        container_1 = ResourceContainer.objects.create(primary=resource_1)
         author_1 = ConceptEntity.objects.create(name='Bradshaw')
         Relation.objects.create(source=resource_1,
                                 predicate=self.author_predicate,
@@ -526,9 +569,10 @@ class TestExportCoauthorData(unittest.TestCase):
                                 predicate=self.author_predicate,
                                 target=author_2)
         collection = Collection.objects.create(name='first_collection')
-        collection.native_resources.add(resource_1)
+        collection.resourcecontainer_set.add(container_1)
         collection.save()
         resource_2 = Resource.objects.create(name='second_resource')
+        container_2 = ResourceContainer.objects.create(primary=resource_2)
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate,
                                 target=author_1)
@@ -543,7 +587,7 @@ class TestExportCoauthorData(unittest.TestCase):
         Relation.objects.create(source=resource_2,
                                 predicate=self.author_predicate,
                                 target=author_6)
-        collection.native_resources.add(resource_2)
+        collection.resourcecontainer_set.add(container_2)
         collection.save()
 
         graph = operations.generate_collection_coauthor_graph(collection)
@@ -571,3 +615,68 @@ class TestExportCoauthorData(unittest.TestCase):
         Resource.objects.all().delete()
         Collection.objects.all().delete()
         Relation.objects.all().delete()
+
+
+class TestConceptSearch(unittest.TestCase):
+    """
+    Class contains unit test cases for :func:`concept_search` in operations
+    module.
+
+    The function takes str as input parameter. It returns a list of
+    :class:`.GoatConcept` objects obtained from the search result of the
+    BlackGoat API.
+    """
+
+
+    def test_concept_with_no_query(self):
+        """
+        When no query text is given and the search button is clicked,
+        :func:`concept_search` returns an empty list.
+        """
+
+        concepts = remote.concept_search('')
+
+        self.assertEqual(concepts, [])
+
+
+    @mock.patch('concepts.remote.goat.requests.get')
+    def test_concept_with_query(self, mock_get):
+        """
+        When query text is given and the search button is clicked,
+        a dictionary of lists is obtained where each element in the list is a
+        BlackGoat concept and the dictionary contains name, source and uri of
+        the concept.
+        """
+
+        with open('cookies/tests/data/concept_search_results.json', 'r') as f:
+            with open('cookies/tests/data/concept_search_created.json', 'r') as f2:
+                mock_get.return_value = MockSearchResponse(mock_get, f2.read(), f.read(), 200)
+
+        concepts = remote.concept_search('Bradshaw')
+        for concept in concepts:
+            self.assertTrue('name' in concept)
+            self.assertTrue('source' in concept)
+            self.assertTrue('uri' in concept)
+
+
+    @mock.patch('concepts.remote.goat.Concept.search')
+    def test_concept_with_exception(self, mock_search):
+        """
+        When BlackGoat client API throws an exception,
+        it is raised as an exception to the function that calls it.
+        """
+
+        mock_search.side_effect = Exception
+
+        self.assertRaises(Exception, remote.concept_search, 'Bradshaw')
+
+    @mock.patch('concepts.remote.goat.Concept.search')
+    def test_concept_with_no_output_from_goat(self, mock_search):
+        """
+        When BlackGoat client API does not return any value,
+        :func:`.concept_search` returns an empty list.
+        """
+
+        mock_search.return_value = None
+
+        self.assertEqual(remote.concept_search('Bradshaw'), [])

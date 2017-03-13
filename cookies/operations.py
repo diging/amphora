@@ -11,9 +11,12 @@ from itertools import groupby, combinations
 from collections import Counter
 import networkx as nx
 
+import os
+
 from cookies.exceptions import *
 
 logger = settings.LOGGER
+
 
 
 def add_creation_metadata(resource, user):
@@ -34,7 +37,9 @@ def add_creation_metadata(resource, user):
         'predicate': __provenance__,
         'target': Value.objects.create(**{
             '_value': jsonpickle.encode(_creation_message),
-        })
+            'container': resource.container,
+        }),
+        'container': resource.container,
     })
 
 
@@ -105,13 +110,13 @@ def prune_relations(resource, user=None):
     fields = ['predicate_id', 'target_type', 'target_instance_id', 'id']
     relations_from = resource.relations_from.all()
     if user and type(resource) is Resource:
-        relations_from = authorization.apply_filter(user, 'delete_relation', relations_from)
+        relations_from = authorization.apply_filter(ResourceAuthorization.EDIT, user, relations_from)
     _search_and_destroy(relations_from.order_by(*fields).values_list(*fields))
 
     fields = ['predicate_id', 'source_type', 'source_instance_id', 'id']
     relations_to = resource.relations_to.all()
     if user and type(resource) is Resource:
-        relations_to = authorization.apply_filter(user, 'delete_relation', relations_to)
+        relations_to = authorization.apply_filter(ResourceAuthorization.EDIT, user, relations_to)
     _search_and_destroy(relations_to.order_by(*fields).values_list(*fields))
 
 
@@ -186,7 +191,7 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
             master = entities[0]
 
     if _uri is not None:
-        master.concept = Concept.objects.get(uri=_uri)
+        master.concept.add(Concept.objects.get(uri=_uri))
         master.save()
 
     identity = Identity.objects.create(
@@ -286,7 +291,7 @@ def add_resources_to_collection(resources, collection):
     if not isinstance(collection, Collection):
         raise RuntimeError("Invalid collection to add resources to.")
 
-    collection.resources.add(*resources)
+    collection.resources.add(*map(lambda r: r.container, resources))
     collection.save()
 
     return collection
@@ -381,7 +386,7 @@ def generate_collection_coauthor_graph(collection,
     #  author Relation). A ``weight`` attribute on each edge will record the
     #  number of Resource instances on which each respective pair of CEs
     #  co-occur.
-    for resource_id in collection.native_resources.values_list('id', flat=True):
+    for resource_id in collection.resourcecontainer_set.values_list('primary__id', flat=True):
         # We only need a few columns from the ConceptEntity table, from rows
         #  referenced by responding Relations.
         author_relations = Relation.objects\

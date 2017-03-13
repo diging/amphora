@@ -21,14 +21,14 @@
         {% is_authorized "change_resource" user collection as can_edit_resource %}
         {% if can_edit_resource %}
         <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
-            href=""
+            href="{% url "collection-edit" collection.id %}"
             data-toggle="tooltip"
             data-title="Edit collection"></a>
         {% endif %}
         {% is_authorized "view_authorizations" user collection as can_view_authorizations %}
         {% if can_view_authorizations %}
         <a class="btn glyphicon glyphicon-lock" aria-hidden="true"
-            href="{% url "collection-authorization-list" collection.id %}"
+            href="{% url "collection-authorizations" collection.id %}"
             data-toggle="tooltip"
             data-title="Authorizations"></a>
         {% endif %}
@@ -70,17 +70,61 @@
         <div id="filters" class="panel-collapse collapse">
             <div class="panel-body">
                 <form class="form" action="." method="GET">
-                {% for field in filtered_objects.form %}
-                    {% for error in field.errors %}
-                    <div class="alert alert-warning">{{ error }}</div>
-                    {% endfor %}
-                    <div class="form-group">
-                        <label>{{ field.label }}</label>
-                        {{ field|addcss:"form-control" }}
-                    </div>
+                <div class="row">
+                    <div class="col-xs-6">
+                        {% with filtered_objects.form.name as field %}
+                        {% for error in field.errors %}
+                        <div class="alert alert-warning">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-group">
+                            <label>{{ field.label }}</label>
+                            {{ field|addcss:"form-control" }}
+                        </div>
+                        {% endwith %}
 
-                {% endfor %}
-                <input type="submit" class="pull-right btn btn-success" value="Apply">
+                        {% with filtered_objects.form.content as field %}
+                        {% for error in field.errors %}
+                        <div class="alert alert-warning">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-group">
+                            <label>{{ field.label }}</label>
+                            {{ field|addcss:"form-control" }}
+                        </div>
+                        {% endwith %}
+
+                        {% with filtered_objects.form.entity_type as field %}
+                        {% for error in field.errors %}
+                        <div class="alert alert-warning">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-group">
+                            <label>{{ field.label }}</label>
+                            {{ field|addcss:"form-control" }}
+                        </div>
+                        {% endwith %}
+                    </div>
+                    <div class="col-xs-6">
+                        {% with filtered_objects.form.created_by as field %}
+                        {% for error in field.errors %}
+                        <div class="alert alert-warning">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-group">
+                            <label>{{ field.label }}</label>
+                            {{ field|addcss:"form-control" }}
+                        </div>
+                        {% endwith %}
+
+                        {% with filtered_objects.form.o as field %}
+                        {% for error in field.errors %}
+                        <div class="alert alert-warning">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-group">
+                            <label>{{ field.label }}</label>
+                            {{ field|addcss:"form-control" }}
+                        </div>
+                        {% endwith %}
+                    </div>
+                </div>
+                <input type="submit" class="pull-right btn btn-success btn-xs" value="Apply">
                 </form>
             </div>
         </div>
@@ -122,10 +166,5 @@
 </div>
 {% endif %}
 
-<div class="text-center">
-    <a class="btn btn-success" href="{% url "create-collection" %}?parent_collection={{ collection.id }}">Create a sub collection</a>
-</div>
 
-<div class="text-center">
-  <a class="btn btn-success" href="{% url "export-coauthor-data" collection.id %}">Export co-author data</a>
 {% endblock %}

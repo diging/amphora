@@ -15,12 +15,22 @@
 {% endblock %}
 
 {% block content %}
-<div class="h2">Edit entity</div>
 <p class="text-info">
     Entities records represent references to specific concepts in metadata.
     For example, they represent references to authors, journals, publishers,
     or locations.
 </p>
+
+<div class="list-group">
+    {% for concept in associated_concepts %}
+    <div class="list-group-item">
+        {{ concept.label }} <span class="label label-primary">{{ concept.authority }}</span> {{ concept.uri|urlizetrunc:50 }}
+        <span class="btn-group pull-right">
+            <a class="btn btn-xs btn-error" href="{% url "entity-remove-concept" entity.id %}?uri={{ concept.uri }}&q={{ q }}"><span class="glyphicon glyphicon-remove"></span></a>
+        </span>
+    </div>
+    {% endfor %}
+</div>
 <script>
 var bindAutocomplete = function(selector) {
 
@@ -82,52 +92,60 @@ var bindAutocomplete = function(selector) {
 }
 
 </script>
-<form class="form" method="POST" action=".">
-    {% csrf_token %}
+<form class="form" method="GET" action=".">
+
         {% for error in form.non_field_errors %}
         <div class="alert alert-warning">{{ error }}</div>
         {% endfor %}
         <div class="row">
-            <div class="col-sm-6">
-                <div class="form-group">
-                    <label>Search</label>
-                    <input id="search-input" type="text" name="label" class="form-control"  target="id_uri" value="{{entity.concept.label}}" />
-                </div>
-            </div>
-            <div class="col-sm-6">
-                {% with form.uri as field %}
-                <div class="form-group">
-                    {% for error in field.errors %}
-                    <div class="alert alert-warning">{{ error }}</div>
-                    {% endfor %}
-                    <label>{{ field.label }}</label>
+            <div class="col-sm-12">
+              {% with form.q as field %}
+              <div class="form-group">
+                {% for error in field.errors %}
+                <div class="alert alert-warning">{{ error }}</div>
+                {% endfor %}
+                <label>{{ field.label }}</label>
+                <div class="input-group">
                     {{ field|addcss:"form-control" }}
-                    <p class="text-muted">{{ field.help_text }}</p>
+                    <span class="input-group-btn">
+                        <input class="btn btn-success" type="submit" value="Search"></input>
+                    </span>
                 </div>
-
-                {% endwith %}
+                <p class="text-muted">{{ field.help_text }}</p>
+              </div>
+              {% endwith %}
             </div>
         </div>
-        <!-- <div class="row">
-            <div class="col-sm-6">
-                <div class="list-group">
-                    <a href="http://viaf.org" target="_blank" class="list-group-item">Some VIAF concept 1
-                        <span class="pull-right glyphicon glyphicon-remove" style="color:red;"></span>
-                    </a>
-                    <a href="http://viaf.org" target="_blank" class="list-group-item">Some VIAF concept 2</a>
-                    <li class="list-group-item">
-                        <a class="btn btn-md glyphicon glyphicon-plus"></a>
-                    </li>
-                </div>
-            </div>
-        </div> -->
         <div class="text-center">
-            <input class="btn btn-success" type="submit" value="Save">
+
         </div>
+        {% if concepts_data %}
+        Search results:
+        <table class="table table-responsive">
+
+            <thead>
+                  <tr>
+                    <th></th>
+                    <th>Name</th>
+                    <th>Source</th>
+                    <th>URI</th>
+                  </tr>
+              </thead>
+              <tbody>
+
+                  {% for concept in concepts_data %}
+                  <tr>
+                      <td><a class="btn btn-xs btn-success" href="{% url "entity-add-concept" entity.id %}?uri={{ concept.uri }}&q={{ q }}"><span class="glyphicon glyphicon-link"></span></a></td>
+                    <td>{{ concept.name }}</td>
+                    <td>{{ concept.source }}</td>
+                    <td><a href="{{ concept.uri }}">{{ concept.uri }}</a></td>
+                  </tr>
+                  {% endfor %}
+              </tbody>
+      </table>
+      {% endif %}
 </form>
-<script>
-bindAutocomplete($('#search-input'));
-</script>
+
 
 
 

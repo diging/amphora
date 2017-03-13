@@ -33,6 +33,7 @@ iso8601==0.1.10
 isodate==0.5.1
 kombu==3.0.35
 Markdown==2.6.2
+mock==2.0.0
 networkx==1.10
 oauth2==1.9.0.post1
 oauth2-provider==0.0
@@ -57,4 +58,4 @@ social-auth-core
 social-auth-app-django
 pyoai==2.4.5
 python-Levenshtein==0.12.0
-black-goat-client>=0.2
+black-goat-client>=0.2.5
