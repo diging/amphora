@@ -5,7 +5,11 @@ from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
 
 from cookies.models import *
+from concepts.models import *
+from concepts import remote
 from cookies.filters import *
+from cookies.forms import *
+from cookies import entities, metadata, operations
 from cookies import authorization as auth
 
 
@@ -55,9 +59,6 @@ def entity_list(request):
         'filtered_objects': filtered_objects,
     }
     return render(request, 'entity_list.html', context)
-
-
-
 
 
 # Authorization is handled internally.
@@ -114,59 +115,59 @@ def entity_change(request, entity_id):
 
 
 @auth.authorization_required(ResourceAuthorization.EDIT, _get_entity_by_id)
+def entity_add_concept(request, entity_id):
+    uri = request.GET.get('uri', None)
+    label = request.GET.get('label', None)
+    q = request.GET.get('q', '')
+    if uri is not None:
+        concept, _ = remote.get_or_create(uri)
+        # concept, _ = Concept.objects.get_or_create(uri=uri, defaults={'label': label})
+        entity = ConceptEntity.objects.get(pk=entity_id)
+        entity.concept.add(concept)
+
+    return HttpResponseRedirect(reverse('entity-change-concept', args=(entity_id,)) + '?q=%s' % q)
+
+
+@auth.authorization_required(ResourceAuthorization.EDIT, _get_entity_by_id)
+def entity_remove_concept(request, entity_id):
+    uri = request.GET.get('uri', None)
+    q = request.GET.get('q', '')
+    if uri is not None:
+        concept = get_object_or_404(Concept, uri=uri)
+        entity = ConceptEntity.objects.get(pk=entity_id)
+        entity.concept.remove(concept)
+    return HttpResponseRedirect(reverse('entity-change-concept', args=(entity_id,)) + '?q=%s' % q)
+
+
+@auth.authorization_required(ResourceAuthorization.EDIT, _get_entity_by_id)
 def entity_change_concept(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
-    concepts = None
-    if request.method == 'GET':
+    associated_concepts = entity.concept.values('uri', 'label', 'authority')
+    concepts = []
+
+    #If the search button is clicked on the html page, the query text is
+    # obtained and concept URIs are searched for. The results are displayed
+    # on the html page.
+    if 'q' in request.GET:
+        form = ConceptEntityLinkForm(request.GET)
+        search = ''
+        if form.is_valid():
+            q = form.cleaned_data.get('q')
+
+        _associated_uris = map(lambda o: o['uri'], associated_concepts)
+        concepts = filter(lambda c: c['uri'] not in _associated_uris,
+                          remote.concept_search(q))
+    else:
         initial_data = {}
-        if entity.concept:
-            initial_data.update({'uri': entity.concept.uri})
-        if initial_data:
-            form = ConceptEntityLinkForm(initial_data)    # Not a ModelForm.
-        else:
-            form = ConceptEntityLinkForm()
-
-    if request.method == 'POST':
-        #If the save button is clicked on the html page, the URI is obtained
-        # from the text field and Concept object is created to be linked with
-        # the entity.
-        if 'save' in request.POST:
-            form = ConceptEntityLinkForm(request.POST)
-            if form.is_valid():
-                uri = form.cleaned_data.get('uri')
-                try:
-                    concept, _ = Concept.objects.get_or_create(uri=uri)
-                except ValueError as E:
-                    errors = form._errors.setdefault("uri", ErrorList())
-                    errors.append(E.args[0])
-                    concept = None
-
-                if concept:
-                    entity.concept = concept
-                    entity.save()
-                    return HttpResponseRedirect(entity.get_absolute_url())
-
-        #If the search button is clicked on the html page, the query text is
-        # obtained and concept URIs are searched for. The results are displayed
-        # on the html page.
-        if 'search' in request.POST:
-            print '::: search :::'
-            form = ConceptEntityLinkForm(request.POST)
-            search = ''
-            if form.is_valid():
-                print form.cleaned_data
-                search = form.cleaned_data.get('search_input')
-
-            try:
-                #URIs are searched based on the input provided using BlackGoat API.
-                concepts = operations.concept_search(search)
-            except Exception as E:
-                return HttpResponse(E,status=500)
+        q = ''
+        form = ConceptEntityLinkForm()
 
     context = {
         'entity': entity,
         'form': form,
         'concepts_data': concepts,
+        'associated_concepts': associated_concepts,
+        'q': q,
     }
 
     template = 'entity_change_concept.html'

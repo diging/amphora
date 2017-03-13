@@ -64,6 +64,8 @@ urlpatterns = patterns('',
     url(r'^entity/([0-9]+)/$', views.conceptentity.entity_details, name='entity-details'),
     url(r'^entity/([0-9]+)/change/$', views.conceptentity.entity_change, name='entity-change'),
     url(r'^entity/([0-9]+)/change/concept/$', views.conceptentity.entity_change_concept, name='entity-change-concept'),
+    url(r'^entity/([0-9]+)/change/concept/add/$', views.conceptentity.entity_add_concept, name='entity-add-concept'),
+    url(r'^entity/([0-9]+)/change/concept/remove/$', views.conceptentity.entity_remove_concept, name='entity-remove-concept'),
     url(r'^entity/([0-9]+)/prune/$', views.conceptentity.entity_prune, name="entity-prune"),
 
 

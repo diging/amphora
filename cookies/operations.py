@@ -11,16 +11,12 @@ from itertools import groupby, combinations
 from collections import Counter
 import networkx as nx
 
-import goat
 import os
 
 from cookies.exceptions import *
 
 logger = settings.LOGGER
 
-os.environ.setdefault('GOAT_WAIT_INTERVAL', '0.001')
-goat.GOAT_APP_TOKEN = settings.GOAT_APP_TOKEN
-goat.GOAT = settings.GOAT
 
 
 def add_creation_metadata(resource, user):
@@ -440,50 +436,3 @@ def ping_remote_resource(path):
     except requests.exceptions.ConnectTimeout:
         return False, {}
     return response.status_code == requests.codes.ok, response.headers
-
-
-def concept_search(query):
-    """
-    Edit :class`.Entity` instance by linking a :class:`.ConceptEntity` URI with
-    it. This provides functionality to search for a URI based on the text
-    entered in the search field.
-
-    BlackGoat API is used to search for the URIs and the sources by querying
-    with the text entered.
-
-    Parameters
-    ----------
-    query : str
-    This is the search text that will be used by BlackGoat API to query for
-    the URIs.
-
-    Returns
-    -------
-    concepts: list
-    This is a list of all :class:`.GoatConcept` objects obtained from the
-    search result of the BlackGoat API.
-    """
-    print '::: concept_search :::'
-    #If no query text is entered, the result from search is None.
-    if not query:
-        return None
-
-    concepts = None
-    #The BlackGoat API for search is used to get a list of all URIs associated
-    # with the text entered.
-    try:
-        concepts = goat.Concept.search(q=query)
-    except Exception as e:
-        raise e
-
-    #All the concepts from the search API are iterated to get a dictionary of
-    # lists containing the name, source and uri
-    concept_data = None
-    if concepts:
-        concept_data = []
-        for concept in concepts:
-            concept_data.append({'name':concept.data['name'],
-                                'source': concept.data['authority']['name'],
-                                'uri':concept.data['identifier']})
-
-    return concept_data

@@ -443,7 +443,7 @@ class ConceptEntity(Entity):
     objects = models.Manager()
     active = ActiveManager()
 
-    concept = models.ForeignKey('concepts.Concept', null=True, blank=True)
+    concept = models.ManyToManyField('concepts.Concept', null=True, blank=True)
 
     belongs_to = models.ForeignKey('Collection',
                                    related_name='native_conceptentities',
