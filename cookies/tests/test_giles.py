@@ -31,9 +31,18 @@ class MockResponse(object):
         return json.loads(self.content)
 
 
+class MockDataResponse(object):
+    def __init__(self, status_code, data):
+        self.status_code = status_code
+        self.data = data
+
+    def json(self):
+        return self.data
+
+
 def mock_get_fileids(url, params={}, headers={}):
     with open('cookies/tests/data/giles_file_response_3.json', 'r') as f:
-        return MockResponse(200, f.read())
+        return MockFileResponse(200, f.read())
 
 
 class TestGetUserAuthorization(unittest.TestCase):
@@ -115,6 +124,321 @@ class TestGetUserAuthorization(unittest.TestCase):
         self.assertEqual(post.call_count, 1,
                          "Should not call the endpoint a second time")
         self.assertEqual(token, token_again)
+
+
+class CreateGilesUpload(unittest.TestCase):
+    def setUp(self):
+        from django.core.files import File
+
+        Resource.objects.all().delete()
+        ContentRelation.objects.all().delete()
+        User.objects.all().delete()
+        GilesUpload.objects.all().delete()
+        Type.objects.all().delete()
+        Field.objects.all().delete()
+
+        self.user = User.objects.create(username='Bob')
+        GilesToken.objects.create(for_user=self.user, token='asdf1234')
+        self.user.refresh_from_db()
+        self.resource = Resource.objects.create(name='bob resource', created_by=self.user)
+        self.container = ResourceContainer.objects.create(primary=self.resource, created_by=self.user)
+        self.resource.container = self.container
+        self.resource.save()
+        self.file_path = os.path.join(settings.MEDIA_ROOT, 'test.ack')
+        with open(self.file_path, 'w') as f:
+            test_file = File(f)
+            test_file.write('asdf')
+
+        with open(self.file_path, 'r') as f:
+            test_file = File(f)
+            self.content_resource = Resource.objects.create(content_resource=True, file=test_file, created_by=self.user, container=self.container)
+        self.content_relation = ContentRelation.objects.create(for_resource=self.resource, content_resource=self.content_resource, created_by=self.user, container=self.container)
+
+    def test_create_giles_upload(self):
+        """
+        Creates a new :class:`.GilesUpload`\.
+        """
+
+        import jsonpickle
+
+        pk = giles.create_giles_upload(self.resource.id, self.content_relation.id, self.user.username)
+        self.assertIsInstance(pk, int)
+        try:
+            upload = GilesUpload.objects.get(pk=pk)
+        except GilesUpload.DoesNotExist:
+            self.fail('Did not create a GilesUpload instance')
+
+        self.assertEqual(upload.state, GilesUpload.PENDING)
+        self.assertEqual(upload.file_path, self.content_resource.file.name)
+        self.assertEqual(upload.created_by, self.user)
+        self.assertEqual(len(jsonpickle.decode(upload.on_complete)), 2)
+
+    @mock.patch('django.conf.settings.POST')
+    def test_send_to_giles(self, mock_post):
+        """
+        Sends a file indicated in a :class:`.GilesUpload` to Giles.
+        """
+        upload_id = "PROGQ3Fm2J"
+        mock_post.return_value = MockDataResponse(200, {
+            "id": upload_id,
+            "checkUrl":"http://giles/giles/rest/files/upload/check/PROGQ3Fm2J"
+        })
+        pk = giles.create_giles_upload(self.resource.id, self.content_relation.id, self.user.username)
+        upload = GilesUpload.objects.get(pk=pk)
+        giles.send_giles_upload(pk, self.user.username)
+
+        upload.refresh_from_db()
+        self.assertEqual(upload.state, GilesUpload.SENT)
+        self.assertEqual(upload.upload_id, upload_id)
+        self.assertEqual(mock_post.call_count, 1)
+        args, kwargs = mock_post.call_args
+        self.assertIn('files', kwargs)
+        self.assertIn('data', kwargs)
+        self.assertIn('headers', kwargs)
+
+
+    @mock.patch('django.conf.settings.POST')
+    @mock.patch('django.conf.settings.GET')
+    def test_check_upload_status(self, mock_get, mock_post):
+        mock_get.return_value = MockDataResponse(202, {
+            "msg":"Upload in progress. Please check back later.",
+            "msgCode":"010"
+        })
+
+        upload_id = "PROGQ3Fm2J"
+        mock_post.return_value = MockDataResponse(200, {
+            "id": upload_id,
+            "checkUrl":"http://giles/giles/rest/files/upload/check/PROGQ3Fm2J"
+        })
+        pk = giles.create_giles_upload(self.resource.id, self.content_relation.id, self.user.username)
+        upload = GilesUpload.objects.get(pk=pk)
+        giles.send_giles_upload(pk, self.user.username)
+        giles.check_upload_status(self.user.username, upload_id)
+        upload.refresh_from_db()
+
+        self.assertEqual(upload.state, GilesUpload.SENT)
+        self.assertEqual(upload.upload_id, upload_id)
+        self.assertEqual(mock_get.call_count, 1)
+        args, kwargs = mock_get.call_args
+        self.assertTrue(args[0].endswith(upload_id))
+        self.assertIn('headers', kwargs)
+        self.assertIn('Authorization', kwargs['headers'])
+
+
+    @mock.patch('django.conf.settings.POST')
+    @mock.patch('django.conf.settings.GET')
+    def test_process_upload_unknown(self, mock_get, mock_post):
+        __text__ = Type.objects.create(uri='http://purl.org/dc/dcmitype/Text')
+        __image__ = Type.objects.create(uri='http://purl.org/dc/dcmitype/Image')
+        __document__ = Type.objects.create(uri='http://xmlns.com/foaf/0.1/Document')
+        __part__ = Field.objects.create(uri='http://purl.org/dc/terms/isPartOf')
+
+        mock_get.return_value = MockDataResponse(200, [{
+          "documentId" : "DOC123edf",
+          "uploadId" : "UPxx456",
+          "uploadedDate" : "2016-09-20T14:03:00.152Z",
+          "access" : "PRIVATE",
+          "uploadedFile" : {
+            "filename" : "uploadedFile.pdf",
+            "id" : "FILE466tgh",
+            "url" : "http://your-giles-host.net/giles/rest/files/FILE466tgh/content",
+            "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf",
+            "content-type" : "application/pdf",
+            "size" : 3852180
+          },
+          "extractedText" : {
+            "filename" : "uploadedFile.pdf.txt",
+            "id" : "FILE123cvb",
+            "url" : "http://your-giles-host.net/giles/rest/files/FILE123cvb/content",
+            "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf.txt",
+            "content-type" : "text/plain",
+            "size" : 39773
+          },
+          "pages" : [ {
+            "nr" : 0,
+            "image" : {
+              "filename" : "uploadedFile.pdf.0.tiff",
+              "id" : "FILEYUI678",
+              "url" : "http://your-giles-host.net/giles/rest/digilib?fn=username%FILEYUI678%2FDOC123edf0%2FuploadedFile.pdf.0.tiff",
+              "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf.0.tiff",
+              "content-type" : "image/tiff",
+              "size" : 2032405
+            },
+            "text" : {
+              "filename" : "uploadedFile.pdf.0.txt",
+              "id" : "FILE789UIO",
+              "url" : "http://your-giles-host.net/giles/rest/files/FILE789UIO/content",
+              "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf.0.txt",
+              "content-type" : "text/plain",
+              "size" : 4658
+            },
+            "ocr" : {
+              "filename" : "uploadedFile.pdf.0.tiff.txt",
+              "id" : "FILE789U12",
+              "url" : "http://your-giles-host.net/giles/rest/files/FILE789U12/content",
+              "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf.0.tiff.txt",
+              "content-type" : "text/plain",
+              "size" : 4658
+            }
+          }, {
+            "nr" : 1,
+            "image" : {
+              "filename" : "uploadedFile.pdf.1.tiff",
+              "id" : "FILE045tyhG",
+              "url" : "http://your-giles-host.net/giles/rest/digilib?fn=username%2FFILE045tyhG%2FDOC123edf0%2FuploadedFile.pdf.1.tiff",
+              "path" : "username/UPxx456/DOC123edf/uploadedFile.1.tiff",
+              "content-type" : "image/tiff",
+              "size" : 2512354
+            },
+            "text" : {
+              "filename" : "uploadedFile.pdf.1.txt",
+              "id" : "FILEMDSPfeVm",
+              "url" : "http://your-giles-host.net/giles/rest/files/FILEMDSPfeVm/content",
+              "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf.1.txt",
+              "content-type" : "text/plain",
+              "size" : 5799
+            },
+            "ocr" : {
+              "filename" : "uploadedFile.pdf.1.tiff.txt",
+              "id" : "FILEMDSPfe12",
+              "url" : "http://your-giles-host.net/giles/rest/files/FILEMDSPfe12/content",
+              "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf.1.tiff.txt",
+              "content-type" : "text/plain",
+              "size" : 5799
+            }
+          }]}])
+
+        upload_id = "UPxx456"
+        giles.process_upload(upload_id, self.user.username)
+        upload = GilesUpload.objects.get(upload_id=upload_id)
+
+        self.assertEqual(upload.state, GilesUpload.DONE)
+        self.assertTrue(upload.resource is not None)
+
+        self.assertEqual(upload.resource.relations_to.count(), 2)
+        self.assertEqual(upload.resource.content.count(), 2)
+
+        for cr in upload.resource.content.all():
+            self.assertFalse(cr.content_resource.public)
+
+    @mock.patch('django.conf.settings.POST')
+    @mock.patch('django.conf.settings.GET')
+    def test_process_upload_known(self, mock_get, mock_post):
+        __text__ = Type.objects.create(uri='http://purl.org/dc/dcmitype/Text')
+        __image__ = Type.objects.create(uri='http://purl.org/dc/dcmitype/Image')
+        __document__ = Type.objects.create(uri='http://xmlns.com/foaf/0.1/Document')
+        __part__ = Field.objects.create(uri='http://purl.org/dc/terms/isPartOf')
+
+        mock_get.return_value = MockDataResponse(200, [{
+          "documentId" : "DOC123edf",
+          "uploadId" : "UPxx456",
+          "uploadedDate" : "2016-09-20T14:03:00.152Z",
+          "access" : "PRIVATE",
+          "uploadedFile" : {
+            "filename" : "uploadedFile.pdf",
+            "id" : "FILE466tgh",
+            "url" : "http://your-giles-host.net/giles/rest/files/FILE466tgh/content",
+            "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf",
+            "content-type" : "application/pdf",
+            "size" : 3852180
+          },
+          "extractedText" : {
+            "filename" : "uploadedFile.pdf.txt",
+            "id" : "FILE123cvb",
+            "url" : "http://your-giles-host.net/giles/rest/files/FILE123cvb/content",
+            "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf.txt",
+            "content-type" : "text/plain",
+            "size" : 39773
+          },
+          "pages" : [ {
+            "nr" : 0,
+            "image" : {
+              "filename" : "uploadedFile.pdf.0.tiff",
+              "id" : "FILEYUI678",
+              "url" : "http://your-giles-host.net/giles/rest/digilib?fn=username%FILEYUI678%2FDOC123edf0%2FuploadedFile.pdf.0.tiff",
+              "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf.0.tiff",
+              "content-type" : "image/tiff",
+              "size" : 2032405
+            },
+            "text" : {
+              "filename" : "uploadedFile.pdf.0.txt",
+              "id" : "FILE789UIO",
+              "url" : "http://your-giles-host.net/giles/rest/files/FILE789UIO/content",
+              "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf.0.txt",
+              "content-type" : "text/plain",
+              "size" : 4658
+            },
+            "ocr" : {
+              "filename" : "uploadedFile.pdf.0.tiff.txt",
+              "id" : "FILE789U12",
+              "url" : "http://your-giles-host.net/giles/rest/files/FILE789U12/content",
+              "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf.0.tiff.txt",
+              "content-type" : "text/plain",
+              "size" : 4658
+            }
+          }, {
+            "nr" : 1,
+            "image" : {
+              "filename" : "uploadedFile.pdf.1.tiff",
+              "id" : "FILE045tyhG",
+              "url" : "http://your-giles-host.net/giles/rest/digilib?fn=username%2FFILE045tyhG%2FDOC123edf0%2FuploadedFile.pdf.1.tiff",
+              "path" : "username/UPxx456/DOC123edf/uploadedFile.1.tiff",
+              "content-type" : "image/tiff",
+              "size" : 2512354
+            },
+            "text" : {
+              "filename" : "uploadedFile.pdf.1.txt",
+              "id" : "FILEMDSPfeVm",
+              "url" : "http://your-giles-host.net/giles/rest/files/FILEMDSPfeVm/content",
+              "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf.1.txt",
+              "content-type" : "text/plain",
+              "size" : 5799
+            },
+            "ocr" : {
+              "filename" : "uploadedFile.pdf.1.tiff.txt",
+              "id" : "FILEMDSPfe12",
+              "url" : "http://your-giles-host.net/giles/rest/files/FILEMDSPfe12/content",
+              "path" : "username/UPxx456/DOC123edf/uploadedFile.pdf.1.tiff.txt",
+              "content-type" : "text/plain",
+              "size" : 5799
+            }
+          }]}])
+
+        upload_id = "UPxx456"
+        mock_post.return_value = MockDataResponse(200, {
+            "id": upload_id,
+            "checkUrl":"http://giles/giles/rest/files/upload/check/PROGQ3Fm2J"
+        })
+        pk = giles.create_giles_upload(self.resource.id, self.content_relation.id, self.user.username)
+        giles.send_giles_upload(pk, self.user.username)
+        upload = GilesUpload.objects.get(pk=pk)
+        fpath = upload.file_path
+        self.assertTrue(os.path.exists(os.path.join(settings.MEDIA_ROOT, fpath)))
+
+        giles.process_upload(upload_id, self.user.username)
+        upload = GilesUpload.objects.get(upload_id=upload_id)
+
+        self.assertEqual(upload.state, GilesUpload.DONE)
+        self.assertEqual(upload.resource, self.resource)
+
+        self.assertEqual(upload.resource.relations_to.count(), 2)
+        self.assertEqual(upload.resource.content.count(), 3)
+        self.assertEqual(upload.resource.content.filter(is_deleted=False).count(), 2)
+        deleted_resource = upload.resource.content.filter(is_deleted=True).first().content_resource
+        self.assertFalse(os.path.exists(os.path.join(settings.MEDIA_ROOT, fpath)))
+
+        for cr in upload.resource.content.all():
+            self.assertFalse(cr.content_resource.public)
+
+
+    def tearDown(self):
+        Resource.objects.all().delete()
+        ContentRelation.objects.all().delete()
+        User.objects.all().delete()
+        GilesUpload.objects.all().delete()
+        Type.objects.all().delete()
+        Field.objects.all().delete()
+
 
 
 

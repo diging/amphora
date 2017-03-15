@@ -2,12 +2,7 @@
 {% load addcss %}
 
 {% block content %}
-<div class="h2">Process Giles Upload</div>
-
-<p class="text-info">
-    If you want, you can set the collection for all of the files in this upload
-    session.
-</p>
+<p>Add this resource to a collection.</p>
 <form class="form" action="." method="POST">
     {% csrf_token %}
     {% for error in form.non_field_errors %}

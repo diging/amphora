@@ -11,7 +11,7 @@ from cookies.tasks import *
 from cookies import giles, operations
 from cookies import authorization as auth
 
-import hmac, base64, time, urllib, datetime, mimetypes
+import hmac, base64, time, urllib, datetime, mimetypes, copy
 
 
 def _get_resource_by_id(request, resource_id, *args):
@@ -28,11 +28,13 @@ def resource(request, obj_id):
 
     # Get a fresh Giles auth token, if needed.
     giles.get_user_auth_token(resource.created_by, fresh=True)
+    print resource.container.__dict__
     context = {
         'resource':resource,
         'request': request,
         'part_of': resource.container.part_of,
-        'relations_from': resource.relations_from.filter(is_deleted=False)
+        'relations_from': resource.relations_from.filter(is_deleted=False),
+        'content_relations': resource.content.filter(is_deleted=False),
     }
     if request.GET.get('format', None) == 'json':
         return JsonResponse(ResourceDetailSerializer(context=context).to_representation(resource))
@@ -111,12 +113,15 @@ def create_resource_file(request):
         form = UserResourceFileForm(request.POST, request.FILES)
         if form.is_valid():
             uploaded_file = request.FILES['upload_file']
+            container = ResourceContainer.objects.create(created_by=request.user)
             content = Resource.objects.create(**{
                 'content_type': uploaded_file.content_type,
                 'content_resource': True,
                 'name': uploaded_file._name,
                 'created_by': request.user,
+                'container': container,
             })
+
             operations.add_creation_metadata(content, request.user)
             # The file upload handler needs the Resource to have an ID first,
             #  so we add the file after creation.
@@ -151,7 +156,11 @@ def create_resource_url(request):
                         'created_by': request.user,
                     }
                 })
+
                 if created:
+                    container = ResourceContainer.objects.create(created_by=request.user)
+                    content.container = container
+                    content.save()
                     operations.add_creation_metadata(content, request.user)
                 return HttpResponseRedirect(reverse('create-resource-details',
                                                     args=(content.id,)))
@@ -185,23 +194,33 @@ def create_resource_details(request, content_id):
     elif request.method == 'POST':
         form = UserResourceForm(request.POST)
         if form.is_valid():
+
+
             resource_data = copy.copy(form.cleaned_data)
             resource_data['entity_type'] = resource_data.pop('resource_type', None)
             collection = resource_data.pop('collection', None)
+            if not content_resource.container:
+                content_resource.container = ResourceContainer.objects.create(created_by=request.user, part_of=collection)
+                content_resource.save()
+            else:
+                content_resource.container.part_of = collection
+
             resource_data['created_by'] = request.user
+            resource_data['container'] = content_resource.container
             resource = Resource.objects.create(**resource_data)
-            container = ResourceContainer.objects.create(created_by=request.user, primary=resource, part_of=collection)
+            content_resource.container.primary = resource
+            content_resource.container.save()
 
             operations.add_creation_metadata(resource, request.user)
             content_relation = ContentRelation.objects.create(**{
                 'for_resource': resource,
                 'content_resource': content_resource,
                 'content_type': content_resource.content_type,
+                'container': content_resource.container,
             })
-            resource.container = container
+            resource.container = content_resource.container
             resource.save()
-            content_resource.container = container
-            content_resource.save()
+
 
             return HttpResponseRedirect(reverse('resource', args=(resource.id,)))
 
@@ -565,7 +584,6 @@ def resource_content(request, resource_id):
         content_type = resource.content_type
     else:
         content_type = 'application/octet-stream'
-
     if resource.file:
         try:
             with open(resource.file.path, 'rb') as f:
@@ -581,7 +599,7 @@ def resource_content(request, resource_id):
                 auth_token = giles.get_user_auth_token(user, fresh=True)
                 target += '?accessToken=' + auth_token
         return HttpResponseRedirect(target)
-    return HttpResponse('Nope')
+    return HttpResponse('Nope')    # TODO: say something more informative!
 
 
 
@@ -594,9 +612,6 @@ def resource_prune(request, resource_id):
     resource = _get_resource_by_id(request, resource_id)
     operations.prune_relations(resource, request.user)
     return HttpResponseRedirect(resource.get_absolute_url())
-
-
-
 
 
 @login_required
@@ -630,73 +645,3 @@ def sign_s3(request):
 
 def test_upload(request):
     return render(request, 'testupload.html', {})
-
-
-@login_required
-def handle_giles_upload(request):
-    try:
-        session = giles.handle_giles_callback(request)
-    except ValueError:
-        return HttpResponseRedirect(reverse('create-resource'))
-
-    return HttpResponseRedirect(reverse('create-process-giles', args=(session.id,)))
-
-
-@login_required
-def process_giles_upload(request, session_id):
-    """
-    """
-    session = get_object_or_404(GilesSession, pk=session_id)
-    context = {'session': session,}
-
-    if request.method == 'GET':
-        form = ChooseCollectionForm()
-        form.fields['collection'].queryset = form.fields['collection'].queryset.filter(created_by_id=request.user.id)
-        if session.collection:
-            collection_id = session.collection
-        else:
-            collection_id = request.GET.get('collection_id', None)
-        if collection_id:
-            form.fields['collection'].initial = collection_id
-            context.update({'collection_id': collection_id})
-
-    elif request.method == 'POST':
-        form = ChooseCollectionForm(request.POST)
-        form.fields['collection'].queryset = form.fields['collection'].queryset.filter(created_by_id=request.user.id)
-        if form.is_valid():
-            collection = form.cleaned_data.get('collection', None)
-            name = form.cleaned_data.get('name', None)
-            if not collection and name:
-                collection = Collection.objects.create(**{
-                    'created_by_id': request.user.id,
-                    'name': name,
-                })
-                operations.add_creation_metadata(collection, request.user)
-            session.collection = collection
-            session.save()
-            form.fields['collection'].initial = collection.id
-            form.fields['name'].widget.attrs['disabled'] = True
-    context.update({'form': form})
-    template = 'create_process_giles_upload.html'
-    return render(request, template, context)
-
-
-@auth.authorization_required(ResourceAuthorization.EDIT, _get_resource_by_id)
-def trigger_giles_submission(request, resource_id, relation_id):
-    resource = _get_resource_by_id(request, resource_id)
-    instance = resource.content.get(pk=relation_id)
-    import mimetypes
-    content_type = instance.content_resource.content_type or mimetypes.guess_type(instance.content_resource.file.name)[0]
-    if instance.content_resource.is_local and instance.content_resource.file.name is not None:
-        # PDFs and images should be stored in Digilib via Giles.
-        if content_type in ['image/png', 'image/tiff', 'image/jpeg', 'application/pdf']:
-            logger.debug('%s has a ContentResource; sending to Giles' % instance.content_resource.name)
-            try:
-                task = send_to_giles.delay(instance.content_resource.file.name,
-                                    instance.for_resource.created_by, resource=instance.for_resource,
-                                    public=instance.for_resource.public)
-            except ConnectionError:
-                logger.error("send_pdfs_and_images_to_giles: there was an error"
-                             " connecting to the redis message passing"
-                             " backend.")
-            return HttpResponse(task)

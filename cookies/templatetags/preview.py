@@ -96,8 +96,8 @@ import urlparse, urllib
 def preview(resource, request):
     page_field = Field.objects.get_or_create(uri='http://purl.org/dc/terms/isPartOf')[0]
     user = resource.created_by
-    content_relations = resource.content.all()
-    page_relations = resource.relations_to.filter(predicate=page_field)
+    content_relations = resource.content.filter(is_deleted=False)
+    page_relations = resource.relations_to.filter(predicate=page_field, is_deleted=False)
 
     if resource.content_resource:   # This resource is the content resource.
         if resource.content_type in images:
@@ -111,29 +111,40 @@ def preview(resource, request):
 
             for i, relation in enumerate(content_relations.all()):
                 preview_elem = relation.content_resource.content_view
+                # Remote image.
                 if relation.content_resource.content_type in images and not relation.content_resource.is_local:
                     image_location = relation.content_resource.content_view
-                    # if not relation.content_resource.public:
+
+                    # Giles images.
                     if resource.external_source == Resource.GILES:
                         image_location = giles.format_giles_url(relation.content_resource.location, request.user, dw=400)
-                        print ':::', image_location
                     preview_elem = image_preview_template.format(src=image_location)
+
+                # Local PDFs.
                 elif (resource.content_type == 'application/xpdf' or (relation.content_resource.content_location and relation.content_resource.content_location.lower().endswith('.pdf'))) and relation.content_resource.is_local:
                     preview_elem = pdf_preview_template.format(**{
                         'src': relation.content_resource.content_view,
                         "page_id": str(relation.content_resource.id),
                     }) + pdf_preview_fragment
+
+                # Remote content.
                 elif not relation.content_resource.is_local:
+                    # Giles plain text; use an IFrame.
                     if relation.content_resource.external_source == Resource.GILES and relation.content_resource.content_type == 'text/plain':
-                        print ':::', relation.content_resource.location + '&accessToken=' + giles.get_user_auth_token(user)+ '&dw=300'
                         preview_elem = iframe_template.format(**{
-                            'href': relation.content_resource.location + '&accessToken=' + giles.get_user_auth_token(user)+ '&dw=300'
+                            'href': giles.format_giles_url(relation.content_resource.location, user.username),
                         })
+                    # Giles image -- TODO: is this redundant?
                     elif relation.content_resource.external_source == Resource.GILES and relation.content_resource.content_type in images:
-                        print ':::', relation.content_resource.location + '&accessToken=' + giles.get_user_auth_token(user)+ '&dw=300'
                         preview_elem = image_preview_template.format(**{
-                            'src': relation.content_resource.location + '&accessToken=' + giles.get_user_auth_token(user)+ '&dw=300'
+                            'src': giles.format_giles_url(relation.content_resource.location, user.username)
                         })
+                    # Giles (other). Provide a link.
+                    elif relation.content_resource.external_source == Resource.GILES:
+                        preview_elem = external_link_template.format(**{
+                            'href': giles.format_giles_url(relation.content_resource.location, user.username)
+                        })
+                    # Something else -- just provide a link.
                     else:
                         preview_elem = external_link_template.format(**{
                             'href': relation.content_resource.location
@@ -166,8 +177,7 @@ def preview(resource, request):
                 if content_resource.content_type in images:
 
                     if content_resource.external_source == Resource.GILES:
-                        image_location = content_resource.location
-                        image_location += '&accessToken=' + giles.get_user_auth_token(user)+ '&dw=300'
+                        image_location = giles.format_giles_url(content_resource.location, user.username)
                     else:
                         image_location = content_resource.content_view
                     preview_elem += image_preview_template.format(src=image_location)
