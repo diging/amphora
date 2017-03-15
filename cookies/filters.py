@@ -28,12 +28,13 @@ class ConceptEntityFilter(django_filters.FilterSet):
 
 
 
-class ResourceFilter(django_filters.FilterSet):
+class ResourceContainerFilter(django_filters.FilterSet):
     name = django_filters.MethodFilter(action='lookup_name_in_parts')
-    content = django_filters.CharFilter(name='indexable_content',
+    content = django_filters.CharFilter(name='primary__indexable_content',
                                         lookup_type='icontains')
 
     entity_type = django_filters.ModelChoiceFilter(
+        name='primary__entity_type',
         queryset=Type.objects.annotate(num_instances=Count('resource'))\
                              .filter(num_instances__gt=0)
     )
@@ -41,22 +42,24 @@ class ResourceFilter(django_filters.FilterSet):
     tag = django_filters.MethodFilter(action='filter_tag')
 
     def filter_tag(self, queryset, value):
-        return queryset.filter(tags__tag__id=value)
+        if not value:
+            return queryset
+        return queryset.filter(primary__tags__tag__id=value)
 
     def lookup_name_in_parts(self, queryset, value):
         q = Q()
         for part in value.split():
-            q &= Q(name__icontains=part)
+            q &= Q(primary__name__icontains=part)
         return queryset.filter(q)
 
     class Meta:
         model = Resource
-        fields = ['name', 'uri', 'entity_type', 'content', 'created_by']
+        fields = ['name', 'entity_type', 'content', 'created_by']
         order_by = (
-            ('name', 'Name (ascending)'),
-            ('-name', 'Name (descending)'),
-            ('entity_type', 'Type (ascending)'),
-            ('-entity_type', 'Type (descending)'),
+            ('primary__name', 'Name (ascending)'),
+            ('-primary__name', 'Name (descending)'),
+            ('primary__entity_type', 'Type (ascending)'),
+            ('-primary__entity_type', 'Type (descending)'),
         )
 
 

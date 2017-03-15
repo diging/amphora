@@ -5,11 +5,7 @@ from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 from django.db.models import Q, QuerySet
 from django.http import HttpResponseForbidden
 from django.utils.decorators import available_attrs
-
-from guardian.shortcuts import (get_perms, remove_perm, assign_perm,
-                                get_objects_for_user)
-from guardian.utils import get_user_obj_perms_model
-from guardian.models import Permission, UserObjectPermission
+from django import forms
 
 from cookies.models import *
 from collections import defaultdict
@@ -55,7 +51,7 @@ def is_owner(user, obj):
     -------
     bool
     """
-    return (isinstance(obj, Collection) and getattr(obj, 'created_by', None) == user) or user.is_superuser
+    return getattr(obj, 'created_by', None) == user
 
 
 def is_public(obj):
@@ -76,154 +72,58 @@ def check_authorization(auth, user, obj):
     -------
     bool
     """
+
     if auth == 'is_owner':
         return is_owner(user, obj)
 
-    if isinstance(obj, Resource):
-        if getattr(obj, 'belongs_to', False):
-            auth = auth_label(auth, obj.belongs_to)
-            _authorized = check_authorization(auth, user, obj.belongs_to)
-        else:
-            if obj.content_resource:
-                return check_authorization(auth, user, obj.parent.first().for_resource)
-
-            # If the Resource has no Collection, only the owner or admin can
-            #  access it.
-            _authorized = False
-    elif isinstance(obj, ConceptEntity):
-        if getattr(obj, 'belongs_to', False):
-            auth = auth_label(auth, obj.belongs_to)
-            _authorized = check_authorization(auth, user, obj.belongs_to)
-        resource_type = ContentType.objects.get_for_model(Resource)
-        resource = obj.relations_to.filter(source_type=resource_type).first().source
-        _authorized = check_authorization(auth, user, resource)
-    elif isinstance(obj, Relation):
-        if getattr(obj, 'belongs_to', False):
-            auth = auth_label(auth, obj.belongs_to)
-            _authorized = check_authorization(auth, user, obj.belongs_to)
-        _authorized = check_authorization(auth, user, obj.source)
-    elif isinstance(obj, Value):
-        _check = lambda o: check_authorization(auth, user, o)
-        _sources = [relation.source for relation in obj.relations_to.all() if not isinstance(relation.source, Value)]
-        _targets = [relation.target for relation in obj.relations_from.all() if not isinstance(relation.target, Value)]
-        _authorized = all(map(_check, _sources)) and all(map(_check, _targets)) and (_sources or _targets)
-    elif obj is None:
-        _authorized = False
+    if isinstance(obj, Collection):
+        _allow = CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=CollectionAuthorization.ALLOW).count() > 0
+        _deny = CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=CollectionAuthorization.DENY).count() > 0
     else:
-        auth = auth_label(auth, obj)
-        _authorized = user.has_perm(auth, obj)
-    return user.is_superuser or is_owner(user, obj) or _authorized or (is_public(obj) and 'view' in auth)
+        if not isinstance(obj, ResourceContainer):
+            obj = obj.container
+        _allow = (ResourceAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=ResourceAuthorization.ALLOW).count() > 0\
+                  or CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj.part_of, policy=CollectionAuthorization.ALLOW, heritable=True).count() > 0)\
+                  and not CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj.part_of, policy=CollectionAuthorization.DENY, heritable=True).count() > 0
+        _deny = ResourceAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=ResourceAuthorization.DENY).count() > 0
+    return (_allow and not _deny) or is_owner(user, obj) or user.is_superuser
 
 
-def label_authorizations(auths, obj):
-    return [auth_label(auth.split('_')[0], obj) for auth in auths]
+def auth_model_for_obj(klass):
+    if klass is Collection:
+        return CollectionAuthorization
+    return ResourceAuthorization
 
 
-def auth_label(auth, obj):
+def apply_filter(auth, user, qs):
     """
-    Convert a generic auth name to the name of a model-specific authorization.
+    Filter a :class:`.QuerySet` using registered authorization policies.
 
-    For example: ``view`` -> ``view_relation``
+    The presence of a DENY policy will override any ALLOW policies.
 
-    If the auth is already model-specific, or there is no model-specificity for
-    the auth name, returns the auth as passed.
-
-    Parameters
-    ----------
-    auth : str
-    obj : Model instance
-
-    Returns
-    -------
-    str
+    Heritable policies on a Collection will override policies on constitutent
+    resources. (TODO: Is that what we want? Maybe the opposite?)
     """
-    _auth_map = {
-        'view_conceptentity': 'view_entity',
-    }
-    if auth in SHARED_AUTHORIZATIONS:    # Already labeled.
-        return _auth_map.get(auth, auth)
-    auth = auth.split('_')[0]
-    if (isinstance(obj, ConceptEntity) or getattr(obj, 'model', None) is ConceptEntity) and auth == 'view':
-        return 'view_entity'
-    elif (isinstance(obj, Collection) or getattr(obj, 'model', None) is Collection) and auth == 'view':
-        return 'view_resource'
-    if isinstance(obj, QuerySet):
-        model_label = obj.model.__name__.lower()
+    if user.is_superuser:    # Superusers can see _everything_. Spoooooky.
+        return qs
+
+    if qs.model is Collection:
+        q = Q(created_by=user.id) | \
+            (Q(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.ALLOW) \
+             & ~Q(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.DENY))
+    elif qs.model is ResourceContainer:
+        q = Q(created_by=user.id) | \
+            ((Q(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.ALLOW) \
+              | Q(part_of__authorizations__action=auth, part_of__authorizations__granted_to=user.id, part_of__authorizations__policy=ResourceAuthorization.ALLOW, part_of__authorizations__heritable=True)) \
+             & ~(Q(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.DENY) \
+                 | Q(part_of__authorizations__action=auth, part_of__authorizations__granted_to=user.id, part_of__authorizations__policy=ResourceAuthorization.DENY, part_of__authorizations__heritable=True)))
     else:
-        model_label = type(obj).__name__.lower()
-    return '%s_%s' % (auth, model_label)
-
-
-def update_authorizations(auths, user, obj, **kwargs):
-    """
-    Replace the current authorizations for ``user`` on ``obj`` with ``auths``.
-
-    Parameters
-    ----------
-    auths : list
-        A list of authorizations (str). Any authorizations not in this list
-        will be removed from ``obj`` for ``user``.
-    user : :class:`.User`
-    obj : Model instance or :class:`.QuerySet`
-    by_user : :class:`.User`
-        If provided, the ``change_authorizations`` auth will be enforced for
-        this user.
-
-    Returns
-    -------
-    None
-    """
-
-
-    # logger.debug('update authorizations for %s with %s for %s' % \
-    #              (repr(obj), ' '.join(auths), repr(user)))
-
-    # ``auths`` may or may not have model-specific auth labels.
-    labeled_auths = label_authorizations(auths, obj)
-    by_user = kwargs.get('by_user', None)
-    if by_user and isinstance(obj, QuerySet):
-        obj = apply_filter(by_user, 'change_authorizations', obj)
-
-    if not (isinstance(obj, Collection) or isinstance(getattr(obj, 'model', None), Collection)):
-        return
-    # There may be a variety of authorizations for the objects in the QuerySet,
-    #  so we will visit all of the (few in number) authorizations, and remove
-    #  or add accordingly.
-    for auth in getattr(obj, 'model', obj).DEFAULT_AUTHS:   # obj may be a QS.
-        if auth in labeled_auths:
-            try:
-                # logger.debug('assign: %s' % auth)
-                assign_perm(auth, user, obj)
-            except ObjectDoesNotExist:
-                msg = '"%s" not a valid auth for %s' % (auth, repr(obj))
-                raise ValueError(msg)
-        else:
-            try:
-                # logger.debug('remove: %s' % auth)
-                remove_perm(auth, user, obj)
-            except ObjectDoesNotExist:
-                msg = '"%s" not a valid auth for %s' % (auth, repr(obj))
-                raise ValueError(msg)
-
-
-def list_authorizations(obj, user=None):
-    """
-    List authorizations for ``obj``.
-    """
-    if user is None:    # All authorizations for all users.
-        _auths = defaultdict(list)
-        _users = {obj.created_by.id: obj.created_by}
-        _auths[obj.created_by.id].append('owns')
-
-
-        for user in User.objects.all():
-            _auths[user.id] += get_perms(user, obj)
-            _users[user.id] = user
-
-        return [(_users[user], auths) for user, auths in _auths.items() if auths]
-
-    # Authorizations for a specific user.
-    return get_perms(user, obj)
+        q = Q(created_by=user.id) | \
+            ((Q(container__authorizations__action=auth, container__authorizations__granted_to=user.id, container__authorizations__policy=ResourceAuthorization.ALLOW) \
+              | Q(container__part_of__authorizations__action=auth, container__part_of__authorizations__granted_to=user.id, container__part_of__authorizations__policy=ResourceAuthorization.ALLOW, container__part_of__authorizations__heritable=True)) \
+             & ~(Q(container__authorizations__action=auth, container__authorizations__granted_to=user.id, container__authorizations__policy=ResourceAuthorization.DENY) \
+                 | Q(container__part_of__authorizations__action=auth, container__part_of__authorizations__granted_to=user.id, container__part_of__authorizations__policy=ResourceAuthorization.DENY, container__part_of__authorizations__heritable=True)))
+    return qs.filter(q)
 
 
 def authorization_required(perm, fn=None, login_url=None, raise_exception=False):
@@ -248,68 +148,22 @@ def authorization_required(perm, fn=None, login_url=None, raise_exception=False)
     return decorator
 
 
-def apply_filter(user, auth, queryset):
-    """
-    Limit ``queryset`` to those objects for which ``user`` has ``permission``.
-
-    As of 0.4 this depends entirely on the :class:`.Collection` to which
-    objects belong.
-
-    Parameters
-    ----------
-    user : :class:`django.contrib.auth.models.User`
-    permission : str
-    queryset : :class:`django.db.models.QuerySet`
-
-    Returns
-    -------
-    :class:`django.db.models.QuerySet`
-
-    """
-    # Everything depends on the Collection now.
-    auth = auth_label(auth, Collection.objects.first())
-    if user.is_superuser:
-        return queryset
-    if type(queryset) is list:
-        return [obj for obj in queryset if check_authorization(auth, user, obj)]
-    if auth == 'is_owner':
-        return queryset.filter(created_by_id=user.id)
-
-    ctype = ContentType.objects.get_for_model(Collection)
-    rtype = ContentType.objects.get_for_model(Resource)
-    perm = Permission.objects.get(codename=auth, content_type_id=ctype)
-    perms = UserObjectPermission.objects.filter(user_id=user.id,
-                                                permission_id=perm.id,
-                                                content_type_id=ctype.id)
-
-    # For some reason Guardian stores related primary keys as strings; without
-    #  mapping back to int this will cause Postgres to choke.
-    collection_pks = map(int, perms.values_list('object_pk', flat=True))
-    if queryset.model is Collection:
-        return queryset.filter(pk__in=collection_pks)
-    elif queryset.model is Resource:
-        q = Q(belongs_to__id__in=collection_pks)
-    else:    # Traverse back up to the Collection via its Resources.
-        if queryset.model is ConceptEntity:
-            q = Q(belongs_to__id__in=collection_pks)
-            # q = Q(relations_to__source_instance_id__in=resources, relations_to__source_type=rtype) \
-            #     | Q(relations_from__target_instance_id__in=resources, relations_from__target_type=rtype)
-        elif queryset.model is Relation:
-            q = Q(belongs_to__id__in=collection_pks)
-            # q = Q(source_instance_id__in=resources) \
-            #     | Q(target_instance_id__in=resources)
-        elif queryset.model is Value:
-            resources = Resource.objects.filter(belongs_to__id__in=collection_pks)\
-                                        .values_list('id', flat=True)
-            q = Q(relations_to__source_instance_id__in=resources)
-
-    return queryset.filter(q).distinct()
+def list_authorizations(obj, user=None):
+    if user:
+        return obj.authorizations.filter(for_user=user)
+    return obj.authorizations.all()
 
 
-def make_nonpublic(obj):
-    """
-    Convenience function for revoking public access all at once.
-    """
-    obj.update(public=False)
-    anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
-    update_authorizations([], anonymous, obj)
+class AuthorizationForm(forms.ModelForm):
+    model = ResourceAuthorization
+
+
+class CollectionAuthorizationForm(forms.ModelForm):
+    for_resource = forms.ModelChoiceField(queryset=Collection.objects.all(),
+                                          widget=forms.widgets.HiddenInput)
+    granted_by = forms.ModelChoiceField(queryset=User.objects.all(),
+                                        widget=forms.widgets.HiddenInput)
+
+    class Meta:
+        model = CollectionAuthorization
+        fields = '__all__'

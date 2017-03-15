@@ -66,7 +66,6 @@ INSTALLED_APPS = (
     'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
-    'guardian',
      'social_django',
 )
 
@@ -150,10 +149,10 @@ MEDIA_URL = BASE_URL + 'media/'
 CELERY_IMPORTS = ('cookies.tasks',)
 CELERY_DEFAULT_RATE_LIMIT = "100/m"
 CELERYBEAT_SCHEDULE = {
-    'send_giles_uploads': {
-        'task': 'cookies.tasks.send_giles_uploads',
-        'schedule': timedelta(seconds=30)
-    },
+    # 'send_giles_uploads': {
+    #     'task': 'cookies.tasks.send_giles_uploads',
+    #     'schedule': timedelta(seconds=30)
+    # },
     'check_giles_uploads': {
         'task': 'cookies.tasks.check_giles_uploads',
         'schedule': timedelta(seconds=20)
@@ -188,6 +187,8 @@ LOGIN_REDIRECT_URL = 'index'
 
 # Giles and HTTP.
 GILES = os.environ.get('GILES', 'https://diging-dev.asu.edu/giles-review')
+if GILES.endswith('/'):
+    GILES = GILES[:-1]
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 GET = requests.get
 POST = requests.post
@@ -222,4 +223,8 @@ REPOSITORY_NAME = u'Amphora'
 
 SECURE_SSL_REDIRECT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# If True, files will be deleted as soon as they are successfully added to
+#  Giles.
+DELETE_LOCAL_FILES = True
 APPEND_SLASH = True    # Rewrite URLs that lack a slash.

@@ -6,25 +6,14 @@ from django.db import models
 from django.conf import settings
 
 from cookies.models import *
+from cookies import giles
 from cookies import content
-from cookies.tasks import handle_content, send_to_giles, update_authorizations
+from cookies.tasks import handle_content, send_to_giles
 from cookies.exceptions import *
 logger = settings.LOGGER
 
+import mimetypes
 
-@receiver(post_save, sender=Collection)
-@receiver(post_save, sender=Resource)
-@receiver(post_save, sender=Relation)
-@receiver(post_save, sender=ConceptEntity)
-def set_default_auths_for_instance(sender, **kwargs):
-    instance = kwargs.get('instance', None)
-    created = kwargs.get('created', False)
-    if created and instance.created_by:
-        update_authorizations(sender.DEFAULT_AUTHS, instance.created_by,
-                              instance, by_user=instance.created_by)
-        if getattr(instance, 'public', False):
-            anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
-            update_authorizations(['view'], anonymous, instance)
 
 
 @receiver(post_save, sender=User)
@@ -36,8 +25,8 @@ def new_users_are_inactive_by_default(sender, **kwargs):
         # instance.save()
 
 
-# @receiver(post_save, sender=ContentRelation)
-def send_pdfs_and_images_to_giles(sender, **kwargs):
+@receiver(post_save, sender=ContentRelation)
+def send_all_files_to_giles(sender, **kwargs):    # Hey, that rhymes!
     """
     Create a :class:`.GilesUpload` instance to indicate that an upload should
     be performed.
@@ -45,17 +34,13 @@ def send_pdfs_and_images_to_giles(sender, **kwargs):
     instance = kwargs.get('instance', None)
     logger.debug('received post_save for ContentRelation %i' % instance.id)
 
-    import mimetypes
-    try:
-        content_type = instance.content_resource.content_type or mimetypes.guess_type(instance.content_resource.file.name)[0]
-    except:
+    if not instance.content_resource.file:
         return
-    if instance.content_resource.is_local and instance.content_resource.file.name is not None:
-        # PDFs and images should be stored in Digilib via Giles.
-        if content_type in ['image/png', 'image/tiff', 'image/jpeg', 'application/pdf']:
-            logger.debug('%s has a ContentResource; creating a GilesUpload' % instance.content_resource.name)
-            GilesUpload.objects.create(content_resource=instance.content_resource)
 
+    logger.debug('create giles upload for %i' % instance.id)
+    giles.create_giles_upload(instance.for_resource.id, instance.id,
+                              instance.for_resource.created_by.username,
+                              delete_on_complete=settings.DELETE_LOCAL_FILES)
 
 
 @receiver(post_save, sender=ConceptEntity)

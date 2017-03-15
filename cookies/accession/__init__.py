@@ -181,13 +181,16 @@ class IngestManager(object):
 
         """
         defaults = copy.copy(self.resource_data)
+        defaults.update({'container': resource.container})
         if type(value) is dict:   # This is an entity with relations of its own.
             uri = value.pop('uri', None)
             entity_type = value.pop('entity_type', None)
             name = value.pop('name', None)
+
             if entity_type:
                 entity_type = metadata.field_or_type_from_uri(entity_type, Type)
                 defaults.update({'entity_type': entity_type})
+
             if not name:
                 name = 'Unnamed %s: %s' % (entity_type.name, unicode(uuid4()))
             defaults.update({'name': name})
@@ -197,6 +200,7 @@ class IngestManager(object):
                                                       **defaults)
             else:
                 instance = ConceptEntity.objects.create(**defaults)
+
             if len(value) > 0:
                 n = len(value)
                 map(self.create_relations, value.keys(), value.values(),
@@ -206,12 +210,14 @@ class IngestManager(object):
             instance = self._get_or_create_entity(value)
         else:
             instance = Value.objects.create()
+            instance.container = defaults.get('container', None)
             instance.name = value
             instance.save()
         relation = Relation.objects.create(**{
             'source': resource,
             'predicate': predicate,
             'target': instance,
+            'container': defaults.get('container', None)
         })
 
     def create_resource(self, resource_data, relation_data):
@@ -238,7 +244,15 @@ class IngestManager(object):
         data.update(resource_data)
         file_path = data.pop('link', None)
         location = data.pop('url', None)
+
+        collection = data.pop('collection', None)
         resource = Resource.objects.create(**data)
+        container = ResourceContainer.objects.create(primary=resource,
+                                                     created_by=resource.created_by,
+                                                     part_of=collection)
+        resource.refresh_from_db()
+        resource.container = container
+        resource.save()
 
         if file_path:
             try:
@@ -279,6 +293,7 @@ class IngestManager(object):
         data.update({
             'for_resource': resource,
             'content_resource': content_resource,
+            'container': resource.container,
         })
         if content_type:    # May have been explicitly provided.
             data.update({'content_type': content_type})
@@ -291,6 +306,7 @@ class IngestManager(object):
                 data.update({
                     'content_type': ctype[0],
                     'content_encoding': ctype[1],
+                    'container': resource.container
                 })
         data.pop('entity_type', None)    # ContentRelation is not an Entity.
         return ContentRelation.objects.create(**data)
@@ -320,7 +336,10 @@ class IngestManager(object):
             else:
                 relation_data[key] = value
 
-        resource_data.update({'content_resource': True})
+        resource_data.update({
+            'content_resource': True,
+            'container': resource.container,
+        })
 
         content_resource = self.create_resource(resource_data, relation_data)
         self.create_content_relation(content_resource, resource, content_type)

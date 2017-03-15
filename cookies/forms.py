@@ -273,16 +273,6 @@ class MetadatumForm(forms.Form):
     ))
 
 
-class AuthorizationForm(forms.Form):
-    for_user = CustomModelChoiceField(queryset=User.objects.all().order_by('-username'))
-    authorizations = forms.MultipleChoiceField(choices=[('', 'None')] + authorization.AUTHORIZATIONS, required=False)
-
-
-class CollectionAuthorizationForm(forms.Form):
-    for_user = CustomModelChoiceField(queryset=User.objects.all().order_by('-username'))
-    authorizations = forms.MultipleChoiceField(choices=[('', 'None')] + authorization.COLLECTION_AUTHORIZATIONS)
-
-
 class ConceptEntityForm(forms.ModelForm):
     class Meta:
         model = ConceptEntity
@@ -290,10 +280,15 @@ class ConceptEntityForm(forms.ModelForm):
 
 
 class ConceptEntityLinkForm(forms.Form):
-    uri = forms.CharField(max_length=255, help_text='You may manually enter a ConceptPower URI', label='URI')
+    """
+    Form for searching URIs based on the input and for linking a URI with an
+    Entity instance.
+    """
+
+    q = forms.CharField(max_length=255, label='Search', required=False)
 
 
-class UserAddCollectionForm(forms.ModelForm):
+class CollectionForm(forms.ModelForm):
 
     """
     Form for allowing Curator to create a collection from
@@ -303,14 +298,14 @@ class UserAddCollectionForm(forms.ModelForm):
     uri = forms.CharField(**{
         'required': False,
     })
-    part_of = CustomModelChoiceField(queryset=Collection.objects.all().order_by('name'))
+    part_of = CustomModelChoiceField(queryset=Collection.objects.all().order_by('name'), required=False)
 
     class Meta:
         model = Collection
-        fields = ['name', 'public', 'uri', 'content_type', 'content_resource', 'part_of']
+        fields = ['name', 'public', 'uri',]
 
     def __init__(self, *args, **kwargs):
-        super(UserAddCollectionForm, self).__init__(*args, **kwargs)
+        super(CollectionForm, self).__init__(*args, **kwargs)
 
 
 class HiddenModelMultipleChoiceField(forms.ModelMultipleChoiceField):
@@ -338,17 +333,30 @@ class AddTagForm(forms.Form):
     Form for creating tags for resources
     """
 
-    tag = CustomModelChoiceField(queryset=Tag.objects.all(), empty_label=u'Create a new tag', required=False)
+    tag = CustomModelChoiceField(queryset=Tag.objects.all(),
+                                 empty_label=u'Create a new tag',
+                                 required=False)
     tag_name = forms.CharField(max_length=255, required=False)
 
-    resources = HiddenModelMultipleChoiceField(queryset=Resource.objects.all(), widget=forms.widgets.HiddenInput(), required=False)
+    resources = HiddenModelMultipleChoiceField(queryset=Resource.objects.all(),
+                                               widget=forms.widgets.HiddenInput(),
+                                               required=False)
 
     def clean(self):
-        print "clean"
-
         cleaned_data = super(AddTagForm, self).clean()
-        print cleaned_data
         tag = cleaned_data.get('tag', None)
         name = cleaned_data.get('tag_name', None)
         if not tag and not name:
             raise forms.ValidationError("Please enter a name for your new tag")
+
+
+VALUE_FORMS = dict([
+    ('Int', MetadatumValueIntegerForm),
+    ('Float', MetadatumValueFloatForm),
+    ('Datetime', MetadatumValueDateTimeForm),
+    ('Date', MetadatumValueDateForm),
+    ('Text', MetadatumValueTextAreaForm),
+    ('ConceptEntity', MetadatumConceptEntityForm),
+    ('Resource', MetadatumResourceForm),
+    ('Type', MetadatumTypeForm),
+])

@@ -21,6 +21,12 @@
     {% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE" />{% endblock %}
 
     <script src="https://use.fontawesome.com/2893561c25.js"></script>
+
+    <style>
+    body {
+        font-size: 9pt;
+    }
+    </style>
 </head>
 <body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}">
 
@@ -51,8 +57,8 @@
                     <a class="btn btn-sm" href="{% url 'social:begin' 'github' %}"><i class="fa fa-github" aria-hidden="true"></i> {% trans 'Log in' %}</a>
                 </span>
                 {% endif %}
-                <img class="img img-responsive" style="height:45px; display: inline-block; margin-right: 15px; vertical-align: top;" src="{% static "cookies/img/jar.png" %}" />
-                <span class="h1">
+                <img class="img img-responsive" style="height:25px; display: inline-block; margin-right: 15px; vertical-align: top;" src="{% static "cookies/img/jar.png" %}" />
+                <span class="h3">
                     <span class="text-warning">Amphora</span>&nbsp;
                     <small class=" text-muted" style="vertical-align: middle;">Research Collection Management Platform</small>
                 </span>

@@ -1,12 +1,11 @@
-<div class="panel panel-default">
-    <div class="panel-heading">
-      <span class="h5">Tags</span>
-    </div>
+<div class="panel">
     <div class="panel-body">
-        {% for tag in tags %}
-        <a href="{{request.path}}?tag={{tag.id}}"
-            class="list-group-item">{{ tag.name }} <span class="text-muted pull-right">created by {{ tag.created_by }}</span>
-        </a>
+        {% for tag_id, tag_name in tags %}
+        <div>
+            <a href="?tag={{tag_id}}" class="label label-success" style="margin-right: 5px;">
+                <span class="fa fa-tag"></span> {{ tag_name }}
+            </a>
+        </div>
         {% endfor %}
     </div>
 </div>

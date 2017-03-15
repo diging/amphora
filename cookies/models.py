@@ -34,6 +34,11 @@ def _resource_file_name(instance, filename):
     return '/'.join([str(instance.id), 'content', filename])
 
 
+class ActiveManager(models.Manager):
+    def get_queryset(self):
+        return super(ActiveManager, self).get_queryset().filter(is_deleted=False)
+
+
 class Entity(models.Model):
     """
     A named object that represents some element in the data.
@@ -74,7 +79,6 @@ class Entity(models.Model):
                            " the system to assign one automatically"
                            " (recommended).")
 
-
     relations_from = GenericRelation('Relation',
                                      content_type_field='source_type',
                                      object_id_field='source_instance_id')
@@ -84,6 +88,8 @@ class Entity(models.Model):
                                    object_id_field='target_instance_id')
 
     is_deleted = models.BooleanField(default=False)
+
+    container = models.ForeignKey('ResourceContainer', blank=True, null=True)
 
     class Meta:
         verbose_name_plural = 'entities'
@@ -130,7 +136,7 @@ class ResourceBase(Entity):
         return False
 
     def get_absolute_url(self):
-        return reverse("cookies.views.resource", args=(self.id,))
+        return reverse("resource", args=(self.id,))
 
     @property
     def is_local(self):
@@ -154,17 +160,8 @@ class ResourceBase(Entity):
 
 
 class Resource(ResourceBase):
-    DEFAULT_AUTHS = ['change_resource', 'view_resource',
-                     'delete_resource', 'change_authorizations',
-                     'view_authorizations']
-
-    belongs_to = models.ForeignKey('Collection',
-                                   related_name='native_resources',
-                                   blank=True, null=True)
-    """
-    As of 0.4, a :class:`.Resource` instance belongs to one and only one
-    :class:`.Collection` instance.
-    """
+    objects = models.Manager()
+    active = ActiveManager()
 
     next_page = models.OneToOneField('Resource', related_name='previous_page',
                                      blank=True, null=True)
@@ -247,6 +244,9 @@ class ContentRelation(models.Model):
     Associates a :class:`.Resource` with its content representation(s).
     """
 
+    objects = models.Manager()
+    active = ActiveManager()
+
     for_resource = models.ForeignKey('Resource', related_name='content')
     content_resource = models.ForeignKey('Resource', related_name='parent')
     content_type = models.CharField(max_length=100, null=True, blank=True)
@@ -255,23 +255,22 @@ class ContentRelation(models.Model):
     created_by = models.ForeignKey(User, null=True, blank=True)
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
+    container = models.ForeignKey('ResourceContainer',
+                                  related_name='content_relations')
+    is_deleted = models.BooleanField(default=False)
 
 
 class Collection(ResourceBase):
     """
     A set of :class:`.Entity` instances.
     """
-    DEFAULT_AUTHS = ['change_collection', 'view_resource',
-                     'delete_collection', 'change_authorizations',
-                     'view_authorizations']
-
-    resources = models.ManyToManyField('Resource', related_name='part_of',
-                                        blank=True, null=True  )
+    objects = models.Manager()
+    active = ActiveManager()
 
     part_of = models.ForeignKey('Collection', blank=True, null=True)
 
     def get_absolute_url(self):
-        return reverse("cookies.views.collection", args=(self.id,))
+        return reverse("collection", args=(self.id,))
 
     @property
     def size(self):
@@ -381,6 +380,8 @@ class Value(models.Model):
 
     name = property(_get_value, _set_value)
 
+    container = models.ForeignKey('ResourceContainer', blank=True, null=True)
+
     def __unicode__(self):
         return unicode(self.name)
 
@@ -427,11 +428,6 @@ class Relation(Entity):
     target_instance_id = models.PositiveIntegerField(blank=True, null=True)
     target = GenericForeignKey('target_type', 'target_instance_id')
 
-    belongs_to = models.ForeignKey('Collection',
-                                   related_name='native_relations',
-                                   blank=True, null=True)
-
-
     class Meta:
         verbose_name = 'metadata relation'
         permissions = (
@@ -450,11 +446,10 @@ class Relation(Entity):
 
 
 class ConceptEntity(Entity):
-    DEFAULT_AUTHS = ['change_conceptentity', 'view_entity',
-                     'delete_conceptentity', 'change_authorizations',
-                     'view_authorizations']
+    objects = models.Manager()
+    active = ActiveManager()
 
-    concept = models.ForeignKey('concepts.Concept', null=True, blank=True)
+    concept = models.ManyToManyField('concepts.Concept', null=True, blank=True)
 
     belongs_to = models.ForeignKey('Collection',
                                    related_name='native_conceptentities',
@@ -504,62 +499,47 @@ class UserJob(models.Model):
 
 
 class GilesUpload(models.Model):
-    """
-    Represents a single upload.
-    """
-
-    created = models.DateTimeField(auto_now_add=True)
-    sent = models.DateTimeField(null=True, blank=True)
-    """The datetime when the file was uploaded."""
-
     upload_id = models.CharField(max_length=255, blank=True, null=True)
-    """Returned by Giles upon upload."""
+    resource = models.ForeignKey('Resource', related_name='giles_uploads',
+                                 blank=True, null=True)
+    """
+    If the upload originated from Amphora, it should be associated with a
+    :class:`.Resource` instance.
+    """
 
-    content_resource = models.ForeignKey('Resource', null=True, blank=True,
-                                         related_name='giles_upload')
-    """This is the resource that directly 'owns' the uploaded file."""
-
-    response = models.TextField(blank=True, null=True)
-    """This should be raw JSON."""
-
-    resolved = models.BooleanField(default=False)
-    """When a successful response is received, this should be set ``True``."""
-
-    fail = models.BooleanField(default=False)
-    """If ``True``, should not be retried."""
-
-    @property
-    def pending(self):
-        return not self.resolved
-
-
-class GilesSession(models.Model):
-    created_by = models.ForeignKey(User, related_name='giles_sessions')
+    created_by = models.ForeignKey(User, related_name='giles_uploads')
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
-    _file_ids = models.TextField()
-    _file_details = models.TextField()
+    last_checked = models.DateTimeField(blank=True, null=True)
 
+    PENDING = 'PD'
+    ENQUEUED = 'EQ'
+    SENT = 'ST'
+    DONE = 'DO'
+    SEND_ERROR = 'SE'
+    GILES_ERROR = 'GE'
+    PROCESS_ERROR = 'PE'
+    CALLBACK_ERROR = 'CE'
+    STATES = (
+        (PENDING, 'Pending'),      # Upload is ready to be dispatched.
+        (ENQUEUED, 'Enqueued'),    # Dispatcher has created an upload task.
+        (SENT, 'Sent'),            # File was sent successfully to Giles.
+        (DONE, 'Done'),            # File was processed by Giles and Amphora.
+        (SEND_ERROR, 'Send error'),    # Problem sending the file to Giles.
+        (GILES_ERROR, 'Giles error'),  # Giles responded oddly after upload.
+        (PROCESS_ERROR, 'Process error'),    # We screwed up post-processing.
+        (CALLBACK_ERROR, 'Callback error')   # Something went wrong afterwards.
+    )
+    state  = models.CharField(max_length=2, choices=STATES)
 
-    content_resources = models.ManyToManyField('Resource', related_name='content_in_giles_sessions')
-    resources = models.ManyToManyField('Resource', related_name='giles_sessions')
-    collection = models.ForeignKey('Collection', null=True, blank=True)
+    message = models.TextField()
+    """Error messages, etc."""
 
-    def _get_file_ids(self):
-        return json.loads(self._file_ids)
+    on_complete = models.TextField()
+    """Serialized callback instructions."""
 
-    def _set_file_ids(self, value):
-        self._file_ids = json.dumps(value)
-
-    def _get_file_details(self):
-        return json.loads(self._file_details)
-
-    def _set_file_details(self, value):
-        self._file_details = json.dumps(value)
-
-    file_ids = property(_get_file_ids, _set_file_ids)
-    file_details = property(_get_file_details, _set_file_details)
-
+    file_path = models.CharField(max_length=1000, blank=True, null=True)
+    """Relative to MEDIA_ROOT."""
 
 
 class GilesToken(models.Model):
@@ -572,3 +552,82 @@ class GilesToken(models.Model):
     for_user = models.OneToOneField(User, related_name='giles_token')
     created = models.DateTimeField(auto_now_add=True)
     token = models.CharField(max_length=255)
+
+
+class ResourceContainer(models.Model):
+    """
+    Encapsulates a set of linked objects.
+    """
+    objects = models.Manager()
+    active = ActiveManager()
+
+    created_by = models.ForeignKey(User, related_name='containers', blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    primary = models.ForeignKey('Resource', related_name='is_primary_for',
+                                blank=True, null=True)
+
+    part_of = models.ForeignKey('Collection', blank=True, null=True)
+    is_deleted = models.BooleanField(default=False)
+
+
+class CollectionAuthorization(models.Model):
+    granted_by = models.ForeignKey(User, related_name='created_resource_auths')
+    granted_to = models.ForeignKey(User, related_name='resource_resource_auths')
+    for_resource = models.ForeignKey('Collection', related_name='authorizations')
+    heritable = models.BooleanField(default=True,
+                                    help_text="Policy applies to all resources"
+                                    " in this collection.")
+    """
+    If ``True``, this policy also applies to the :class:`.ResourceContainer`\s
+    in the :class:`.Collection`\.
+    """
+
+    VIEW = 'VW'    # User can view the collection (list its contents).
+    EDIT = 'ED'    # User can edit collection details.
+    ADD = 'AD'     # User can add resources.
+    REMOVE = 'RM'    # User can remove resources.
+    SHARE = 'SH'     # User can share the collection with others.
+    AUTH_ACTIONS = (
+        (VIEW, 'View'),
+        (EDIT, 'Edit'),
+        (ADD, 'Add'),
+        (REMOVE, 'Remove'),
+        (SHARE, 'Share'),
+    )
+    action = models.CharField(choices=AUTH_ACTIONS, max_length=2)
+
+    ALLOW = 'AL'
+    DENY = 'DY'
+    POLICIES = (
+        (ALLOW, 'Allow'),
+        (DENY, 'Deny'),
+    )
+    policy = models.CharField(choices=POLICIES, max_length=2)
+
+
+class ResourceAuthorization(models.Model):
+    granted_by = models.ForeignKey(User, related_name='created_collection_auths')
+    granted_to = models.ForeignKey(User, related_name='resource_collection_auths')
+    for_resource = models.ForeignKey('ResourceContainer',
+                                     related_name='authorizations')
+
+    VIEW = 'VW'
+    EDIT = 'ED'
+    SHARE = 'SH'
+    DELETE = 'DL'
+    AUTH_ACTIONS = (
+        (VIEW, 'View'),
+        (EDIT, 'Edit'),
+        (SHARE, 'Share'),
+    )
+    action = models.CharField(choices=AUTH_ACTIONS, max_length=2)
+
+    ALLOW = 'AL'
+    DENY = 'DY'
+    POLICIES = (
+        (ALLOW, 'Allow'),
+        (DENY, 'Deny'),
+    )
+    policy = models.CharField(choices=POLICIES, max_length=2)
