@@ -55,7 +55,7 @@ def import_schema(schema_url, schema_title, default_domain=None, namespace=None,
     if namespace is None:
         namespace = schema_url
 
-    if Schema.objects.filter(uri=namespace, prefix=prefix).count() > 0:
+    if Schema.objects.filter(uri=namespace).count() > 0:
         return
 
     # Get all of the properties.

@@ -224,7 +224,7 @@ REPOSITORY_NAME = u'Amphora'
 SECURE_SSL_REDIRECT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-
 # If True, files will be deleted as soon as they are successfully added to
 #  Giles.
 DELETE_LOCAL_FILES = True
+APPEND_SLASH = True    # Rewrite URLs that lack a slash.
