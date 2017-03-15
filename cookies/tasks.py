@@ -100,23 +100,9 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
 
 
 @shared_task
-def send_to_giles(file_name, creator, resource=None, public=True, gilesupload_id=None):
-    upload = GilesUpload.objects.get(pk=gilesupload_id)
-
-    try:
-        status_code, response_data = giles.send_to_giles(creator, file_name,
-                                                         resource=resource,
-                                                         public=public)
-    except:
-        logger.error("send_to_giles: failing permanently for %i" % upload.id)
-        upload.fail = True
-        upload.save()
-        return
-
-    upload.upload_id = response_data['id']
-    upload.sent = datetime.datetime.now()
-    upload.save()
-
+def send_to_giles(upload_pk, created_by):
+    print '::: sending Giles upload %s :::' % upload_pk
+    giles.send_giles_upload(upload_pk, created_by)
 
 
 @shared_task
@@ -136,64 +122,49 @@ def check_giles_uploads():
     Periodic task that reviews currently outstanding Giles uploads, and checks
     their status.
     """
-    checkURL = lambda u: '%s/rest/files/upload/check/%s' % (settings.GILES,
-                                                            u.upload_id)
-    query = Q(resolved=False) & ~Q(sent=None) & Q(fail=False)
-    outstanding = GilesUpload.objects.filter(query)
-    for upload in outstanding:
-        resource = upload.content_resource.parent.first().for_resource
-        try:
-            status, content = giles.check_upload_status(resource.created_by,
-                                                        checkURL(upload))
-            if status == 202:    # Accepted.
-                continue
-        except:
-            logger.error("send_to_giles: failing permanently for %i" % upload.id)
-            upload.fail = True
-            upload.save()
-            return
+    from datetime import datetime, timedelta
 
-        if resource.content.filter(content_resource__external_source=Resource.GILES).count() > 0:
-            continue
-
-        # Upload processing is complete; register Giles file objects as
-        #  content resources.
-        giles.process_file_upload(resource, resource.created_by, content)
-
-        upload.response = json.dumps(content)    # Posterity.
-        upload.resolved = True    # Take out of queue.
+    for upload in GilesUpload.objects.filter(state=GilesUpload.PENDING):
+        print '::: adding %s to Giles upload queue :::' % upload.id
+        send_to_giles.delay(upload.id, upload.created_by)
+        upload.state = GilesUpload.ENQUEUED
         upload.save()
 
+    for upload_id, username in GilesUpload.objects.filter(state=GilesUpload.SENT).filter(Q(last_checked__gte=datetime.now() - timedelta(seconds=120)) | Q(last_checked=None)).values_list('upload_id', 'created_by__username'):
+        print '::: checking upload status for %s :::' % upload_id
+        check_giles_upload.delay(upload_id, username)
 
-@shared_task
-def send_giles_uploads():
-    """
-    Check for outstanding :class:`.GilesUpload`\s, and send as able.
-    """
-    logger.debug('Checking for outstanding GilesUploads')
-    query = Q(resolved=False) & ~Q(sent=None) & Q(fail=False)
-    outstanding = GilesUpload.objects.filter(query)
-    pending = GilesUpload.objects.filter(resolved=False, sent=None, fail=False)
 
-    # We limit the number of simultaneous requests to Giles.
-    remaining = settings.MAX_GILES_UPLOADS - outstanding.count()
-    if remaining <= 0 or pending.count() == 0:
-        return
 
-    logger.debug('Found GilesUpload, processing...')
-
-    to_upload = min(remaining, pending.count())
-    if to_upload <= 0:
-        return
-
-    for upload in pending[:to_upload]:
-        content_resource = upload.content_resource
-        creator = content_resource.created_by
-        resource = content_resource.parent.first().for_resource
-
-        anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
-        public = authorization.check_authorization('view', anonymous,
-                                                   content_resource)
-        result = send_to_giles(content_resource.file.name, creator,
-                               resource=resource, public=public,
-                               gilesupload_id=upload.id)
+# @shared_task
+# def send_giles_uploads():
+#     """
+#     Check for outstanding :class:`.GilesUpload`\s, and send as able.
+#     """
+#     logger.debug('Checking for outstanding GilesUploads')
+#     query = Q(resolved=False) & ~Q(sent=None) & Q(fail=False)
+#     outstanding = GilesUpload.objects.filter(query)
+#     pending = GilesUpload.objects.filter(resolved=False, sent=None, fail=False)
+#
+#     # We limit the number of simultaneous requests to Giles.
+#     remaining = settings.MAX_GILES_UPLOADS - outstanding.count()
+#     if remaining <= 0 or pending.count() == 0:
+#         return
+#
+#     logger.debug('Found GilesUpload, processing...')
+#
+#     to_upload = min(remaining, pending.count())
+#     if to_upload <= 0:
+#         return
+#
+#     for upload in pending[:to_upload]:
+#         content_resource = upload.content_resource
+#         creator = content_resource.created_by
+#         resource = content_resource.parent.first().for_resource
+#
+#         anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
+#         public = authorization.check_authorization('view', anonymous,
+#                                                    content_resource)
+#         result = send_to_giles(content_resource.file.name, creator,
+#                                resource=resource, public=public,
+#                                gilesupload_id=upload.id)

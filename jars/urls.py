@@ -68,6 +68,15 @@ urlpatterns = patterns('',
     url(r'^entity/([0-9]+)/change/concept/remove/$', views.conceptentity.entity_remove_concept, name='entity-remove-concept'),
     url(r'^entity/([0-9]+)/prune/$', views.conceptentity.entity_prune, name="entity-prune"),
 
+    url(r'^giles/test/$', views.giles.test_giles, name='giles-test'),
+    url(r'^giles/test/configuration/$', views.giles.test_giles_configuration, name='giles-test-configuration'),
+    url(r'^giles/test/up/$', views.giles.test_giles_is_up, name='giles-test-is-up'),
+    url(r'^giles/test/upload/$', views.giles.test_giles_can_upload, name='giles-test-can-upload'),
+    url(r'^giles/test/poll/$', views.giles.test_giles_can_poll, name='giles-test-can-poll'),
+    url(r'^giles/test/process/$', views.giles.test_giles_can_process, name='giles-test-can-process'),
+
+    url(r'^giles/test/cleanup/$', views.giles.test_giles_cleanup, name='giles-test-cleanup'),
+
 
     url(r'^task/$', views.async.jobs, name='jobs'),
     url(r'^task/([0-9a-z\-]+)/$', views.async.job_status, name='job-status'),

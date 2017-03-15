@@ -513,6 +513,7 @@ class GilesUpload(models.Model):
     last_checked = models.DateTimeField(blank=True, null=True)
 
     PENDING = 'PD'
+    ENQUEUED = 'EQ'
     SENT = 'ST'
     DONE = 'DO'
     SEND_ERROR = 'SE'
@@ -520,13 +521,14 @@ class GilesUpload(models.Model):
     PROCESS_ERROR = 'PE'
     CALLBACK_ERROR = 'CE'
     STATES = (
-        (PENDING, 'Pending'),
-        (SENT, 'Sent'),
-        (DONE, 'Done'),
-        (SEND_ERROR, 'Send error'),
-        (GILES_ERROR, 'Giles error'),
-        (PROCESS_ERROR, 'Process error'),
-        (CALLBACK_ERROR, 'Callback error')
+        (PENDING, 'Pending'),      # Upload is ready to be dispatched.
+        (ENQUEUED, 'Enqueued'),    # Dispatcher has created an upload task.
+        (SENT, 'Sent'),            # File was sent successfully to Giles.
+        (DONE, 'Done'),            # File was processed by Giles and Amphora.
+        (SEND_ERROR, 'Send error'),    # Problem sending the file to Giles.
+        (GILES_ERROR, 'Giles error'),  # Giles responded oddly after upload.
+        (PROCESS_ERROR, 'Process error'),    # We screwed up post-processing.
+        (CALLBACK_ERROR, 'Callback error')   # Something went wrong afterwards.
     )
     state  = models.CharField(max_length=2, choices=STATES)
 

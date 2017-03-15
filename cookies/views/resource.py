@@ -11,7 +11,7 @@ from cookies.tasks import *
 from cookies import giles, operations
 from cookies import authorization as auth
 
-import hmac, base64, time, urllib, datetime, mimetypes
+import hmac, base64, time, urllib, datetime, mimetypes, copy
 
 
 def _get_resource_by_id(request, resource_id, *args):
@@ -28,11 +28,13 @@ def resource(request, obj_id):
 
     # Get a fresh Giles auth token, if needed.
     giles.get_user_auth_token(resource.created_by, fresh=True)
+    print resource.container.__dict__
     context = {
         'resource':resource,
         'request': request,
         'part_of': resource.container.part_of,
-        'relations_from': resource.relations_from.filter(is_deleted=False)
+        'relations_from': resource.relations_from.filter(is_deleted=False),
+        'content_relations': resource.content.filter(is_deleted=False),
     }
     if request.GET.get('format', None) == 'json':
         return JsonResponse(ResourceDetailSerializer(context=context).to_representation(resource))
@@ -111,12 +113,15 @@ def create_resource_file(request):
         form = UserResourceFileForm(request.POST, request.FILES)
         if form.is_valid():
             uploaded_file = request.FILES['upload_file']
+            container = ResourceContainer.objects.create(created_by=request.user)
             content = Resource.objects.create(**{
                 'content_type': uploaded_file.content_type,
                 'content_resource': True,
                 'name': uploaded_file._name,
                 'created_by': request.user,
+                'container': container,
             })
+
             operations.add_creation_metadata(content, request.user)
             # The file upload handler needs the Resource to have an ID first,
             #  so we add the file after creation.
@@ -151,7 +156,11 @@ def create_resource_url(request):
                         'created_by': request.user,
                     }
                 })
+
                 if created:
+                    container = ResourceContainer.objects.create(created_by=request.user)
+                    content.container = container
+                    content.save()
                     operations.add_creation_metadata(content, request.user)
                 return HttpResponseRedirect(reverse('create-resource-details',
                                                     args=(content.id,)))
@@ -185,23 +194,33 @@ def create_resource_details(request, content_id):
     elif request.method == 'POST':
         form = UserResourceForm(request.POST)
         if form.is_valid():
+
+
             resource_data = copy.copy(form.cleaned_data)
             resource_data['entity_type'] = resource_data.pop('resource_type', None)
             collection = resource_data.pop('collection', None)
+            if not content_resource.container:
+                content_resource.container = ResourceContainer.objects.create(created_by=request.user, part_of=collection)
+                content_resource.save()
+            else:
+                content_resource.container.part_of = collection
+
             resource_data['created_by'] = request.user
+            resource_data['container'] = content_resource.container
             resource = Resource.objects.create(**resource_data)
-            container = ResourceContainer.objects.create(created_by=request.user, primary=resource, part_of=collection)
+            content_resource.container.primary = resource
+            content_resource.container.save()
 
             operations.add_creation_metadata(resource, request.user)
             content_relation = ContentRelation.objects.create(**{
                 'for_resource': resource,
                 'content_resource': content_resource,
                 'content_type': content_resource.content_type,
+                'container': content_resource.container,
             })
-            resource.container = container
+            resource.container = content_resource.container
             resource.save()
-            content_resource.container = container
-            content_resource.save()
+
 
             return HttpResponseRedirect(reverse('resource', args=(resource.id,)))
 
@@ -565,7 +584,6 @@ def resource_content(request, resource_id):
         content_type = resource.content_type
     else:
         content_type = 'application/octet-stream'
-
     if resource.file:
         try:
             with open(resource.file.path, 'rb') as f:
@@ -581,7 +599,7 @@ def resource_content(request, resource_id):
                 auth_token = giles.get_user_auth_token(user, fresh=True)
                 target += '?accessToken=' + auth_token
         return HttpResponseRedirect(target)
-    return HttpResponse('Nope')
+    return HttpResponse('Nope')    # TODO: say something more informative!
 
 
 

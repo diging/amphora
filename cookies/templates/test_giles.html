@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load addcss %}
+
+
+
+{% load breadcrumbs %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url 'Create' 'create-resource' %}
+    {% breadcrumb_url 'Zotero' 'create-resource-bulk' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<p>
+    Test giles connectivity.
+</p>
+<style>
+.ok {
+    color: green;
+}
+.fail {
+    color: red;
+}
+</style>
+<script>
+var tests = [
+    {
+        url: "{% url "giles-test-configuration" %}",
+        id: "test-giles-configured",
+        success: function(data, params) {
+            if (data.giles_endpoint && data.giles_token) {
+                return data;
+            } else {
+                return false;
+            }
+        },
+    },{
+        url: "{% url "giles-test-is-up" %}",
+        id: "test-giles-up",
+        success: function(data, params) {
+            console.log(data.response_code, data.response_code == 302);
+            if (data.response_code == 302) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    },{
+        url: "{% url "giles-test-can-upload" %}",
+        id: "test-giles-upload",
+        success: function(data, params) {
+            if (data.status == 'ST') {
+                return {
+                    upload_id: data.upload_id,
+                    container_id: data.container_id
+                }
+            } else {
+                return false;
+            }
+        }
+    },{
+        url: "{% url "giles-test-can-poll" %}",
+        id: "test-giles-poll",
+        success: function(data, params) {
+            if (data.status == 'ST') {
+                return params;
+            } else {
+                return false;
+            }
+        }
+    },{
+        url: "{% url "giles-test-can-process" %}",
+        id: "test-giles-process",
+        success: function(data, params) {
+            if (data.status == 'DO') {
+                return params;
+            } else {
+                return false;
+            }
+        }
+    },{
+        url: "{% url "giles-test-cleanup" %}",
+        id: "test-giles-cleanup",
+        success: function(data, params) {
+            if (data.status == 'ok') {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+]
+$('body').ready(function() {
+    var call = function(test, params) {
+        var ret;
+        console.log(test);
+        $.ajax({
+            url: test.url,
+            data: params,
+            async: false,
+            success: function(data) {
+                ret = test.success(data, params);
+                $('#' + test.id).removeClass('glyphicon-hourglass');
+                if (ret) {
+                    $('#' + test.id).addClass('glyphicon-ok-circle');
+                    $('#' + test.id).addClass('ok');
+                } else {
+                    $('#' + test.id).addClass('glyphicon-remove-circle');
+                    $('#' + test.id).addClass('fail');
+                }
+            },
+            failure: function(data, params) {
+                console.log(test.url, 'failed', data);
+                if (test.failure) test.failure(data);
+                $('#' + test.id).removeClass('glyphicon-hourglass');
+                $('#' + test.id).addClass('glyphicon-ban-circle');
+                $('#' + test.id).addClass('fail');
+            }
+        })
+        return ret;
+    }
+    var last = {};
+    for (i = 0; i < tests.length; i++) {
+        last = call(tests[i], last);
+    }
+
+});
+</script>
+<div class="list-group">
+    <div class="list-group-item">
+        <span class="btn btn-lg glyphicon glyphicon-hourglass" id="test-giles-configured"></span>
+        Giles is configured.
+    </div>
+    <div class="list-group-item">
+        <span class="btn btn-lg glyphicon glyphicon-hourglass" id="test-giles-up"></span>
+        Giles is online.
+    </div>
+    <div class="list-group-item">
+        <span class="btn btn-lg glyphicon glyphicon-hourglass" id="test-giles-upload"></span>
+        Giles is accepting files.
+    </div>
+    <div class="list-group-item">
+        <span class="btn btn-lg glyphicon glyphicon-hourglass" id="test-giles-poll"></span>
+        Giles is responding to poll requests.
+    </div>
+    <div class="list-group-item">
+        <span class="btn btn-lg glyphicon glyphicon-hourglass" id="test-giles-process"></span>
+        Giles is responding with usable data.
+    </div>
+    <div class="list-group-item">
+        <span class="btn btn-lg glyphicon glyphicon-hourglass" id="test-giles-cleanup"></span>
+        Cleaned up.
+    </div>
+</div>
+
+{% endblock %}

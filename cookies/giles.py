@@ -7,7 +7,7 @@ from cookies.exceptions import *
 import requests, os, jsonpickle
 from collections import defaultdict
 
-_fix_url = lambda url: url.replace('http://', 'https://') if url is not None else None
+_fix_url = lambda url: url#url.replace('http://', 'https://') if url is not None else None
 
 
 ACCEPTED = 202
@@ -327,14 +327,15 @@ def format_giles_url(url, username, dw=300):
     """
     import urllib, urlparse
     user = User.objects.get(username=username)
-    parts = tuple(urlparse.urlparse(url))
-    q = urlparse.parse_qs(parts[3])
+    parts = list(tuple(urlparse.urlparse(url)))
+    q = {k: v[0] for k, v in urlparse.parse_qs(parts[4]).iteritems()}
     q.update({
         'accessToken': get_user_auth_token(user),
         'dw': dw,
     })
-    parts[3] = urllib.urlencode(q)
-    return urlparse.urlunparse(parts)
+
+    parts[4] = urllib.urlencode(q)
+    return urlparse.urlunparse(tuple(parts))
 
 
 @api_request
@@ -346,7 +347,7 @@ def check_upload_status(username, upload_id , **kwargs):
     user = User.objects.get(username=username)
     giles = kwargs.get('giles', settings.GILES)
     get = kwargs.get('get', settings.GET)
-    checkURL = giles + '/rest/files/upload/%s' % upload_id
+    checkURL = giles + '/rest/files/upload/check/%s' % upload_id
     return get(checkURL, headers=_create_auth_header(user, **kwargs))
 
 
@@ -565,7 +566,7 @@ def send_giles_upload(upload_pk, username):
     upload = GilesUpload.objects.get(pk=upload_pk)
 
     # This will trigger an actual upload, and we don't want to do it twice.
-    if upload.state != GilesUpload.PENDING:
+    if not upload.state in [GilesUpload.PENDING, GilesUpload.ENQUEUED]:
         return
 
     public = False    # For now, we'll set everything private.

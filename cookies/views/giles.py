@@ -1,13 +1,16 @@
 from django.conf import settings
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
+from django.conf import settings
 
 from cookies import operations
 from cookies import authorization as auth
 from cookies.models import *
 from cookies.forms import ChooseCollectionForm
+from cookies import giles
 
 
 @login_required
@@ -110,3 +113,103 @@ def trigger_giles_submission(request, resource_id, relation_id):
         upload_pk = giles.create_giles_upload(resource.id, instance.id,
                                               request.user.username,
                                               settings.DELETE_LOCAL_FILES)
+
+
+@staff_member_required
+def test_giles(request):
+    return render(request, 'test_giles.html', {})
+
+
+@staff_member_required
+def test_giles_configuration(request):
+    return JsonResponse({'giles_endpoint': settings.GILES, 'giles_token': settings.GILES_APP_TOKEN[:10] + '...'})
+
+
+@staff_member_required
+def test_giles_is_up(request):
+    import requests
+    giles = settings.GILES
+    response = requests.head(giles)
+    context = {
+        'response_code': response.status_code,
+    }
+    return JsonResponse(context)
+
+
+@staff_member_required
+def test_giles_can_upload(request):
+    """
+    Send a test file to Giles.
+    """
+    from django.core.files import File
+    import os
+
+
+    user = request.user
+    resource = Resource.objects.create(name='test resource', created_by=user)
+    container = ResourceContainer.objects.create(primary=resource, created_by=user)
+    resource.container = container
+    resource.save()
+    file_path = os.path.join(settings.MEDIA_ROOT, 'test.ack')
+    with open(file_path, 'w') as f:
+        test_file = File(f)
+        test_file.write('this is a test file')
+
+    with open(file_path, 'r') as f:
+        test_file = File(f)
+        content_resource = Resource.objects.create(content_resource=True, file=test_file, created_by=user, container=container)
+    content_relation = ContentRelation.objects.create(for_resource=resource, content_resource=content_resource, created_by=user, container=container)
+
+    upload_pk = giles.create_giles_upload(resource.id, content_relation.id,
+                                       user.username,
+                                       delete_on_complete=True)
+    giles.send_giles_upload(upload_pk, user.username)
+    upload = GilesUpload.objects.get(pk=upload_pk)
+
+    context = {
+        'status': upload.state,
+        'upload_id': upload.upload_id,
+        'container_id': container.id,
+    }
+    return JsonResponse(context)
+
+
+@staff_member_required
+def test_giles_can_poll(request):
+    upload_id = request.GET.get('upload_id')
+    try:
+        giles.check_upload_status(request.user.username, upload_id)
+    except giles.StatusException:
+        return JsonResponse({'status': 'FAILED'})
+    upload = GilesUpload.objects.get(upload_id=upload_id)
+    context = {
+        'status': upload.state,
+    }
+    return JsonResponse(context)
+
+
+@staff_member_required
+def test_giles_can_process(request):
+    upload_id = request.GET.get('upload_id')
+    giles.process_upload(upload_id, request.user.username)
+    upload = GilesUpload.objects.get(upload_id=upload_id)
+    context = {
+        'status': upload.state,
+    }
+    return JsonResponse(context)
+
+
+@staff_member_required
+def test_giles_cleanup(request):
+    upload_id = request.GET.get('upload_id')
+    container_id = request.GET.get('container_id')
+    container = ResourceContainer.objects.get(pk=container_id)
+    container.relation_set.all().delete()
+    container.resource_set.all().delete()
+    container.delete()
+
+    try:
+        GilesUpload.objects.get(upload_id=upload_id).delete()
+    except GilesUpload.DoesNotExist:
+        pass
+    return JsonResponse({'status': 'ok'})
