@@ -5,6 +5,8 @@ from cookies.models import *
 from cookies.exceptions import *
 
 import requests, os, jsonpickle
+from datetime import datetime, timedelta
+from django.utils import timezone
 from collections import defaultdict
 
 _fix_url = lambda url: url#url.replace('http://', 'https://') if url is not None else None
@@ -69,8 +71,9 @@ def get_user_auth_token(user, **kwargs):
         Giles authorization token for ``user``.
     """
     fresh = kwargs.get('fresh', False)
+
     try:
-        if user.giles_token and not fresh:
+        if user.giles_token and not fresh and user.giles_token.created > timezone.now() - timedelta(minutes=120):
             return user.giles_token.token
     except AttributeError:    # RelatedObjectDoesNotExist.
         pass    # Will proceed to retrieve token.
@@ -395,6 +398,7 @@ def process_upload(upload_id, username):
     username : str
     """
     import datetime, jsonpickle
+    from django.utils import timezone
 
     user = User.objects.get(username=username)
 
@@ -406,7 +410,7 @@ def process_upload(upload_id, username):
         raise RuntimeError('Only the creator of the GilesUpload can do this')
 
     try:
-        upload.last_checked = datetime.datetime.now()
+        upload.last_checked = timezone.now()
         code, data = check_upload_status(username, upload_id)
     except Exception as E:
         upload.message = str(E)

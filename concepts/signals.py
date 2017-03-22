@@ -20,6 +20,7 @@ def concept_post_save_receiver(sender, **kwargs):
     instance = kwargs.get('instance', None)
     resolve(sender, instance)
 
+
 @receiver(post_save, sender=Type)
 def type_post_save_receiver(sender, **kwargs):
     """

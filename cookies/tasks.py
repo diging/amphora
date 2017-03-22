@@ -123,6 +123,7 @@ def check_giles_uploads():
     their status.
     """
     from datetime import datetime, timedelta
+    from django.utils import timezone
 
     for upload in GilesUpload.objects.filter(state=GilesUpload.PENDING):
         print '::: adding %s to Giles upload queue :::' % upload.id
@@ -130,7 +131,7 @@ def check_giles_uploads():
         upload.state = GilesUpload.ENQUEUED
         upload.save()
 
-    for upload_id, username in GilesUpload.objects.filter(state=GilesUpload.SENT).filter(Q(last_checked__gte=datetime.now() - timedelta(seconds=120)) | Q(last_checked=None)).values_list('upload_id', 'created_by__username'):
+    for upload_id, username in GilesUpload.objects.filter(state=GilesUpload.SENT).filter(Q(last_checked__gte=timezone.now() - timedelta(seconds=120)) | Q(last_checked=None)).values_list('upload_id', 'created_by__username'):
         print '::: checking upload status for %s :::' % upload_id
         check_giles_upload.delay(upload_id, username)
 

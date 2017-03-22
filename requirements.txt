@@ -3,7 +3,7 @@ anyjson==0.3.3
 beautifulsoup4==4.3.1
 billiard==3.3.0.23
 boto==2.38.0
-celery==3.1.23
+celery==3.1
 chardet==2.3.0
 conceptpower-api
 dj-database-url==0.4.1

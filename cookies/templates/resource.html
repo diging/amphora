@@ -60,10 +60,10 @@
                 <dt class="resource_content">Content</dt>
                 {% for content_relation in content_relations %}
                 <dd>
-                    {% if content_relation.content_resource.is_local and not resource.has_giles_content %}<a class="btn btn-xs glyphicon glyphicon-plus" href="{% url "trigger-giles-submission" resource.id content_relation.id %}"></a>{% endif %}
                     <a href="{% url "resource-content" content_relation.content_resource.id %}">
                         {% if content_relation.content_resource.is_external %}<i class="fa fa-key" aria-hidden="true"></i>{% endif %}
                         {% if content_relation.content_resource.is_remote %}<i class="fa fa-external-link" aria-hidden="true"></i>{% endif %}
+                        {% if content_relation.content_resource.is_local %}<i class="fa fa-database" aria-hidden="true"></i>{% endif %}
                         {% url "resource-content" content_relation.content_resource.id %}
                     </a>&nbsp;
                     {% if content_relation.content_type %}

@@ -14,6 +14,16 @@ goat.GOAT = settings.GOAT
 
 
 def get_or_create(uri):
+    """
+    Get or create a :class:`.Concept` instance.
+
+    We use the non-shortcut pattern to avoid waiting for remote data if the
+    :class:`.Concept` instance already exists locally.
+
+    Parameters
+    ----------
+    uri : str
+    """
     try:
         return Concept.objects.get(uri=uri), False
     except Concept.DoesNotExist:
@@ -26,6 +36,7 @@ def get_or_create(uri):
         'authority': data.data['authority']['name']
     }
 
+    # TODO: hmmm, that looks redundant.
     return Concept.objects.get_or_create(uri=uri, defaults=defaults)
 
 

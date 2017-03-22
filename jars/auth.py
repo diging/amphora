@@ -38,25 +38,21 @@ class GithubTokenBackend(BaseAuthentication):
             raise exceptions.AuthenticationFailed(msg)
         return self.authenticate_credentials(token)
 
-    def authenticate_credentials(self, token):
+    def authenticate_credentials(self, access_token):
+        """
+        We verify the GitHub access token by attempting to retrieve private
+        user data. If successful, the token is a valid user auth token, and the
+        GitHub user ID will be included in the response.
+        """
+        path = "{github}/user".format(github=GITHUB)
 
-        try:
-            client, client_secret, access_token = token.split(':')
-        except:
-            return
-        print "access_token", access_token
-        path = "{github}/applications/{client}/tokens/{access_token}".format(
-            github=GITHUB,
-            client=client,
-            access_token=access_token)
-
-        response = requests.get(path, auth=HTTPBasicAuth(client, client_secret))
+        response = requests.get(path, headers={'Authorization': 'token %s' % access_token})
 
         if response.status_code == 404:   # Not a valid token.
             return
 
         data = response.json()
-        github_user_id = data.get('user', {}).get('id')
+        github_user_id = data.get('id')
         try:
             auth = UserSocialAuth.objects.get(uid=github_user_id, provider='github')
         except UserSocialAuth.DoesNotExist: # No such user.

@@ -28,7 +28,7 @@ def resource(request, obj_id):
 
     # Get a fresh Giles auth token, if needed.
     giles.get_user_auth_token(resource.created_by, fresh=True)
-    print resource.container.__dict__
+    
     context = {
         'resource':resource,
         'request': request,
