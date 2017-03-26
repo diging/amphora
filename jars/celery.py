@@ -5,13 +5,6 @@ from django.conf import settings
 from celery import Celery
 import os, sys
 
-try:
-    sys.path.append('/etc/jars')
-    from jars_config import env_settings
-    for key, value in env_settings:
-        os.environ[key] = value
-except ImportError:
-    pass
 
 # set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'jars.settings')
