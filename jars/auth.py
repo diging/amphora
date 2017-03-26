@@ -47,7 +47,7 @@ class GithubTokenBackend(BaseAuthentication):
         path = "{github}/user".format(github=GITHUB)
 
         response = requests.get(path, headers={'Authorization': 'token %s' % access_token})
-
+        print access_token, response.status_code, response.content
         if response.status_code == 404:   # Not a valid token.
             return
 

@@ -22,5 +22,5 @@ app = Celery('jars')
 # pickle the object when using Windows.
 app.config_from_object('django.conf:settings')
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
-app.conf.update(BROKER_URL=os.environ.get('REDIS_URL', 'redis://localhost:6379/amphora'),
-                CELERY_RESULT_BACKEND=os.environ.get('REDIS_URL', 'redis://localhost:6379/amphora'))
+app.conf.update(BROKER_URL=os.environ.get('REDIS_URL', 'redis://localhost:6379/1'),
+                CELERY_RESULT_BACKEND=os.environ.get('REDIS_URL', 'redis://localhost:6379/1'))
