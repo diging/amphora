@@ -21,8 +21,8 @@ def new_users_are_inactive_by_default(sender, **kwargs):
     instance = kwargs.get('instance', None)
     if instance and kwargs.get('created', False):
         logger.debug('%s is a new user; setting inactive by default' % instance.username)
-        # instance.is_active = False
-        # instance.save()
+        instance.is_active = False
+        instance.save()
 
 
 @receiver(post_save, sender=ContentRelation)
