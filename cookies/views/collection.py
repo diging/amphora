@@ -21,6 +21,7 @@ def collection_list(request):
     """
 
     queryset = Collection.objects.filter(content_resource=False, hidden=False, part_of__isnull=True)
+
     queryset = auth.apply_filter(ResourceAuthorization.VIEW, request.user, queryset)
     filtered_objects = CollectionFilter(request.GET, queryset=queryset)
     context = {
@@ -63,7 +64,7 @@ def collection_authorization_create(request, collection_id):
     """
 
     collection = get_object_or_404(Collection, pk=collection_id)
-    print request.user.id
+
     if request.method == 'GET':
         form = auth.CollectionAuthorizationForm()
         form.fields['for_resource'].initial = collection_id
@@ -137,17 +138,36 @@ def create_collection(request):
 
     if request.method == 'GET':
         form = CollectionForm()
+        form.fields['part_of'].queryset = auth.apply_filter(CollectionAuthorization.EDIT, request.user, form.fields['part_of'].queryset)
         if parent_id:
             parent_collection = _get_collection_by_id(request, int(parent_id))
             check_auth = auth.check_authorization(CollectionAuthorization.EDIT, request.user, parent_collection)
             if not check_auth:
                 return HttpResponse('You do not have permission to edit this collection', status=401)
             form.fields['part_of'].initial = parent_collection
+
     if request.method == 'POST':
         form = CollectionForm(request.POST)
+        form.fields['part_of'].queryset = auth.apply_filter(CollectionAuthorization.EDIT, request.user, form.fields['part_of'].queryset)
+
         if form.is_valid():
+
             form.instance.created_by = request.user
-            form.save()
+            instance = form.save()
+            parent = form.cleaned_data.get('part_of')
+            if parent:
+                instance.part_of = parent
+                instance.save()
+
+            if form.cleaned_data.get('public'):
+                CollectionAuthorization.objects.create(
+                    for_resource = instance,
+                    granted_by = request.user,
+                    granted_to = None,
+                    heritable = True,
+                    policy = CollectionAuthorization.ALLOW,
+                    action = CollectionAuthorization.VIEW
+                )
             return HttpResponseRedirect(form.instance.get_absolute_url())
 
     context.update({

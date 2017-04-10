@@ -31,7 +31,10 @@
     </div>
     {% endfor %}
 </div>
-<script>
+<div class="text-right">
+    <a class="btn btn-success" href="{% url 'entity-details' entity.id %}">Done</a>
+</div>
+<!-- <script>
 var bindAutocomplete = function(selector) {
 
     $(function() {
@@ -91,7 +94,15 @@ var bindAutocomplete = function(selector) {
             });
 }
 
-</script>
+</script> -->
+<div class="h4">Associate (additional) concepts</div>
+<p class="text-muted">
+    In order to link metadata to external data structures, it is
+    necessary to associate entity records with concepts in external authority
+    services. You can associate as many external concept records with this
+    entity as you wish (e.g. if records for the same concept existing in several 
+    authorities).
+</p>
 <form class="form" method="GET" action=".">
 
         {% for error in form.non_field_errors %}
@@ -121,29 +132,26 @@ var bindAutocomplete = function(selector) {
         </div>
         {% if concepts_data %}
         Search results:
-        <table class="table table-responsive">
+        <ul class="list-group">
+            {% for concept in concepts_data %}
+            <li class="list-group-item list-group-item-compact">
+                <div>
+                    <a class="btn btn-xs"
+                        href="{% url "entity-add-concept" entity.id %}?uri={{ concept.uri }}&q={{ q }}">
+                        <span class="glyphicon glyphicon-link"></span>
+                    </a>
+                    <strong>{{ concept.name }}</strong> <span class="text-warning">{{ concept.source }}</span>
 
-            <thead>
-                  <tr>
-                    <th></th>
-                    <th>Name</th>
-                    <th>Source</th>
-                    <th>URI</th>
-                  </tr>
-              </thead>
-              <tbody>
 
-                  {% for concept in concepts_data %}
-                  <tr>
-                      <td><a class="btn btn-xs btn-success" href="{% url "entity-add-concept" entity.id %}?uri={{ concept.uri }}&q={{ q }}"><span class="glyphicon glyphicon-link"></span></a></td>
-                    <td>{{ concept.name }}</td>
-                    <td>{{ concept.source }}</td>
-                    <td><a href="{{ concept.uri }}">{{ concept.uri }}</a></td>
-                  </tr>
-                  {% endfor %}
-              </tbody>
-      </table>
-      {% endif %}
+                </div>
+                <span><a href="{{ concept.uri }}">{{ concept.uri }}</a></span>
+                <p class="text-muted">{{ concept.description }}</p>
+
+
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
 </form>
 
 

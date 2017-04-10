@@ -16,7 +16,7 @@
 {% block content %}
 <div class="h2">Add a tag</div>
 {% if resources.count > 0 %}
-<form class="form" action="{% url "bulk-add-tag-to-resource" %}" method="POST">
+<form class="form" action="{% url "bulk-add-tag-to-resource" %}{% if next_page %}?next={{ next_page }}{% endif %}" method="POST">
   {% csrf_token %}
     <div class="text-info">You have selected {{ resources.count }} resource{% if resources.count > 1 %}s{% endif %}.</div>
     {% for field in form %}
@@ -37,7 +37,7 @@
 
 
         <input type="submit" class="btn btn-success" value="Add tag" />
-    
+
 </form>
 {% else %}
 <div class="alert alert-warning">

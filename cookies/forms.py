@@ -26,6 +26,15 @@ class CustomModelChoiceField(forms.ModelChoiceField):
          return obj.name
 
 
+class TypeModelChoiceField(forms.ModelChoiceField):
+    """
+    Overriding label_from_instance function in ModelChoiceField
+    """
+
+    def label_from_instance(self, obj):
+         return u'%s: %s' % (obj.schema.name, obj.name)
+
+
 class ContenteditableInput(forms.TextInput):
     """
     A contenteditable widget to include in your form
@@ -146,7 +155,7 @@ class ResourceForm(forms.ModelForm):
 
 class UserResourceForm(forms.Form):
     name = forms.CharField(help_text='Give your resource a unique name')
-    resource_type = CustomModelChoiceField(**{
+    resource_type = TypeModelChoiceField(**{
         'queryset': Type.objects.all().order_by('name'),
         'help_text': 'Types help JARS determine what metadata fields are' \
                    + ' appropriate for your resource.',
@@ -173,6 +182,8 @@ class UserResourceForm(forms.Form):
         'queryset': Collection.objects.all().order_by('name'),
         'required': False
     })
+
+    description = forms.CharField(widget=forms.Textarea(attrs={'rows': 2}), required=False)
 
 
 class UserEditResourceForm(forms.Form):
@@ -297,12 +308,19 @@ class CollectionForm(forms.ModelForm):
 
     uri = forms.CharField(**{
         'required': False,
+        'help_text': "Optional. Use this field if the collection represents an"
+                     " existing set of resources located somewhere else in the"
+                     " world."
     })
-    part_of = CustomModelChoiceField(queryset=Collection.objects.all().order_by('name'), required=False)
+    part_of = CustomModelChoiceField(queryset=Collection.objects.all().order_by('name'),
+                                     required=False,
+                                     help_text="Make this collection a"
+                                               " subcollection of an existing"
+                                               " collection.")
 
     class Meta:
         model = Collection
-        fields = ['name', 'public', 'uri',]
+        fields = ['name', 'public', 'uri', 'description']
 
     def __init__(self, *args, **kwargs):
         super(CollectionForm, self).__init__(*args, **kwargs)

@@ -25,19 +25,93 @@
     {% for error in form.non_field_errors %}
     <div class="alert alert-warning">{{ error }}</div>
     {% endfor %}
-    {% for field in form %}
-    <div class="form-group">
-        {% for error in field.errors %}
-        <div class="alert alert-warning">{{ error }}</div>
-        {% endfor %}
-        <label>{{ field.label }}</label>
-        {{ field|addcss:"form-control" }}
-        <p class="text-muted">{{ field.help_text }}</p>
+
+    <div class="row">
+        <div class="col-sm-6">
+            {% with form.name as field %}
+            <div class="form-group">
+                {% for error in field.errors %}
+                <div class="alert alert-warning">{{ error }}</div>
+                {% endfor %}
+                <label>{{ field.label }}</label>
+                {{ field|addcss:"form-control" }}
+                <p class="text-muted">{{ field.help_text }}</p>
+            </div>
+            {% endwith %}
+        </div>
+        <div class="col-sm-6">
+            {% with form.resource_type as field %}
+            <div class="form-group">
+                {% for error in field.errors %}
+                <div class="alert alert-warning">{{ error }}</div>
+                {% endfor %}
+                <label>{{ field.label }}</label>
+                {{ field|addcss:"form-control" }}
+                <p class="text-muted">{{ field.help_text }}</p>
+            </div>
+            {% endwith %}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-sm-6">
+            {% with form.collection as field %}
+            <div class="form-group">
+                {% for error in field.errors %}
+                <div class="alert alert-warning">{{ error }}</div>
+                {% endfor %}
+                <label>{{ field.label }}</label>
+                {{ field|addcss:"form-control" }}
+                <p class="text-muted">{{ field.help_text }}</p>
+            </div>
+            {% endwith %}
+        </div>
+        <div class="col-sm-6">
+            {% with form.uri as field %}
+            <div class="form-group">
+                {% for error in field.errors %}
+                <div class="alert alert-warning">{{ error }}</div>
+                {% endfor %}
+                <label>{{ field.label }}</label>
+                {{ field|addcss:"form-control" }}
+                <p class="text-muted">{{ field.help_text }}</p>
+            </div>
+            {% endwith %}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-sm-12">
+            {% with form.description as field %}
+            <div class="form-group">
+                {% for error in field.errors %}
+                <div class="alert alert-warning">{{ error }}</div>
+                {% endfor %}
+                <label>{{ field.label }}</label>
+                {{ field|addcss:"form-control" }}
+                <p class="text-muted">{{ field.help_text }}</p>
+            </div>
+            {% endwith %}
+        </div>
+
+
+    </div>
+    <div class="row">
+        <div class="col-sm-12">
+            {% with form.public as field %}
+            <div class="form-group">
+                {% for error in field.errors %}
+                <div class="alert alert-warning">{{ error }}</div>
+                {% endfor %}
+                <label>{{ field.label }}</label>
+                {{ field|addcss:"form-control" }}
+                <p class="text-muted">{{ field.help_text }}</p>
+            </div>
+            {% endwith %}
+        </div>
+
+
     </div>
 
-    {% endfor %}
-
-    <div class="text-center">
+    <div class="text-right">
         <input class="btn btn-success" type="submit" value="Create">
     </div>
 </form>

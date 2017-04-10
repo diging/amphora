@@ -178,6 +178,8 @@ class Resource(ResourceBase):
     external_source = models.CharField(max_length=2, choices=SOURCES,
                                        blank=True, null=True)
 
+    description = models.TextField(blank=True, null=True)
+
     @property
     def content_location(self):
         if self.content_resource:
@@ -283,6 +285,8 @@ class Collection(ResourceBase):
 
     part_of = models.ForeignKey('Collection', blank=True, null=True)
 
+    description = models.TextField(blank=True, null=True)
+
     def get_absolute_url(self):
         return reverse("collection", args=(self.id,))
 
@@ -294,7 +298,6 @@ class Collection(ResourceBase):
     def resources(self):
         return Resource.objects.filter(is_primary_for__part_of_id=self.id,
                                        is_deleted=False)
-
 
 ### Types and Fields ###
 
@@ -590,7 +593,7 @@ class ResourceContainer(models.Model):
 
 class CollectionAuthorization(models.Model):
     granted_by = models.ForeignKey(User, related_name='created_resource_auths')
-    granted_to = models.ForeignKey(User, related_name='resource_resource_auths')
+    granted_to = models.ForeignKey(User, related_name='resource_resource_auths', blank=True, null=True)
     for_resource = models.ForeignKey('Collection', related_name='authorizations')
     heritable = models.BooleanField(default=True,
                                     help_text="Policy applies to all resources"
@@ -626,7 +629,7 @@ class CollectionAuthorization(models.Model):
 
 class ResourceAuthorization(models.Model):
     granted_by = models.ForeignKey(User, related_name='created_collection_auths')
-    granted_to = models.ForeignKey(User, related_name='resource_collection_auths')
+    granted_to = models.ForeignKey(User, related_name='resource_collection_auths', blank=True, null=True)
     for_resource = models.ForeignKey('ResourceContainer',
                                      related_name='authorizations')
 

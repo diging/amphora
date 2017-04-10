@@ -13,7 +13,7 @@
 {% endblock %}
 
 {% block content %}
-<form class="form" action="." method="POST" enctype="multipart/form-data">
+<form class="form" action="{% if collection %}?collection={{collection}}{% endif %}" method="POST" enctype="multipart/form-data">
     {% csrf_token %}
     {% for error in form.non_field_errors %}
     <div class="alert alert-warning">{{ error }}</div>

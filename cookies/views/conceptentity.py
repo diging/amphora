@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
-from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
+from django.http import HttpResponseRedirect, HttpResponse, JsonResponse, HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404
 
 from cookies.models import *
@@ -12,6 +12,8 @@ from cookies.forms import *
 from cookies import entities, metadata, operations
 from cookies import authorization as auth
 
+from itertools import groupby
+
 
 def _get_entity_by_id(request, entity_id, *args):
     return get_object_or_404(ConceptEntity, pk=entity_id)
@@ -21,14 +23,19 @@ def _get_entity_by_id(request, entity_id, *args):
 def entity_details(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
     template = 'entity_details.html'
-    similar_entities = entities.suggest_similar(entity, qs=auth.apply_filter(ResourceAuthorization.EDIT, request.user, ConceptEntity.objects.all()))
+    similar_entities = entities.suggest_similar(entity, qs=auth.apply_filter(ResourceAuthorization.VIEW, request.user, ConceptEntity.objects.all()))
 
-    relations_from = entity.relations_from.all()
-    relations_from = [(g[0].predicate, g) for g in metadata.group_relations(relations_from)]
-    relations_to = entity.relations_to.all()
-    relations_to = [(g[0].predicate, g) for g in metadata.group_relations(relations_to)]
+    entity_ctype = ContentType.objects.get_for_model(ConceptEntity)
 
-    represents = entity.represents.values_list('entities__id', 'entities__name').distinct()
+    relations_from = Relation.objects.filter(Q(source_type=entity_ctype, source_instance_id=entity_id) | Q(source_type=entity_ctype, source_instance_id__in=list(entity.represents.values_list('entities__id', flat=True)))).order_by('predicate')
+    relations_from = auth.apply_filter(ResourceAuthorization.VIEW, request.user, relations_from)
+    relations_from = [(predicate, [rel for rel in relations]) for predicate, relations in groupby(relations_from, key=lambda r: r.predicate)]
+
+    relations_to = Relation.objects.filter(Q(target_type=entity_ctype, target_instance_id=entity_id) | Q(target_type=entity_ctype, target_instance_id__in=list(entity.represents.values_list('entities__id', flat=True)))).order_by('predicate')
+    relations_to = auth.apply_filter(ResourceAuthorization.VIEW, request.user, relations_to)
+    relations_to = [(predicate, [rel for rel in relations]) for predicate, relations in groupby(relations_to, key=lambda r: r.predicate)]
+
+    represents = entity.represents.values_list('entities__id', 'entities__name', 'entities__container__primary__name').distinct()
     represented_by = entity.identities.filter(~Q(representative=entity)).values_list('representative_id', 'representative__name').distinct()
 
     context = {

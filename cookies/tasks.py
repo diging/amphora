@@ -58,11 +58,20 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
     #  create a new one.
     collection = form_data.pop('collection', None)
     collection_name = form_data.pop('name', None)
+    public_policy = False
     if not collection:
         collection = Collection.objects.create(**{
             'name': collection_name,
             'created_by': creator,
         })
+        if form_data.get('public'):
+            #  Create an authoirzation for AnonymousUser.
+            CollectionAuthorization.objects.create(granted_by=creator,
+                                                   granted_to=None,
+                                                   for_resource=collection,
+                                                   policy=CollectionAuthorization.ALLOW,
+                                                   action=CollectionAuthorization.VIEW)
+            public_policy = True
 
     operations.add_creation_metadata(collection, creator)
 
@@ -86,6 +95,12 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
     N = len(ingester)
     for resource in ingester:
         resource.container.part_of = collection
+        if form_data.get('public') and not public_policy:
+            ResourceAuthorization.objects.create(granted_by=creator,
+                                                 granted_to=None,
+                                                 for_resource=resource,
+                                                 policy=ResourceAuthorization.ALLOW,
+                                                 action=ResourceAuthorization.VIEW)
         resource.container.save()
         # collection.resources.add(resource)
         operations.add_creation_metadata(resource, creator)

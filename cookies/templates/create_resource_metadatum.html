@@ -10,7 +10,7 @@
     {% breadcrumb_url 'Resources' 'resources' %}
     {% breadcrumb_url resource.name 'resource' resource.id  %}
     {% breadcrumb_url 'Edit' 'edit-resource-details' resource.id  %}
-    Create metadatum
+    <span class="breadcrumbs-arrow">›&nbsp;</span> Create metadatum
 </div>
 {% endblock %}
 
@@ -28,7 +28,7 @@
     {% endfor %}
 
     <div class="text-center">
-        <input class="btn btn-success" type="submit" value="Save">
+        <input class="btn btn-success" type="submit" value="Next">
     </div>
 </form>
 {% endblock %}

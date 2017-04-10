@@ -16,6 +16,7 @@
 
 {% block content %}
 {% autopaginate filtered_objects.qs 10 as resources %}
+
 <div class="collection_summary">
     <span class="pull-right btn-group">
         {% is_authorized "change_resource" user collection as can_edit_resource %}
@@ -32,26 +33,68 @@
             data-toggle="tooltip"
             data-title="Authorizations"></a>
         {% endif %}
+        {% if can_edit_resource %}
+
+            <a class="btn glyphicon glyphicon-plus"
+                href="{% url "create-collection" %}?parent_collection={{ collection.id }}"></a>
+
+        {% endif %}
     </span>
-    <h2 class="collection_name">{{ collection.name }}</h1>
-    <div class="collection_uri"><strong>URI:</strong> {{ collection.uri }}</div>
-    {% if collections %}
-        Sub-collections:
-    {% endif %}
-    {% for collection_element in collections %}
-        <a class="text-info" href="{{ collection_element.get_absolute_url }}">{{ collection_element.name }}</a>
-    {% endfor %}
-    {% if collection.part_of %}
-      <div>Parent collection: <a class="text-info" href="{{ collection.part_of.get_absolute_url }}">{{ collection.part_of.name }}</a></div>
-    {% endif %}
+    <div class="h3 collection_name">{{ collection.name }}</div>
+
+      <div class="h4">{% if collection.part_of %}Part of: <a class="text-info" href="{{ collection.part_of.get_absolute_url }}">{{ collection.part_of.name }}</a>{% endif %}</div>
+      {% if collection.description %}
+      <p class="text-muted">{{ collection.description }}</p>
+          {% endif %}
+
+
+    <div class="container-fluid">
+        {% if collections %}
+            Subcollections:
+        {% endif %}
+        <ul class="list-group list-group-compact">
+        {% for collection_element in collections %}
+            <a class="list-group-item list-group-item-compact" href="{{ collection_element.get_absolute_url }}">{{ collection_element.name }}
+                <span class="pull-right badge">{{ collection_element.resourcecontainer_set.count }}</span>
+            </a>
+        {% endfor %}
+
+        </ul>
+
+
+    </div>
 </div>
 
 <div class="row">
-    <div class="h3 col-xs-4">Resources</div>
+
     <div class="col-xs-4 text-center">
         {% paginate %}
     </div>
 </div>
+
+<form class="form" action="." method="GET">
+{% with filtered_objects.form.name as field %}
+{% for error in field.errors %}
+<div class="alert alert-warning">{{ error }}</div>
+{% endfor %}
+<div class="container-fluid">
+    <div class="form-group">
+        <div class="input-group">
+            <input class="form-control" id="id_name" name="name" type="text" {% if q %}value="{{ q }}" {% endif %}placeholder="Search by title">
+            <span class="input-group-btn">
+                <input type="submit" class="btn btn-success" value="Search">
+            </span>
+        </div>
+        <script>
+        $('body').ready(function() {
+            $('#id_name').focus();
+        });
+        </script>
+    </div>
+
+
+
+{% endwith %}
 <div class="panel-group">
     <div class="panel panel-default">
         <div class="panel-heading">
@@ -67,69 +110,64 @@
                 </small>
             </h4>
         </div>
+
         <div id="filters" class="panel-collapse collapse">
             <div class="panel-body">
-                <form class="form" action="." method="GET">
-                <div class="row">
-                    <div class="col-xs-6">
-                        {% with filtered_objects.form.name as field %}
-                        {% for error in field.errors %}
-                        <div class="alert alert-warning">{{ error }}</div>
-                        {% endfor %}
-                        <div class="form-group">
-                            <label>{{ field.label }}</label>
-                            {{ field|addcss:"form-control" }}
-                        </div>
-                        {% endwith %}
 
-                        {% with filtered_objects.form.content as field %}
-                        {% for error in field.errors %}
-                        <div class="alert alert-warning">{{ error }}</div>
-                        {% endfor %}
-                        <div class="form-group">
-                            <label>{{ field.label }}</label>
-                            {{ field|addcss:"form-control" }}
-                        </div>
-                        {% endwith %}
+                    <div class="row">
+                        <div class="col-xs-6">
 
-                        {% with filtered_objects.form.entity_type as field %}
-                        {% for error in field.errors %}
-                        <div class="alert alert-warning">{{ error }}</div>
-                        {% endfor %}
-                        <div class="form-group">
-                            <label>{{ field.label }}</label>
-                            {{ field|addcss:"form-control" }}
+                            {% with filtered_objects.form.content as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>{{ field.label }}</label>
+                                {{ field|addcss:"form-control" }}
+                            </div>
+                            {% endwith %}
+
+                            {% with filtered_objects.form.entity_type as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>{{ field.label }}</label>
+                                {{ field|addcss:"form-control" }}
+                            </div>
+                            {% endwith %}
                         </div>
-                        {% endwith %}
+                        <div class="col-xs-6">
+                            {% with filtered_objects.form.created_by as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>{{ field.label }}</label>
+                                {{ field|addcss:"form-control" }}
+                            </div>
+                            {% endwith %}
+
+                            {% with filtered_objects.form.o as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>{{ field.label }}</label>
+                                {{ field|addcss:"form-control" }}
+                            </div>
+                            {% endwith %}
+                        </div>
                     </div>
-                    <div class="col-xs-6">
-                        {% with filtered_objects.form.created_by as field %}
-                        {% for error in field.errors %}
-                        <div class="alert alert-warning">{{ error }}</div>
-                        {% endfor %}
-                        <div class="form-group">
-                            <label>{{ field.label }}</label>
-                            {{ field|addcss:"form-control" }}
-                        </div>
-                        {% endwith %}
-
-                        {% with filtered_objects.form.o as field %}
-                        {% for error in field.errors %}
-                        <div class="alert alert-warning">{{ error }}</div>
-                        {% endfor %}
-                        <div class="form-group">
-                            <label>{{ field.label }}</label>
-                            {{ field|addcss:"form-control" }}
-                        </div>
-                        {% endwith %}
-                    </div>
-                </div>
                 <input type="submit" class="pull-right btn btn-success btn-xs" value="Apply">
-                </form>
+
             </div>
         </div>
+
     </div>
 </div>
+</div>
+</form>
 
 <div class="row">
     <div class="col-sm-3">

@@ -73,8 +73,9 @@ def concept_search(query):
     concept_data = []
     for concept in concepts:
         concept_data.append({
-            'name':concept.data['name'],
+            'name': concept.data['name'],
             'source': concept.data['authority']['name'],
-            'uri':concept.data['identifier']
+            'uri': concept.data['identifier'],
+            'description': concept.data['description']
         })
     return concept_data

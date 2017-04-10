@@ -36,7 +36,7 @@ image_preview_template = """
 
 external_link_template = """
         <a class="btn" href="{href}" target="_blank">
-            <span class="glyphicon glyphicon-new-window"></span> View resource in a new window (leaving JARS).
+            <span class="glyphicon glyphicon-new-window"></span> View in new window.
         </a>
 
 """
