@@ -13,9 +13,19 @@
 {% endblock %}
 
 {% block content %}
-<div class="row" style="margin-top: 50px;">
-    <div class="col-sm-4 col-sm-offset-2 text-center">
-        <a class="btn btn-lg" href="{% url "create-resource-bulk" %}">
+<div class="row" style="margin-top: 20px;">
+
+    <div class="col-sm-4 text-center">
+        <a class="btn btn-lg" href="{% url "create-resource-file" %}{% if collection %}?collection={{collection}}{% endif %}">
+            <span class="glyphicon glyphicon-open-file"></span> Upload file
+        </a>
+        <p class="text-muted">
+            Most mainstream file formats are supported. For large files, be sure
+            that you have a reliable connection to the internet.
+        </p>
+    </div>
+    <div class="col-sm-4 text-center">
+        <a class="btn btn-lg" href="{% url "create-resource-bulk" %}{% if collection %}?collection={{collection}}{% endif %}">
             <img class="img" src="{% static "cookies/img/zotero_z.png" %}" style="height: 20px;"></img>&nbsp;
             Upload from Zotero
         </a>
@@ -25,28 +35,7 @@
         </p>
     </div>
     <div class="col-sm-4 text-center">
-        <a class="btn btn-lg" href="{{ giles_upload_location }}">
-            <span class="glyphicon glyphicon-picture"></span> Upload an image or PDF document
-        </a>
-        <p class="text-muted">
-            Upload an image to our linked image server, <strong>Giles</strong>.
-            You'll be able to take advantage of image-specific research
-            functionality, like image annotation in VogonWeb.
-        </p>
-    </div>
-</div>
-<div class="row" style="margin-top: 50px;">
-    <div class="col-sm-4 col-sm-offset-2 text-center">
-        <a class="btn btn-lg" href="{% url "create-resource-file" %}">
-            <span class="glyphicon glyphicon-open-file"></span> Upload other file
-        </a>
-        <p class="text-muted">
-            Most mainstream file formats are supported. For large files, be sure
-            that you have a reliable connection to the internet.
-        </p>
-    </div>
-    <div class="col-sm-4 text-center">
-        <a class="btn btn-lg" href="{% url "create-resource-url" %}">
+        <a class="btn btn-lg" href="{% url "create-resource-url" %}{% if collection %}?collection={{collection}}{% endif %}">
             <span class="glyphicon glyphicon-link"></span> Add a remote resource
         </a>
         <p class="text-muted">

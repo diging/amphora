@@ -14,12 +14,8 @@
 
 {% block content %}
 {% autopaginate filtered_objects.qs 10 as collections %}
-<div class="row">
-    <div class="h3 col-xs-4">Collections</div>
-    <div class="col-xs-4 text-center">
-        {% paginate %}
-    </div>
-</div>
+
+
 
 <div class="panel-group">
     <div class="panel panel-default">
@@ -56,11 +52,25 @@
     </div>
 </div>
 
+<div class="text-center">
+    {% paginate %}
+</div>
+
 <div class="resource_collections">
+    <div class="clearfix" style="margin-bottom: 5px;">
+        {% if user.is_authenticated %}
+          <div class="btn-group pull-right">
+              <a class="btn btn-xs" href="{% url "create-collection" %}?parent_collection=">
+                  <span class="glyphicon glyphicon-plus"></span> Create</a>
+          </div>
+         {% endif %}
+    </div>
     <ul class="list-group">
         {% for collection in collections %}
         <a href="{{ collection.get_absolute_url }}"
-            class="list-group-item">{{ collection.name }}
+            class="list-group-item"><strong>{{ collection.name }}</strong>
+            <span class="text-muted">added by <span class="text-warning">{{ collection.created_by }}</span>  on {{ collection.created }}</span>
+            <span class="badge pull-right">{{ collection.resourcecontainer_set.count }}</span>
         </a>
         {% endfor %}
     </ul>
@@ -69,8 +79,6 @@
 <div class="pagination container text-center">
     {% paginate %}
 </div>
-  <div class="text-center">
-      <a class="btn btn-success" href="{% url "create-collection" %}?parent_collection=">Create collection</a>
-  </div>
+
 
 {% endblock %}

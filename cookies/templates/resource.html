@@ -17,7 +17,7 @@
 <div class="row">
     <div class="col-md-7">
         <div class="resource_summary">
-            <div class="h2 resource_name">
+            <div class="h3 resource_name">
                 {{ resource.name }}
 
                 <span class="pull-right btn-group">
@@ -26,6 +26,8 @@
                         <img style="height: 15px;" src="{% static "cookies/img/giles_logo.png" %}" />
                     </span>
                     {% endif %}
+                    <a class="btn glyphicon glyphicon-link" data-toggle="modal" data-target="#uri-modal">
+                    </a>
                     {% is_authorized "change_resource" user resource as can_edit_resource %}
                     {% if can_edit_resource %}
                     <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
@@ -41,6 +43,9 @@
                 </span>
 
             </div>
+            {% if resource.description %}
+            <p class="text-muted">{{ resource.description }}</p>
+            {% endif %}
 
             <dl class="dl-horizontal">
                 {% if part_of %}
@@ -51,8 +56,6 @@
                 <dd>{{ resource.created }}</dd>
                 <dt>Created by</dt>
                 <dd>{{ resource.created_by }}</dd>
-                <dt class="resource_uri">URI</dt>
-                <dd>{{ resource.uri }}</dd>
                 <dt class="resource_entity_type">Type</dt>
                 <dd>{{ resource.entity_type }}</dd>
 
@@ -60,10 +63,10 @@
                 <dt class="resource_content">Content</dt>
                 {% for content_relation in content_relations %}
                 <dd>
-                    {% if content_relation.content_resource.is_local and not resource.has_giles_content %}<a class="btn btn-xs glyphicon glyphicon-plus" href="{% url "trigger-giles-submission" resource.id content_relation.id %}"></a>{% endif %}
                     <a href="{% url "resource-content" content_relation.content_resource.id %}">
                         {% if content_relation.content_resource.is_external %}<i class="fa fa-key" aria-hidden="true"></i>{% endif %}
                         {% if content_relation.content_resource.is_remote %}<i class="fa fa-external-link" aria-hidden="true"></i>{% endif %}
+                        {% if content_relation.content_resource.is_local %}<i class="fa fa-database" aria-hidden="true"></i>{% endif %}
                         {% url "resource-content" content_relation.content_resource.id %}
                     </a>&nbsp;
                     {% if content_relation.content_type %}
@@ -105,5 +108,34 @@
 
 
 
-
+<div class="modal fade" tabindex="-1" role="dialog" id="uri-modal">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title">Permalink</h4>
+      </div>
+      <div class="modal-body">
+          <div class="form-group">
+              <div class="input-group">
+                <input type="text" class="form-control" id="uri-uri" style="font-family: monospace;" value="{{ resource.uri }}" disabled="disabled" />
+                <span class="input-group-btn">
+                    <a class="btn" id="copy-to-clipboard">
+                        <i class="fa fa-clipboard" aria-hidden="true"></i>
+                    </a>
+                </span>
+            </div>
+        </div>
+        <div class="text-right" id="message"></div>
+      </div>
+          <script>
+          $('#copy-to-clipboard').click(function () {
+                $('#uri-uri').select();
+                document.execCommand("copy");
+                $('#message').text('Copied to clipboard!');
+            });
+            </script>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
 {% endblock %}

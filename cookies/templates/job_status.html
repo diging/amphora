@@ -18,7 +18,8 @@
 
 {% block content %}
 
-<div class="h2">Status: <span class="label label-primary">{{ async_result.status }}</span> <span class="text-warning">{{ async_result.id }}</span></div>
+<div class="h3">Status: <span class="text-warning">{{ async_result.status }}</span></div>
+<div class="text-muted">{{ async_result.id }}</div>
 {% if async_result.status == 'FAILURE' %}
 <p class="text-danger">
     Whoops! Something went wrong. Please notify <a href="mailto:erick.peirson@asu.edu">the administrator</a>
@@ -27,7 +28,7 @@
 {% else %}
 <p class="text-info">
     Your upload is currently being processed. Depending on the size of your upload, this
-    may take a little while. Please check back in a little while.
+    may take a little while. Please check back.
 </p>
 <div class="progress">
     <div class="progress-bar"

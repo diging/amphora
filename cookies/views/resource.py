@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
+from django.db.models import Q
 
 from cookies.models import *
 from cookies.filters import *
@@ -28,7 +29,7 @@ def resource(request, obj_id):
 
     # Get a fresh Giles auth token, if needed.
     giles.get_user_auth_token(resource.created_by, fresh=True)
-    print resource.container.__dict__
+
     context = {
         'resource':resource,
         'request': request,
@@ -88,6 +89,7 @@ def resource_list(request):
     context = {
         'filtered_objects': filtered_resources,
         'tags': filter(lambda tag: tag[0] is not None, tags),
+        'q': request.GET.get('name')
     }
     return render(request, 'resources.html', context)
 
@@ -95,7 +97,8 @@ def resource_list(request):
 @login_required
 def create_resource(request):
     context = {
-        'giles_upload_location': '/'.join([settings.GILES, 'files', 'upload'])
+        'giles_upload_location': '/'.join([settings.GILES, 'files', 'upload']),
+        'collection': request.GET.get('collection')
     }
 
     return render(request, 'create_resource.html', context)
@@ -107,6 +110,8 @@ def create_resource_file(request):
 
     if request.method == 'GET':
         form = UserResourceFileForm()
+        collection = request.GET.get('collection')
+        context.update({'collection': collection})
 
     elif request.method == 'POST':
 
@@ -121,6 +126,11 @@ def create_resource_file(request):
                 'created_by': request.user,
                 'container': container,
             })
+            collection = request.GET.get('collection')
+            print collection, 'collection'
+            if collection:
+                container.part_of_id = collection
+                container.save()
 
             operations.add_creation_metadata(content, request.user)
             # The file upload handler needs the Resource to have an ID first,
@@ -181,6 +191,7 @@ def create_resource_details(request, content_id):
         form = UserResourceForm(initial={
             'name': content_resource.name,
             'uri': content_resource.location,
+            'collection': content_resource.container.part_of,
             'public': True,    # If the resource is already online, it's public.
         })
         form.fields['collection'].queryset = auth.apply_filter(*(
@@ -194,8 +205,6 @@ def create_resource_details(request, content_id):
     elif request.method == 'POST':
         form = UserResourceForm(request.POST)
         if form.is_valid():
-
-
             resource_data = copy.copy(form.cleaned_data)
             resource_data['entity_type'] = resource_data.pop('resource_type', None)
             collection = resource_data.pop('collection', None)
@@ -220,6 +229,15 @@ def create_resource_details(request, content_id):
             })
             resource.container = content_resource.container
             resource.save()
+
+            if resource_data.get('public'):
+                ResourceAuthorization.objects.create(
+                    granted_by = request.user,
+                    granted_to = None,
+                    action = ResourceAuthorization.VIEW,
+                    policy = ResourceAuthorization.ALLOW,
+                    for_resource = resource.container
+                )
 
 
             return HttpResponseRedirect(reverse('resource', args=(resource.id,)))
@@ -253,6 +271,7 @@ def create_resource_bulk(request):
     """
     Zotero bulk upload.
     """
+    collection = request.GET.get('collection')
 
     context = {}
     if request.method == 'GET':
@@ -263,6 +282,9 @@ def create_resource_bulk(request):
             request.user,
             form.fields['collection'].queryset
         ))
+        if collection:
+            form.fields['collection'].initial = collection
+
     elif request.method == 'POST':
         form = BulkResourceForm(request.POST, request.FILES)
         qs = form.fields['collection'].queryset
@@ -271,6 +293,9 @@ def create_resource_bulk(request):
             request.user,
             form.fields['collection'].queryset
         ))
+        if collection:
+            form.fields['collection'].initial = collection
+
         if form.is_valid():
             uploaded_file = request.FILES['upload_file']
             # File pointers aren't easily serializable; we need to farm this
@@ -530,7 +555,12 @@ def bulk_action_resource(request):
     On POST, User is presented with a set of collections to choose from.
     """
     resource_ids = request.POST.getlist('addresources', [])
-    return HttpResponseRedirect(reverse('bulk-add-tag-to-resource') + "?" + '&'.join(["resource=%s" % r_id for r_id in resource_ids]))
+    next_page = request.POST.get('next')
+    # TODO: use proper URL parameter encoding.
+    target = reverse('bulk-add-tag-to-resource') + "?" + '&'.join(["resource=%s" % r_id for r_id in resource_ids])
+    if next_page:
+        target += '&next=' + next_page
+    return HttpResponseRedirect(target)
 
 
 @login_required
@@ -538,6 +568,7 @@ def bulk_add_tag_to_resource(request):
     """
     Adding tag to selected resources.
     """
+    next_page = request.GET.get('next')
     if request.method == 'GET':
         resource_ids = request.GET.getlist('resource', [])
         resources = auth.apply_filter(ResourceAuthorization.EDIT, request.user,
@@ -552,20 +583,29 @@ def bulk_add_tag_to_resource(request):
         resource_ids = eval(request.POST.get('resources', '[]'))
         resources = auth.apply_filter(ResourceAuthorization.EDIT, request.user, Resource.objects.filter(pk__in=resource_ids))
 
+
         if form.is_valid():
             tag = form.cleaned_data.get('tag', None)
             tag_name = form.cleaned_data.get('tag_name', None)
+
+
             resources = form.cleaned_data.get('resources')
-            if not tag and tag_name:
+            if tag:    # Don't add the same tag to a resource twice.
+                resources = resources.filter(~Q(tags__tag__id=tag.id))
+            elif tag_name:
                 tag = Tag.objects.create(name=tag_name, created_by=request.user)
+
             ResourceTag.objects.bulk_create([
                 ResourceTag(resource=resource, tag=tag, created_by=request.user)
                 for resource in resources
             ])
+            if next_page:
+                return HttpResponseRedirect(next_page)
             return HttpResponseRedirect(reverse('resources'))
     context = {
         'form': form,
         'resources': resources,
+        'next_page': next_page
     }
     template = 'add_tag_to_resource.html'
     return render(request, template, context)

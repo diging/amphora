@@ -16,7 +16,7 @@
 {% block content %}
 
 <div class="row">
-    <div class="col-xs-6">
+    <div class="col-sm-6">
         <span class="pull-right">
             <a class="btn fa fa-eye" aria-hidden="true"
                 href="{% url "resource" resource.id %}"
@@ -66,11 +66,11 @@
                         {% for metadatum in metadata %}
                         <li class="list-group-item">
                             <span class="btn-group pull-right">
-                                <a class="btn btn-md"
+                                <a class="btn btn-xs"
                                     href="{% url "edit-resource-metadatum" resource.id metadatum.id %}?next={{ request.path }}&tab=metadata">
                                     <i class="glyphicon glyphicon-pencil"></i>
                                 </a>
-                                <a class="btn btn-md"
+                                <a class="btn btn-xs"
                                     href="{% url "delete-resource-metadatum" resource.id metadatum.id %}">
                                     <i class="glyphicon glyphicon-remove"></i>
                                 </a>
@@ -90,7 +90,7 @@
 
 
     </div>
-    <div class="col-xs-6">
+    <div class="col-sm-6">
         {{ resource|preview:request }}
     </div>
 </div>

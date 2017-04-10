@@ -46,6 +46,7 @@ def concept_from_result(result, authority):
             })[0]
     return concept
 
+
 def resolve(sender, instance):
     """
     Resolve :class:`.Concept`\s and :class:`.Type`\s using the registered

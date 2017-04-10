@@ -6,6 +6,7 @@ from django.db.models import Q, QuerySet
 from django.http import HttpResponseForbidden
 from django.utils.decorators import available_attrs
 from django import forms
+from django.contrib.auth.models import AnonymousUser
 
 from cookies.models import *
 from collections import defaultdict
@@ -72,21 +73,36 @@ def check_authorization(auth, user, obj):
     -------
     bool
     """
+    if not obj:
+        return False
 
     if auth == 'is_owner':
         return is_owner(user, obj)
+    if user.is_superuser:
+        return True
 
     if isinstance(obj, Collection):
-        _allow = CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=CollectionAuthorization.ALLOW).count() > 0
-        _deny = CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=CollectionAuthorization.DENY).count() > 0
+        if isinstance(user, AnonymousUser):
+            _allow = CollectionAuthorization.objects.filter(action=auth, granted_to__isnull=True, for_resource=obj, policy=CollectionAuthorization.ALLOW).count() > 0
+            _deny = CollectionAuthorization.objects.filter(action=auth, granted_to__isnull=True, for_resource=obj, policy=CollectionAuthorization.DENY).count() > 0
+        else:
+            _allow = CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=CollectionAuthorization.ALLOW).count() > 0
+            _deny = CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=CollectionAuthorization.DENY).count() > 0
     else:
         if not isinstance(obj, ResourceContainer):
             obj = obj.container
-        _allow = (ResourceAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=ResourceAuthorization.ALLOW).count() > 0\
-                  or CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj.part_of, policy=CollectionAuthorization.ALLOW, heritable=True).count() > 0)\
-                  and not CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj.part_of, policy=CollectionAuthorization.DENY, heritable=True).count() > 0
-        _deny = ResourceAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=ResourceAuthorization.DENY).count() > 0
-    return (_allow and not _deny) or is_owner(user, obj) or user.is_superuser
+
+        if isinstance(user, AnonymousUser):
+            _allow = (ResourceAuthorization.objects.filter(action=auth, granted_to__isnull=True, for_resource=obj, policy=ResourceAuthorization.ALLOW).count() > 0\
+                      or CollectionAuthorization.objects.filter(action=auth, granted_to__isnull=True, for_resource=obj.part_of, policy=CollectionAuthorization.ALLOW, heritable=True).count() > 0)\
+                      and not CollectionAuthorization.objects.filter(action=auth, granted_to__isnull=True, for_resource=obj.part_of, policy=CollectionAuthorization.DENY, heritable=True).count() > 0
+            _deny = ResourceAuthorization.objects.filter(action=auth, granted_to__isnull=True, for_resource=obj, policy=ResourceAuthorization.DENY).count() > 0
+        else:
+            _allow = (ResourceAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=ResourceAuthorization.ALLOW).count() > 0\
+                      or CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj.part_of, policy=CollectionAuthorization.ALLOW, heritable=True).count() > 0)\
+                      and not CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj.part_of, policy=CollectionAuthorization.DENY, heritable=True).count() > 0
+            _deny = ResourceAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=ResourceAuthorization.DENY).count() > 0
+    return (_allow and not _deny) or is_owner(user, obj)
 
 
 def auth_model_for_obj(klass):
@@ -108,9 +124,14 @@ def apply_filter(auth, user, qs):
         return qs
 
     if qs.model is Collection:
-        q = Q(created_by=user.id) | \
-            (Q(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.ALLOW) \
-             & ~Q(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.DENY))
+        if isinstance(user, AnonymousUser):
+            allow = dict(authorizations__action=auth, authorizations__granted_to__isnull=True, authorizations__policy=ResourceAuthorization.ALLOW)
+            deny = dict(authorizations__action=auth, authorizations__granted_to__isnull=True, authorizations__policy=ResourceAuthorization.DENY)
+        else:
+            allow = dict(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.ALLOW)
+            deny = dict(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.DENY)
+
+        q = Q(created_by=user.id) | (Q(**allow) & ~Q(**deny))
     elif qs.model is ResourceContainer:
         q = Q(created_by=user.id) | \
             ((Q(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.ALLOW) \

@@ -15,11 +15,11 @@
 {% endblock %}
 
 {% block content %}
-{% is_authorized "change_conceptentity" user entity as can_edit %}
+{% is_authorized "ED" user entity as can_edit %}
 <div class="container-fluid">
     <div class="row">
         <div class="col-sm-6 col-md-8">
-            <div class="h2 clearfix">{{ entity.name.title }}
+            <div class="h3 clearfix">{{ entity.name.title }}
                 <span class="btn-group">
                     {% if can_edit %}
                     <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
@@ -32,7 +32,7 @@
                         data-title="Prune duplicate metadata"></a>
                     {% endif %}
                 </span>
-                <span class="pull-right">a <span class="text-warning">{{ entity.entity_type.schema }}</span>/{{ entity.entity_type.name }}</span>
+
             </div>
             <dl class="dl-horizontal">
                 <dt>Created</dt>
@@ -78,7 +78,7 @@
                 {% for rep in represents %}
                     {% if rep.0 != entity.id %}
                     <a href="{% url "entity-details" rep.0 %}" class="list-group-item">
-                        {{ rep.1 }}
+                        {{ rep.1 }} in <span class="text-muted">{{ rep.2 }}</span>
                     </a>
                     {% endif %}
                 {% endfor %}
@@ -90,13 +90,14 @@
                 {% for predicate, relations in relations_from %}
                 <div class="h4 panel-heading">{{ predicate }}</div>
                 {% for relation in relations %}
-                    <li class="target"
+                    <li class="target list-group-item list-group-item-compact"
                         id="target_{{ relation.target.id }}"
                         uri="{{ relation.target.uri }}">
                         {% with relation.target.get_absolute_url as resource_url %}
                         {% if resource_url %}<a href="{{resource_url}}">{% endif %}{{ relation.target.name|truncatechars:100 }}{% if resource_url %}</a>{% endif %}
                         <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.target.entity_type.schema }}">{{ relation.target.entity_type.name }}</span>
                         {% endwith %}
+                        <span class="text-muted">from {{ relation.container.primary.name }}</span>
                     </li>
                     {% endfor %}
                 </dl>
@@ -110,7 +111,7 @@
                     <a class="btn btn-xs glyphicon glyphicon-list" href="{% url "resources" %}?predicate={{ predicate.id }}&target={{ entity.id }}&target_type={{ entity_type.id }}"></a>
                 </div>
                 {% for relation in relations %}
-                    <li class="source"
+                    <li class="source list-group-item list-group-item-compact"
                         id="source_{{ relation.source.id }}"
                         uri="{{ relation.source.uri }}">
                         {% with relation.source.get_absolute_url as resource_url %}
@@ -120,10 +121,10 @@
                           {% for i in relation.source.relations_from.all %}
                             <ul>
                               {% if i.predicate.name == 'Date' %}
-                                {{ i.predicate.name }}: {{ i.target.name }}
+                                <strong>{{ i.predicate.name }}</strong>: {{ i.target.name }}
                               {% endif %}
                               {% if i.predicate.name == 'Abstract' %}
-                                {{ i.predicate.name }}: {{ i.target.name }}
+                                <strong>{{ i.predicate.name }}</strong>: {{ i.target.name }}
                               {% endif %}
                             </ul>
                           {% endfor %}
@@ -142,22 +143,26 @@
             <div class="panel panel-default">
                 <div class="panel-heading clearfix">
                     <span class="h4">Similar entities</span>
+                    {% if can_edit %}
                     <div class="pull-right">
                         <a class="btn btn-success btn-xs" href="{% url "entity-merge" %}?entity={{ entity.id }}&{% for ent in similar_entities %}entity={{ent.id}}&{% endfor %}">Merge all</a>
                     </div>
+                    {% endif %}
 
                 </div>
                 <div class="list-group"  style="max-height: 600px; overflow-y: scroll;">
                     {% for ent in similar_entities %}
                     <li class="list-group-item">
                         <span class="btn-group">
+                            {% if can_edit %}
                             <a href="{% url "entity-merge" %}?entity={{entity.id}}&entity={{ent.id}}"
                                 class="btn btn-xs"
                                 data-toggle="tooltip"
                                 data-title="Merge entities">
                                 <i class="fa fa-compress" aria-hidden="true"></i>
                             </a>
-                            {% if entity.concept %}
+                            {% endif %}
+                            {% if entity.concept.id %}
                             <a class="btn btn-xs"
                                 data-toggle="tooltip"
                                 data-title="View linked concept">

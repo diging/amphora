@@ -5,13 +5,6 @@ from django.conf import settings
 from celery import Celery
 import os, sys
 
-try:
-    sys.path.append('/etc/jars')
-    from jars_config import env_settings
-    for key, value in env_settings:
-        os.environ[key] = value
-except ImportError:
-    pass
 
 # set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'jars.settings')
@@ -22,5 +15,5 @@ app = Celery('jars')
 # pickle the object when using Windows.
 app.config_from_object('django.conf:settings')
 app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
-app.conf.update(BROKER_URL=os.environ.get('REDIS_URL', 'redis://'),
-                CELERY_RESULT_BACKEND=os.environ.get('REDIS_URL', 'redis://'))
+app.conf.update(BROKER_URL=os.environ.get('REDIS_URL', 'redis://localhost:6379/1'),
+                CELERY_RESULT_BACKEND=os.environ.get('REDIS_URL', 'redis://localhost:6379/1'))

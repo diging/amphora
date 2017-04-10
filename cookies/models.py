@@ -178,6 +178,8 @@ class Resource(ResourceBase):
     external_source = models.CharField(max_length=2, choices=SOURCES,
                                        blank=True, null=True)
 
+    description = models.TextField(blank=True, null=True)
+
     @property
     def content_location(self):
         if self.content_resource:
@@ -218,8 +220,22 @@ class Resource(ResourceBase):
     def has_local_content(self):
         return self.content.filter(~Q(content_resource__file='')).count() > 0
 
+    OK = 'OK'
+    PROCESSING = 'PR'
+    ERROR = 'ER'
+    @property
+    def state(self):
+        if self.giles_uploads.count() == 0:
+            return Resource.OK
+        states = self.giles_uploads.values_list('state', flat=True)
+        if any(map(lambda s: s in GilesUpload.ERROR_STATES, states)):
+            return Resource.ERROR
+        if all(map(lambda s: s == GilesUpload.DONE, states)):
+            return Resource.OK
+        return Resource.PROCESSING
+
     def __unicode__(self):
-        return unicode(self.id)
+        return self.name.encode('utf-8')
 
 
 class Tag(models.Model):
@@ -269,6 +285,8 @@ class Collection(ResourceBase):
 
     part_of = models.ForeignKey('Collection', blank=True, null=True)
 
+    description = models.TextField(blank=True, null=True)
+
     def get_absolute_url(self):
         return reverse("collection", args=(self.id,))
 
@@ -276,6 +294,10 @@ class Collection(ResourceBase):
     def size(self):
         return self.resources.count()
 
+    @property
+    def resources(self):
+        return Resource.objects.filter(is_primary_for__part_of_id=self.id,
+                                       is_deleted=False)
 
 ### Types and Fields ###
 
@@ -301,13 +323,11 @@ class Type(models.Model):
     uri = models.CharField(max_length=255, blank=True, null=True,
         verbose_name='URI')
 
-    domain = models.ManyToManyField('Type', blank=True, null=True,
-                                    help_text=help_text(
-        """
-        The domain specifies the resource types to which this Type or Field can
-        apply. If no domain is specified, then this Type or Field can apply to
-        any resource.
-        """))
+    domain = models.ManyToManyField('Type', blank=True, help_text="The domain"
+                                    " specifies the resource types to which"
+                                    " this Type or Field can apply. If no"
+                                    " domain is specified, then this Type or"
+                                    " Field can apply to any resource.")
 
     schema = models.ForeignKey('Schema', related_name='types', blank=True, null=True)
     parent = models.ForeignKey('Type', related_name='children', blank=True, null=True)
@@ -330,11 +350,11 @@ class Field(models.Model):
     uri = models.CharField(max_length=255, blank=True, null=True,
         verbose_name='URI')
 
-    domain = models.ManyToManyField(
-        'Type', blank=True, null=True,
-        help_text='The domain specifies the resource types to which this Type'+\
-        ' or Field can apply. If no domain is specified, then this Type or'   +\
-        ' Field can apply to any resource.')
+    domain = models.ManyToManyField('Type', blank=True, help_text="The domain"
+                                    " specifies the resource types to which"
+                                    " this Type or Field can apply. If no"
+                                    " domain is specified, then this Type or"
+                                    " Field can apply to any resource.")
 
     schema = models.ForeignKey('Schema', related_name='fields', blank=True, null=True)
 
@@ -342,14 +362,12 @@ class Field(models.Model):
 
     description = models.TextField(blank=True, null=True)
 
-    range = models.ManyToManyField(
-        'Type', related_name='in_range_of', blank=True, null=True,
-        help_text=help_text(
-        """
-        The field's range specifies the resource types that are valid values
-        for this field. If no range is specified, then this field will accept
-        any value.
-        """))
+    range = models.ManyToManyField('Type', related_name='in_range_of',
+                                   blank=True, help_text="The field's range"
+                                   " specifies the resource types that are"
+                                   " valid values for this field. If no range"
+                                   " is specified, then this field will accept"
+                                   " any value.")
 
     def __unicode__(self):
         return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
@@ -367,7 +385,6 @@ class Value(models.Model):
     ``datetime`` objects.
     """
 
-    DEFAULT_AUTHS = ['view', 'change', 'add', 'delete']
     _value = models.TextField()
     _type = models.CharField(max_length=255, blank=True, null=True)
 
@@ -411,9 +428,6 @@ class Relation(Entity):
     predicate's :attr:`.Field.range` (unless the ``range`` is empty, in which
     case anything goes).
     """
-    DEFAULT_AUTHS = ['change_relation', 'view_relation',
-                     'delete_relation', 'change_authorizations',
-                     'view_authorizations']
 
     source_type = models.ForeignKey(ContentType, related_name='relations_from',
                                     on_delete=models.CASCADE)
@@ -436,6 +450,10 @@ class Relation(Entity):
             ('view_authorizations', 'View authorizations'),
         )
 
+        # Unless otherwise specified, relations will be displayed in order of
+        #  their creation (oldest first).
+        ordering = ['id',]
+
     def save(self, *args, **kwargs):
         self.name = uuid4()
         super(Relation, self).save(*args, **kwargs)
@@ -449,7 +467,7 @@ class ConceptEntity(Entity):
     objects = models.Manager()
     active = ActiveManager()
 
-    concept = models.ManyToManyField('concepts.Concept', null=True, blank=True)
+    concept = models.ManyToManyField('concepts.Concept', blank=True)
 
     belongs_to = models.ForeignKey('Collection',
                                    related_name='native_conceptentities',
@@ -520,6 +538,7 @@ class GilesUpload(models.Model):
     GILES_ERROR = 'GE'
     PROCESS_ERROR = 'PE'
     CALLBACK_ERROR = 'CE'
+    ERROR_STATES = (SEND_ERROR, GILES_ERROR, PROCESS_ERROR, CALLBACK_ERROR)
     STATES = (
         (PENDING, 'Pending'),      # Upload is ready to be dispatched.
         (ENQUEUED, 'Enqueued'),    # Dispatcher has created an upload task.
@@ -574,7 +593,7 @@ class ResourceContainer(models.Model):
 
 class CollectionAuthorization(models.Model):
     granted_by = models.ForeignKey(User, related_name='created_resource_auths')
-    granted_to = models.ForeignKey(User, related_name='resource_resource_auths')
+    granted_to = models.ForeignKey(User, related_name='resource_resource_auths', blank=True, null=True)
     for_resource = models.ForeignKey('Collection', related_name='authorizations')
     heritable = models.BooleanField(default=True,
                                     help_text="Policy applies to all resources"
@@ -607,9 +626,10 @@ class CollectionAuthorization(models.Model):
     policy = models.CharField(choices=POLICIES, max_length=2)
 
 
+
 class ResourceAuthorization(models.Model):
     granted_by = models.ForeignKey(User, related_name='created_collection_auths')
-    granted_to = models.ForeignKey(User, related_name='resource_collection_auths')
+    granted_to = models.ForeignKey(User, related_name='resource_collection_auths', blank=True, null=True)
     for_resource = models.ForeignKey('ResourceContainer',
                                      related_name='authorizations')
 

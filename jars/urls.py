@@ -17,6 +17,7 @@ router.register(r'collection', views_rest.CollectionViewSet)
 router.register(r'relation', views_rest.RelationViewSet)
 router.register(r'field', views_rest.FieldViewSet)
 router.register(r'concept', views_rest.ConceptViewSet)
+router.register(r'content', views_rest.ContentViewSet)
 
 
 urlpatterns = patterns('',
