@@ -165,7 +165,7 @@ FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'uploads')
 
 # Authentication.
 AUTHENTICATION_BACKENDS = (
-    'django.contrib.auth.backends.ModelBackend', # default
+    'jars.backends.AllowAllUsersModelBackend', # default
     'guardian.backends.ObjectPermissionBackend',
     'social_core.backends.github.GithubOAuth2',
 )
@@ -175,6 +175,7 @@ SOCIAL_AUTH_GITHUB_KEY = os.environ.get('SOCIAL_AUTH_GITHUB_KEY', None)
 SOCIAL_AUTH_GITHUB_SECRET = os.environ.get('SOCIAL_AUTH_GITHUB_SECRET', None)
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = BASE_URL
 SOCIAL_AUTH_GITHUB_SCOPE = ['user']
+SOCIAL_AUTH_INACTIVE_USER_URL = BASE_URL + 'inactive/'
 
 if not TEST and not DEVELOP:    # MySQL has a hard time with life.
     SOCIAL_AUTH_UID_LENGTH = 122
@@ -182,8 +183,8 @@ if not TEST and not DEVELOP:    # MySQL has a hard time with life.
     SOCIAL_AUTH_ASSOCIATION_SERVER_URL_LENGTH = 135
     SOCIAL_AUTH_ASSOCIATION_HANDLE_LENGTH = 125
 
-LOGIN_URL = BASE_URL + 'login/github/'
-LOGIN_REDIRECT_URL = 'index'
+LOGIN_URL = BASE_URL
+LOGIN_REDIRECT_URL = BASE_URL + 'dashboard/'
 
 # Giles and HTTP.
 GILES = os.environ.get('GILES', 'https://diging-dev.asu.edu/giles-review')

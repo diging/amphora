@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load pagination_tags %}
+{% load addcss %}
+{% load breadcrumbs %}
+{% load authorization %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid">
+    <div class="h3">Almost there!</div>
+    <p>
+        If you've reached this page after logging in, it means that your account
+        has not yet been activated. Please contact the administrator at
+        <a href="mailto:{{ admin_email }}">{{ admin_email }}</a> to request
+        account activation.
+    </p>
+</div>
+
+{% endblock %}

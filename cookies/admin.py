@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.forms.models import inlineformset_factory
 from django.http import HttpResponseRedirect
-from django.conf.urls import patterns, include, url
+from django.conf.urls import include, url
 from django.shortcuts import render
 from django.core.urlresolvers import reverse
 from django.utils.translation import ugettext_lazy as _
@@ -224,53 +224,7 @@ class ContentInline(admin.TabularInline):
 
 
 
-class ResourceAdmin(admin.ModelAdmin):
-    """
-    Admin interface for managing :class:`.Resource`\s.
 
-    The main objective is to support adding/changing :class:`.Relation`\s for
-    these :class:`.Resource`\s. This should be used by subclasses of
-    :class:`.Resource` and NOT :class:`.Resource` itself.
-    """
-
-    inlines = (ContentInline,)
-    form = ResourceForm
-    model = Resource
-
-    def get_queryset(self, request):
-        return Resource.objects.all()
-
-    def bulk_view(self, request, **kwargs):
-        """
-        View for bulk uploads.
-        """
-
-        if request.method == 'POST':
-            form = BulkResourceForm(request.POST, request.FILES)
-            if form.is_valid():
-                try:
-                    handle_bulk.delay(request.FILES['file'].temporary_file_path(), {k: v for k, v in form.cleaned_data.iteritems() if k != 'file'})
-                except ConnectionError:
-                    logger.error("resource_post_save: there was an error connecting to"
-                                 " the redis message passing backend.")
-                return HttpResponseRedirect(reverse("admin:cookies_resource_changelist"))
-
-        else:
-            form = BulkResourceForm()
-
-            return render(request, 'admin/generic_form.html', {'form':form})
-
-    def get_urls(self):
-        """
-        Here we override the add view to use a :class:`.ChooseResourceTypeForm`
-        which, when submitted, redirects to the appropriate add view for a
-        subclass of :class:`.Resource`\.
-        """
-        urls = super(ResourceAdmin, self).get_urls()
-        my_urls = patterns('',
-            url(r'^bulk/$', self.bulk_view, name='bulk-resource')
-        )
-        return my_urls + urls
 
 
 class CollectionAdmin(admin.ModelAdmin):
@@ -455,7 +409,6 @@ admin.site.register(Type, TypeAdmin)
 admin.site.register(Field, FieldAdmin)
 admin.site.register(Schema, SchemaAdmin)
 
-admin.site.register(Resource, ResourceAdmin)
 admin.site.register(Collection, CollectionAdmin)
 admin.site.register(ContentRelation)
 admin.site.register(ConceptEntity)
