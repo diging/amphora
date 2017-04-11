@@ -229,3 +229,4 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 #  Giles.
 DELETE_LOCAL_FILES = True
 APPEND_SLASH = True    # Rewrite URLs that lack a slash.
+USE_THOUSAND_SEPARATOR = True

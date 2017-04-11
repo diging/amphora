@@ -28,12 +28,20 @@ def logout_view(request):
 @login_required
 def dashboard(request):
     qs = GilesUpload.objects.filter(created_by=request.user)
+    resources = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
+                                  ResourceContainer.active.all())
+    filtered_resources = ResourceContainerFilter({'created_by': request.user.id}, queryset=resources)
+
     context = {
         'uploads_pending': qs.filter(state=GilesUpload.PENDING).count(),
         'uploads_enqueued': qs.filter(state=GilesUpload.ENQUEUED).count(),
+        'uploads_send_error': qs.filter(state=GilesUpload.SEND_ERROR).count(),
+        'uploads_giles_error': qs.filter(state=GilesUpload.GILES_ERROR).count(),
         'uploads_sent': qs.filter(state=GilesUpload.SENT).count(),
+        'uploads_process_error': qs.filter(state=GilesUpload.PROCESS_ERROR).count(),
+        'uploads_callback_error': qs.filter(state=GilesUpload.CALLBACK_ERROR).count(),
         'uploads_done': qs.filter(state=GilesUpload.DONE).count(),
-
+        'resources': filtered_resources.qs.order_by('-created')[:5],
     }
     return render(request, 'dashboard.html', context)
 

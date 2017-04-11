@@ -147,7 +147,7 @@ def check_giles_uploads():
         upload.save()
 
     q = Q(last_checked__gte=timezone.now() - timedelta(seconds=300)) | Q(last_checked=None)
-    for upload_id, username in GilesUpload.objects.filter(state=GilesUpload.SENT).filter(q).values_list('upload_id', 'created_by__username')[:50]:
+    for upload_id, username in GilesUpload.objects.filter(state=GilesUpload.SENT).filter(q).values_list('upload_id', 'created_by__username')[:200]:
         print '::: checking upload status for %s :::' % upload_id
         check_giles_upload.delay(upload_id, username)
 
