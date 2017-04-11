@@ -18,6 +18,7 @@ router.register(r'relation', views_rest.RelationViewSet)
 router.register(r'field', views_rest.FieldViewSet)
 router.register(r'concept', views_rest.ConceptViewSet)
 router.register(r'content', views_rest.ContentViewSet)
+router.register(r'schema', views_rest.SchemaViewSet)
 
 
 urlpatterns = patterns('',
@@ -72,6 +73,8 @@ urlpatterns = patterns('',
     url(r'^entity/([0-9]+)/prune/$', views.conceptentity.entity_prune, name="entity-prune"),
     url(r'^entity/([0-9]+)/relations/([0-9]+)/edit/$', views.conceptentity.entity_edit_relation_as_table, name="entity-edit-relation-as-table"),
 
+    url(r'^giles/log/$', views.giles.log, name="giles-log"),
+    url(r'^giles/log/([0-9A-Za-z]+)/$', views.giles.log_item, name="giles-log-item"),
     url(r'^giles/test/$', views.giles.test_giles, name='giles-test'),
     url(r'^giles/test/configuration/$', views.giles.test_giles_configuration, name='giles-test-configuration'),
     url(r'^giles/test/up/$', views.giles.test_giles_is_up, name='giles-test-is-up'),

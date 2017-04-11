@@ -42,6 +42,14 @@ def dashboard(request):
         'uploads_callback_error': qs.filter(state=GilesUpload.CALLBACK_ERROR).count(),
         'uploads_done': qs.filter(state=GilesUpload.DONE).count(),
         'resources': filtered_resources.qs.order_by('-created')[:5],
+        'PENDING': GilesUpload.PENDING,
+        'ENQUEUED': GilesUpload.ENQUEUED,
+        'SENT': GilesUpload.SENT,
+        'DONE': GilesUpload.DONE,
+        'SEND_ERROR': GilesUpload.SEND_ERROR,
+        'PROCESS_ERROR': GilesUpload.PROCESS_ERROR,
+        'GILES_ERROR': GilesUpload.GILES_ERROR,
+        'CALLBACK_ERROR': GilesUpload.CALLBACK_ERROR
     }
     return render(request, 'dashboard.html', context)
 

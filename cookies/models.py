@@ -442,6 +442,8 @@ class Relation(Entity):
     target_instance_id = models.PositiveIntegerField(blank=True, null=True)
     target = GenericForeignKey('target_type', 'target_instance_id')
 
+    data_source = models.CharField(max_length=1000, blank=True, null=True)
+
     class Meta:
         verbose_name = 'metadata relation'
         permissions = (

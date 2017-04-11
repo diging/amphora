@@ -102,6 +102,7 @@ def entity_edit_relation_as_table(request, entity_id, predicate_id):
     """
     Edit a :class:`.ConceptEntity` instance.
     """
+    next_page = request.GET.get('next')
     entity = _get_entity_by_id(request, entity_id)
     predicate = get_object_or_404(Field, pk=predicate_id)
     entity_ctype = ContentType.objects.get_for_model(ConceptEntity)
@@ -121,29 +122,34 @@ def entity_edit_relation_as_table(request, entity_id, predicate_id):
                         'value': relation.target.name,
                         'type': relation.target._type,
                         'model': 'Value',
-                        'source': ''
+                        'data_source': relation.data_source
                     })
             return JsonResponse(data)
+
+
         elif request.method == 'POST':
             relation_id = request.POST.get('id')
+            action = request.POST.get('action', 'update')
             target_model = request.POST.get('model')
             target_value = request.POST.get('value')
             target_type = request.POST.get('type')
-            print request.POST
-            print target_model, target_value, target_type
+            relation_data_source = request.POST.get('data_source')
+
+
             if relation_id:    # Update
                 relation_instance = Relation.objects.get(pk=relation_id)
-                print relation_instance.predicate, predicate
                 assert relation_instance.predicate == predicate
+                if action == 'delete':
+                    relation_instance.delete()
+                    return JsonResponse({})
             else:    # Create
-                relation_instance = Relation(source=entity, predicate=predicate)   # Unsaved!
+                relation_instance = Relation(source=entity, predicate=predicate, container=entity.container)   # Unsaved!
 
             if target_model == 'Value':
                 if relation_id:    # We can re-use the Value instance.
                     target_instance = relation_instance.target
                 else:
                     target_instance = Value.objects.create()
-
                 if target_type in ['unicode', 'str', 'int', 'float']:
                     target_instance.name = eval(target_type)(target_value)
                 elif target_type == 'datetime':
@@ -157,13 +163,21 @@ def entity_edit_relation_as_table(request, entity_id, predicate_id):
                 target_instance = ConceptEntity.objects.get(pk=int(target_value))
 
             relation_instance.target = target_instance
+            relation_instance.data_source = relation_data_source
             relation_instance.save()
-
+            return JsonResponse({
+                'id': relation_instance.id,
+                'value': relation_instance.target.name,
+                'type': relation_instance.target._type,
+                'model': target_model,
+                'data_source': relation_instance.data_source
+            })
 
     context = {
         'entity': entity,
         'predicate': predicate,
-        'relations': relations
+        'relations': relations,
+        'next': next_page
     }
     return render(request, 'entity_edit_relation_as_table.html', context)
 

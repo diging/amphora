@@ -11,7 +11,7 @@ from rest_framework.decorators import detail_route, list_route, api_view, parser
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.authentication import TokenAuthentication
 from rest_framework import pagination
-
+import django_filters
 
 from guardian.shortcuts import get_objects_for_user
 from django.db.models import Q
@@ -103,10 +103,18 @@ class ConceptSerializer(serializers.HyperlinkedModelSerializer):
         fields = ('id', 'uri', 'label', 'description', 'authority')
 
 
+class SchemaSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Schema
+        fields = ('id', 'name')
+
+
 class FieldSerializer(serializers.HyperlinkedModelSerializer):
+    schema = SchemaSerializer()
+
     class Meta:
         model = Field
-        fields = ('id', 'name')
+        fields = ('id', 'name', 'schema', 'uri', 'description')
 
 
 class TargetResourceSerializer(serializers.ModelSerializer):
@@ -272,10 +280,26 @@ class RelationViewSet(viewsets.ModelViewSet):
         return authorization.apply_filter(ResourceAuthorization.VIEW, self.request.user, qs)
 
 
+
+class FieldFilter(django_filters.rest_framework.FilterSet):
+    name = django_filters.CharFilter(lookup_expr='istartswith')
+    class Meta:
+        model = Field
+        fields = ['name', 'schema']
+
+
+class SchemaViewSet(viewsets.ModelViewSet):
+    parser_classes = (JSONParser,)
+    queryset = Schema.objects.all()
+    serializer_class = SchemaSerializer
+
+
 class FieldViewSet(viewsets.ModelViewSet):
     parser_classes = (JSONParser,)
     queryset = Field.objects.all()
     serializer_class = FieldSerializer
+    filter_backends = (django_filters.rest_framework.DjangoFilterBackend,)
+    filter_class = FieldFilter
 
 
 class ResourceViewSet(MultiSerializerViewSet):

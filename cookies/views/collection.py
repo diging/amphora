@@ -112,6 +112,7 @@ def collection(request, obj_id):
     collection = _get_collection_by_id(request, obj_id)
 
     resources = ResourceContainerFilter(request.GET, queryset=collection.resourcecontainer_set.all())
+    print resources.qs
     # CollectionFilter(request.GET, queryset=qset_collections)
     collections = Collection.objects.filter(part_of=collection)
     context = {

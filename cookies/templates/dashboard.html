@@ -25,6 +25,18 @@
 .data-small {
     font-size: 0.5em;
 }
+.btn-hg {
+    font-size: 1em;
+    color: #333;
+}
+.btn-hg p {
+    margin-bottom: 0px;
+}
+
+.btn-hg:hover {
+    color: #666;
+}
+
 .panel-heading .toggle:after {
     /* symbol for "opening" panels */
     font-family: 'Glyphicons Halflings';  /* essential for enabling glyphicon */
@@ -48,31 +60,53 @@
       <div class="panel panel-default">
         <div class="panel-heading">
           <h4 class="panel-title">
-            <a class="toggle collapsed" data-toggle="collapse" href="#collapse-data">Giles Upload Statistics</a>
+            <a class="toggle" data-toggle="collapse" href="#collapse-data">Giles Upload Statistics</a>
           </h4>
         </div>
-        <div id="collapse-data" class="panel-collapse collapse">
+        <div id="collapse-data" class="panel-collapse collapse in">
               <div class="row text-center data-row">
                   <div class="col-sm-3">
-                      <span class="data-value">{{ uploads_pending }}</span>
-                      <p>Pending</p>
+                      <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ PENDING }}">
+                          <span class="data-value">{{ uploads_pending }}</span>
+                          <p>Pending</p>
+                      </a>
                   </div>
                   <div class="col-sm-3">
-                      <span class="data-value">{{ uploads_enqueued }}</span>
-                      <p>Enqueued</p>
-                      <p class="data-small"><span class="text-danger">{{ uploads_send_error }}</span> sending failed</p>
+                      <div>
+                          <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ ENQUEUED }}">
+                              <span class="data-value">{{ uploads_enqueued }}</span>
+                              <p>Enqueued</p>
+                          </a>
+                      </div>
+                      <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ SEND_ERROR }}">
+                          <p class="data-small"><span class="text-danger">{{ uploads_send_error }}</span> sending failed</p>
+                      </a>
                   </div>
                   <div class="col-sm-3">
-                      <span class="data-value">{{ uploads_sent }}</span>
-                      <p>Sent</p>
-                      <p class="data-small"><span class="text-danger">{{ uploads_giles_error }}</span> Giles encountered an error</p>
+                      <div>
+                          <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ SENT }}">
+                              <span class="data-value">{{ uploads_sent }}</span>
+                              <p>Sent</p>
+                          </a>
+                      </div>
+                      <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ GILES_ERROR }}">
+                          <p class="data-small"><span class="text-danger">{{ uploads_giles_error }}</span> Giles encountered an error</p>
+                      </a>
 
                   </div>
                   <div class="col-sm-3">
-                      <span class="data-value">{{ uploads_done }}</span>
-                      <p>Done</p>
-                      <p class="data-small"><span class="text-danger">{{ uploads_process_error }}</span> failed to parse response</p>
-                      <p class="data-small"><span class="text-danger">{{ uploads_callback_error }}</span> post-processing error</p>
+                       <div>
+                           <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ DONE }}">
+                              <span class="data-value">{{ uploads_done }}</span>
+                              <p>Done</p>
+                          </a>
+                      </div>
+                      <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ PROCESS_ERROR }}">
+                          <p class="data-small"><span class="text-danger">{{ uploads_process_error }}</span> failed to parse response</p>
+                      </a>
+                      <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ CALLBACK_ERROR }}">
+                          <p class="data-small"><span class="text-danger">{{ uploads_callback_error }}</span> post-processing error</p>
+                      </a>
                   </div>
               </div>
         </div>

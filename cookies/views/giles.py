@@ -11,6 +11,11 @@ from cookies import authorization as auth
 from cookies.models import *
 from cookies.forms import ChooseCollectionForm
 from cookies import giles
+from cookies.filters import GilesUploadFilter
+
+
+def _get_upload_by_id(request, upload_id, *args):
+    return get_object_or_404(GilesUpload, pk=upload_id)
 
 
 @login_required
@@ -213,3 +218,22 @@ def test_giles_cleanup(request):
     except GilesUpload.DoesNotExist:
         pass
     return JsonResponse({'status': 'ok'})
+
+
+@login_required
+def log(request):
+    qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
+                           GilesUpload.objects.all())
+
+    filtered_objects = GilesUploadFilter(request.GET, queryset=qs)
+
+    context = {
+        'filtered_objects': filtered_objects
+    }
+    return render(request, 'giles_log.html', context)
+
+
+@auth.authorization_required(ResourceAuthorization.VIEW, _get_upload_by_id)
+def log_item(request, upload_id):
+    upload = get_object_or_404(GilesUpload, pk=upload_id)
+    return render(request, 'giles_log_item.html', {'upload': upload})
