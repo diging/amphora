@@ -98,6 +98,73 @@ def entity_merge(request):
 
 
 @auth.authorization_required(ResourceAuthorization.EDIT, _get_entity_by_id)
+def entity_edit_relation_as_table(request, entity_id, predicate_id):
+    """
+    Edit a :class:`.ConceptEntity` instance.
+    """
+    entity = _get_entity_by_id(request, entity_id)
+    predicate = get_object_or_404(Field, pk=predicate_id)
+    entity_ctype = ContentType.objects.get_for_model(ConceptEntity)
+    relations = Relation.objects.filter(source_type=entity_ctype,
+                                        source_instance_id=entity_id,
+                                        predicate=predicate,
+                                        hidden=False)
+
+    request_format = request.GET.get('format')
+    if request_format == 'json':
+        if request.method == 'GET':
+            data = {'relations': []}
+            for relation in relations:
+                if isinstance(relation.target, Value):
+                    data['relations'].append({
+                        'id': relation.target.id,
+                        'value': relation.target.name,
+                        'type': relation.target._type,
+                        'model': 'Value'
+                    })
+            return JsonResponse(data)
+        elif request.method == 'POST':
+            relation_id = request.POST.get('id')
+            target_model = request.POST.get('model')
+            target_value = request.POST.get('value')
+            target_type = request.POST.get('type')
+
+            if target_id:    # Update
+                relation_instance = Relation.objects.get(pk=relation_id)
+                assert relation_instance.predicate == predicate
+            else:    # Create
+                relation_instance = Relation(source=entity, predicate=predicate)   # Unsaved!
+
+            if target_model == 'Value':
+                if target_id:    # We can re-use the Value instance.
+                    target_instance = relation_instance.target
+                else:
+                    target_instance = Value.objects.create()
+
+                if target_type in ['unicode', 'str', 'int', 'float']:
+                    target_instance.name = eval(target_type)(target_value)
+                elif target_type == 'datetime':
+                    target_instance.name = iso8601.parse_date(target_value)
+                elif target_type == 'date':
+                    target_instance.name = iso8601.parse_date(target_value).date
+            elif target_model == 'Resource':
+                target_instance = Resource.objects.get(pk=int(target_value))
+            elif target_model == 'Entity':
+                target_instance = ConceptEntity.objects.get(pk=int(target_value))
+
+            relation_instance.target = target_instance
+            relation_instance.save()
+
+
+    context = {
+        'entity': entity,
+        'predicate': predicate,
+        'relations': relations
+    }
+    return render(request, 'entity_edit_relation_as_table.html', context)
+
+
+@auth.authorization_required(ResourceAuthorization.EDIT, _get_entity_by_id)
 def entity_change(request, entity_id):
     """
     Edit a :class:`.ConceptEntity` instance.

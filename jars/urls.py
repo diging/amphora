@@ -70,6 +70,7 @@ urlpatterns = patterns('',
     url(r'^entity/([0-9]+)/change/concept/add/$', views.conceptentity.entity_add_concept, name='entity-add-concept'),
     url(r'^entity/([0-9]+)/change/concept/remove/$', views.conceptentity.entity_remove_concept, name='entity-remove-concept'),
     url(r'^entity/([0-9]+)/prune/$', views.conceptentity.entity_prune, name="entity-prune"),
+    url(r'^entity/([0-9]+)/relations/([0-9]+)/edit/$', views.conceptentity.entity_edit_relation_as_table, name="entity-edit-relation-as-table"),
 
     url(r'^giles/test/$', views.giles.test_giles, name='giles-test'),
     url(r'^giles/test/configuration/$', views.giles.test_giles_configuration, name='giles-test-configuration'),

@@ -88,7 +88,12 @@
             {% if relations_from|length > 0 %}
             <div class="resource_relations panel">
                 {% for predicate, relations in relations_from %}
-                <div class="h4 panel-heading">{{ predicate }}</div>
+                <div class="h4 panel-heading">{{ predicate }}
+                    <div class="pull-right btn-group">
+                        <a class="btn btn-xs glyphicon glyphicon-pencil"
+                            href="{% url "entity-edit-relation-as-table" entity.id predicate.id %}"></a>
+                    </div>
+                </div>
                 {% for relation in relations %}
                     <li class="target list-group-item list-group-item-compact"
                         id="target_{{ relation.target.id }}"

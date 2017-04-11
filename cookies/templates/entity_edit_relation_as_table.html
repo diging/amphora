@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+{% load addcss %}
+
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Entities' 'entity-list' %}
+    {% breadcrumb_url entity.name 'entity-details' entity.id %}
+    {% breadcrumb_url 'Edit' 'entity-change' entity.id %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="h2">Edit entity</div>
+<p class="text-info">
+    Use the table below to add or edit relation information about this entity.
+    Each row in the table represents a separate relation. Use the <strong>source</strong>
+    column to indicate how you came to know this fact about the entity.
+</p>
+
+<form class="form" method="POST" action=".">
+    <table class="table table-compact table-responsive">
+        <thead>
+            <tr>
+                <th class="col-xs-1"></th>
+                <th class="col-xs-6">Value</th>
+                <th class="col-xs-5">Source</th>
+        </thead>
+        <tbody>
+            {% for relation in relations %}
+            <tr>
+                <td></td>
+                <td>{{ relation.target }}</td>
+                <td></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</form>
+
+
+
+{% endblock %}

@@ -140,11 +140,11 @@ def check_giles_uploads():
     from datetime import datetime, timedelta
     from django.utils import timezone
 
-    for upload in GilesUpload.objects.filter(state=GilesUpload.PENDING)[:10]:
-        print '::: adding %s to Giles upload queue :::' % upload.id
-        send_to_giles.delay(upload.id, upload.created_by)
-        upload.state = GilesUpload.ENQUEUED
-        upload.save()
+    # for upload in GilesUpload.objects.filter(state=GilesUpload.PENDING)[:10]:
+    #     print '::: adding %s to Giles upload queue :::' % upload.id
+    #     send_to_giles.delay(upload.id, upload.created_by)
+    #     upload.state = GilesUpload.ENQUEUED
+    #     upload.save()
 
     q = Q(last_checked__gte=timezone.now() - timedelta(seconds=300)) | Q(last_checked=None)
     for upload_id, username in GilesUpload.objects.filter(state=GilesUpload.SENT).filter(q).values_list('upload_id', 'created_by__username')[:200]:
