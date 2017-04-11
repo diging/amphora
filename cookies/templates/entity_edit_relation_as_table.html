@@ -4,6 +4,13 @@
 {% load breadcrumbs %}
 {% load addcss %}
 
+{% block extrahead %}
+<script src="{% static "cookies/js/vue.min.js" %}"></script>
+<script src="{% static "cookies/js/tiny-cookie.min.js" %}"></script>
+
+<script src="https://cdn.jsdelivr.net/vue.resource/1.2.1/vue-resource.min.js"></script>
+{% endblock %}
+
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
@@ -15,33 +22,129 @@
 {% endblock %}
 
 {% block content %}
-<div class="h2">Edit entity</div>
+<div class="h3">Edit <span class="text-warning">{{ predicate.schema.name }}: {{ predicate.name }}</span> relations for <span class="text-warning">{{ entity.name }}</a></div>
 <p class="text-info">
     Use the table below to add or edit relation information about this entity.
-    Each row in the table represents a separate relation. Use the <strong>source</strong>
+    Each row in the table represents a separate <span class="text-warning">{{ predicate.schema.name }}: {{ predicate.name }}</span> relation. Use the <strong>source</strong>
     column to indicate how you came to know this fact about the entity.
 </p>
 
-<form class="form" method="POST" action=".">
-    <table class="table table-compact table-responsive">
-        <thead>
-            <tr>
-                <th class="col-xs-1"></th>
-                <th class="col-xs-6">Value</th>
-                <th class="col-xs-5">Source</th>
-        </thead>
-        <tbody>
-            {% for relation in relations %}
-            <tr>
-                <td></td>
-                <td>{{ relation.target }}</td>
-                <td></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</form>
+<div id="relation-editor"></div>
+
+<script>
+
+Vue.http.headers.common['X-CSRFTOKEN'] = Cookie.get('csrftoken');
 
 
+var RelationRow = {
+    props: ['relation'],
+    data: function() {
+        return {
+            selected: false,
+            value: null,
+            source: "",
+            changed: false
+        }
+    },
+    mounted: function() {
+        this.value = this.relation.value;
+    },
+    template: `<tr>
+        <td>
+            <input class="form-control" type="text" v-model="value" />
+        </td>
+        <td>
+            <input class="form-control" type="text" v-model="source" />
+        </td>
+        <td>
+            <a v-bind:class="{
+                        btn: true,
+                        'btn-success': isChanged(),
+                        'btn-default': !isChanged()
+                    }"
+                    v-bind:disabled="!isChanged()"
+                    v-on:click="save">
+                <span class="glyphicon glyphicon-floppy-save"></span>
+            </a>
+        </td>
+    </tr>`,
+    methods: {
+        isChanged: function() {
+            return (this.value != this.relation.value || this.source != this.relation.source);
+        },
+        save: function() {
+            this.$emit('save', {
+                'id': this.relation.id,
+                'model': this.relation.model,
+                'type': this.relation.type,
+                'value': this.value,
+                'source': this.source
+            });
+        }
+    }
+}
+
+var RelationEditor = new Vue({
+    el: "#relation-editor",
+    components: {
+        'relation-row': RelationRow
+    },
+    data: function() {
+        return {
+            relations: []
+        }
+    },
+    template: `
+        <table class="table table-compact table-responsive">
+            <thead>
+                <tr>
+                    <th class="col-xs-6">Value</th>
+                    <th class="col-xs-5">Source</th>
+                    <th class="col-xs-1"></th>
+            </thead>
+            <tbody>
+                <relation-row
+                    v-for="relation in relations"
+                    v-bind:relation=relation
+                    v-on:save="saveRelation">
+                </relation-row>
+                <tr>
+                    <td colspan="2"></td>
+                    <td>
+                        <a class="btn btn-primary" v-on:click="newRelation"><span class="glyphicon glyphicon-plus"></span></a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>`,
+    mounted: function() {
+        this.updateRelations();
+    },
+    methods: {
+        updateRelations: function() {
+            var self = this;
+            this.$http.get('?format=json').then(function(response) {
+                console.log(response);
+                self.relations = response.body.relations;
+            });
+        },
+        saveRelation: function(data) {
+            console.log(data);
+            var self = this;
+            this.$http.post('?format=json', data, {emulateJSON: true}).then(function(response) {
+                // self.updateRelations();
+            });
+        },
+        newRelation: function() {
+            this.relations.push({
+                id: null,
+                value: null,
+                model: "Value",
+                type: "unicode"
+            })
+        }
+    }
+});
+
+</script>
 
 {% endblock %}

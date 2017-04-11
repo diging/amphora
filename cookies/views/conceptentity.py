@@ -117,10 +117,11 @@ def entity_edit_relation_as_table(request, entity_id, predicate_id):
             for relation in relations:
                 if isinstance(relation.target, Value):
                     data['relations'].append({
-                        'id': relation.target.id,
+                        'id': relation.id,
                         'value': relation.target.name,
                         'type': relation.target._type,
-                        'model': 'Value'
+                        'model': 'Value',
+                        'source': ''
                     })
             return JsonResponse(data)
         elif request.method == 'POST':
@@ -128,15 +129,17 @@ def entity_edit_relation_as_table(request, entity_id, predicate_id):
             target_model = request.POST.get('model')
             target_value = request.POST.get('value')
             target_type = request.POST.get('type')
-
-            if target_id:    # Update
+            print request.POST
+            print target_model, target_value, target_type
+            if relation_id:    # Update
                 relation_instance = Relation.objects.get(pk=relation_id)
+                print relation_instance.predicate, predicate
                 assert relation_instance.predicate == predicate
             else:    # Create
                 relation_instance = Relation(source=entity, predicate=predicate)   # Unsaved!
 
             if target_model == 'Value':
-                if target_id:    # We can re-use the Value instance.
+                if relation_id:    # We can re-use the Value instance.
                     target_instance = relation_instance.target
                 else:
                     target_instance = Value.objects.create()
@@ -147,6 +150,7 @@ def entity_edit_relation_as_table(request, entity_id, predicate_id):
                     target_instance.name = iso8601.parse_date(target_value)
                 elif target_type == 'date':
                     target_instance.name = iso8601.parse_date(target_value).date
+                target_instance.save()
             elif target_model == 'Resource':
                 target_instance = Resource.objects.get(pk=int(target_value))
             elif target_model == 'Entity':
