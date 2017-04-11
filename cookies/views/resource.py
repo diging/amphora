@@ -29,10 +29,11 @@ def resource(request, obj_id):
 
     # Get a fresh Giles auth token, if needed.
     giles.get_user_auth_token(resource.created_by, fresh=True)
-
+    preview = request.GET.get('preview')
     context = {
         'resource':resource,
         'request': request,
+        'preview_content': preview,
         'part_of': resource.container.part_of,
         'relations_from': resource.relations_from.filter(is_deleted=False),
         'content_relations': resource.content.filter(is_deleted=False),

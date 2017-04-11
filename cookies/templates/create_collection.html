@@ -14,6 +14,7 @@
 {% endblock %}
 
 {% block content %}
+<div class="container-fluid">
 <form class="form" action="{% if next %}?next={{ next }}{% else %}.{% endif %}" method="POST">
    {% csrf_token %}
    {% for error in form.non_field_errors %}

@@ -16,6 +16,79 @@
 
 {% block content %}
 
-{{ form }}
+<div class="container-fluid">
+<form class="form" action="{% if next %}?next={{ next }}{% else %}.{% endif %}" method="POST">
+   {% csrf_token %}
+   {% for error in form.non_field_errors %}
+   <div class="alert alert-warning">{{ error }}</div>
+   {% endfor %}
+
+   {% with form.name as field %}
+   <div class="form-group">
+      {% for error in field.errors %}
+      <div class="alert alert-warning">{{ error }}</div>
+      {% endfor %}
+      <label>{{ field.label }}</label>
+      {{ field|addcss:"form-control" }}
+      <p class="text-muted">{{ field.help_text }}</p>
+   </div>
+   {% endwith %}
+
+   <div class="row">
+       <div class="col-sm-4">
+           {% with form.public as field %}
+           <div class="form-group">
+              {% for error in field.errors %}
+              <div class="alert alert-warning">{{ error }}</div>
+              {% endfor %}
+              <label>{{ field.label }}</label>
+              {{ field|addcss:"form-control" }}
+              <p class="text-muted">{{ field.help_text }}</p>
+           </div>
+           {% endwith %}
+       </div>
+       <div class="col-sm-4">
+           {% with form.part_of as field %}
+           <div class="form-group">
+              {% for error in field.errors %}
+              <div class="alert alert-warning">{{ error }}</div>
+              {% endfor %}
+              <label>Parent Collection</label>
+              {{ field|addcss:"form-control" }}
+              <p class="text-muted">{{ field.help_text }}</p>
+           </div>
+           {% endwith %}
+       </div>
+       <div class="col-sm-4">
+           {% with form.uri as field %}
+           <div class="form-group">
+              {% for error in field.errors %}
+              <div class="alert alert-warning">{{ error }}</div>
+              {% endfor %}
+              <label>URI</label>
+              {{ field|addcss:"form-control" }}
+              <p class="text-muted">{{ field.help_text }}</p>
+           </div>
+           {% endwith %}
+       </div>
+   </div>
+   {% with form.description as field %}
+   <div class="form-group">
+      {% for error in field.errors %}
+      <div class="alert alert-warning">{{ error }}</div>
+      {% endfor %}
+      <label>Description</label>
+      {{ field|addcss:"form-control" }}
+      <p class="text-muted">{{ field.help_text }}</p>
+   </div>
+   {% endwith %}
+
+
+   <div class="text-right">
+      <input class="btn btn-success" type="submit" value="Save">
+   </div>
+</form>
+</div>
+
 
 {% endblock %}

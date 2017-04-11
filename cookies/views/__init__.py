@@ -25,9 +25,17 @@ def logout_view(request):
     return HttpResponseRedirect(request.GET.get('next', reverse('index')))
 
 
+@login_required
 def dashboard(request):
-    print request.user.is_authenticated(), request.user.is_active, request.user
-    return HttpResponse('Hello!')
+    qs = GilesUpload.objects.filter(created_by=request.user)
+    context = {
+        'uploads_pending': qs.filter(state=GilesUpload.PENDING).count(),
+        'uploads_enqueued': qs.filter(state=GilesUpload.ENQUEUED).count(),
+        'uploads_sent': qs.filter(state=GilesUpload.SENT).count(),
+        'uploads_done': qs.filter(state=GilesUpload.DONE).count(),
+
+    }
+    return render(request, 'dashboard.html', context)
 
 
 def inactive(request):

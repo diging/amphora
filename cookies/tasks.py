@@ -98,7 +98,7 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
         if form_data.get('public') and not public_policy:
             ResourceAuthorization.objects.create(granted_by=creator,
                                                  granted_to=None,
-                                                 for_resource=resource,
+                                                 for_resource=resource.container,
                                                  policy=ResourceAuthorization.ALLOW,
                                                  action=ResourceAuthorization.VIEW)
         resource.container.save()
@@ -140,13 +140,14 @@ def check_giles_uploads():
     from datetime import datetime, timedelta
     from django.utils import timezone
 
-    for upload in GilesUpload.objects.filter(state=GilesUpload.PENDING):
+    for upload in GilesUpload.objects.filter(state=GilesUpload.PENDING)[:10]:
         print '::: adding %s to Giles upload queue :::' % upload.id
         send_to_giles.delay(upload.id, upload.created_by)
         upload.state = GilesUpload.ENQUEUED
         upload.save()
 
-    for upload_id, username in GilesUpload.objects.filter(state=GilesUpload.SENT).filter(Q(last_checked__gte=timezone.now() - timedelta(seconds=120)) | Q(last_checked=None)).values_list('upload_id', 'created_by__username'):
+    q = Q(last_checked__gte=timezone.now() - timedelta(seconds=300)) | Q(last_checked=None)
+    for upload_id, username in GilesUpload.objects.filter(state=GilesUpload.SENT).filter(q).values_list('upload_id', 'created_by__username')[:50]:
         print '::: checking upload status for %s :::' % upload_id
         check_giles_upload.delay(upload_id, username)
 
