@@ -120,7 +120,7 @@ class ResourceBase(Entity):
     content_resource = models.BooleanField(default=False)
 
     file = models.FileField(upload_to=_resource_file_name, blank=True,
-                            null=True, help_text=help_text(
+                            null=True, max_length=2000, help_text=help_text(
         """
         Drop a file onto this field, or click "Choose File" to select a file on
         your computer.
