@@ -114,7 +114,7 @@ def collection(request, obj_id):
     resources = ResourceContainerFilter(request.GET, queryset=collection.resourcecontainer_set.all())
     print resources.qs
     # CollectionFilter(request.GET, queryset=qset_collections)
-    collections = Collection.objects.filter(part_of=collection)
+    collections = Collection.objects.filter(part_of=collection, hidden=False)
     context = {
         'filtered_objects': resources,
         # 'filtered_objects': filtered_objects,
