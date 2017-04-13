@@ -540,6 +540,7 @@ class GilesUpload(models.Model):
     GILES_ERROR = 'GE'
     PROCESS_ERROR = 'PE'
     CALLBACK_ERROR = 'CE'
+    ASSIGNED = 'AS'     # A worker is polling this task.
     ERROR_STATES = (SEND_ERROR, GILES_ERROR, PROCESS_ERROR, CALLBACK_ERROR)
     STATES = (
         (PENDING, 'Pending'),      # Upload is ready to be dispatched.
@@ -549,7 +550,8 @@ class GilesUpload(models.Model):
         (SEND_ERROR, 'Send error'),    # Problem sending the file to Giles.
         (GILES_ERROR, 'Giles error'),  # Giles responded oddly after upload.
         (PROCESS_ERROR, 'Process error'),    # We screwed up post-processing.
-        (CALLBACK_ERROR, 'Callback error')   # Something went wrong afterwards.
+        (CALLBACK_ERROR, 'Callback error'),  # Something went wrong afterwards.
+        (ASSIGNED, 'Assigned')
     )
     state  = models.CharField(max_length=2, choices=STATES)
 

@@ -419,6 +419,7 @@ def process_upload(upload_id, username):
         return
 
     if code == ACCEPTED:    # Giles is still processing the upload.
+        upload.state = GilesUpload.SENT
         upload.save()
         return
 
@@ -438,13 +439,13 @@ def process_upload(upload_id, username):
     # Depending on configuration, we may want to do things like delete local
     #  copies of files.
     if upload.on_complete:
-        # try:
-        process_on_complete(jsonpickle.decode(upload.on_complete))
-        # except Exception as E:
-        #     upload.message = str(E)
-        #     upload.state = GilesUpload.CALLBACK_ERROR
-        #     upload.save()
-        #     return
+        try:
+            process_on_complete(jsonpickle.decode(upload.on_complete))
+        except Exception as E:
+            upload.message = str(E)
+            upload.state = GilesUpload.CALLBACK_ERROR
+            upload.save()
+            return
 
     # Woohoo!
     upload.state = GilesUpload.DONE
