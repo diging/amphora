@@ -79,7 +79,7 @@
                           </a>
                       </div>
                       <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ SEND_ERROR }}&o=-updated">
-                          <p class="data-small"><span class="text-danger">{{ uploads_send_error }}</span> sending failed</p>
+                          <p class="data-small">+ <span class="text-danger">{{ uploads_send_error }}</span> sending failed</p>
                       </a>
                   </div>
                   <div class="col-sm-3">
@@ -90,10 +90,10 @@
                           </a>
                       </div>
                       <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ ASSIGNED }}&o=-updated">
-                          <p class="data-small"><span class="text-success">{{ uploads_assigned }}</span> Assigned for polling</p>
+                          <p class="data-small">+ <span class="text-success">{{ uploads_assigned }}</span> assigned for polling</p>
                       </a>
                       <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ GILES_ERROR }}&o=-updated">
-                          <p class="data-small"><span class="text-danger">{{ uploads_giles_error }}</span> Giles encountered an error</p>
+                          <p class="data-small">+ <span class="text-danger">{{ uploads_giles_error }}</span> Giles encountered an error</p>
                       </a>
 
 
@@ -106,10 +106,10 @@
                           </a>
                       </div>
                       <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ PROCESS_ERROR }}&o=-updated">
-                          <p class="data-small"><span class="text-danger">{{ uploads_process_error }}</span> failed to parse response</p>
+                          <p class="data-small">+ <span class="text-danger">{{ uploads_process_error }}</span> failed to parse response</p>
                       </a>
                       <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ CALLBACK_ERROR }}&o=-updated">
-                          <p class="data-small"><span class="text-danger">{{ uploads_callback_error }}</span> post-processing error</p>
+                          <p class="data-small">+ <span class="text-danger">{{ uploads_callback_error }}</span> post-processing error</p>
                       </a>
                   </div>
               </div>
