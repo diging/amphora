@@ -147,11 +147,15 @@ def check_giles_uploads():
     #     upload.save()
 
     q = Q(last_checked__gte=timezone.now() - timedelta(seconds=300)) | Q(last_checked=None)#.filter(q)
-    qs.update(state=GilesUpload.ASSIGNED)
-    for upload_id, username in qs.order_by('updated').values_list('upload_id', 'created_by__username')[:500]:
-        print '::: checking upload status for %s :::' % upload_id
-        check_giles_upload.delay(upload_id, username)
+
+    # for upload_id, username in qs.order_by('updated').values_list('upload_id', 'created_by__username')[:500]:
     qs = GilesUpload.objects.filter(state=GilesUpload.SENT)
+    for upload in qs.order_by('updated')[:500]:
+        print '::: checking upload status for %s :::' % upload.upload_id
+        upload.state = GilesUpload.ASSIGNED
+        upload.save()
+        check_giles_upload.delay(upload.upload_id, upload.created_by.username)
+
 
 # @shared_task
 # def send_giles_uploads():
