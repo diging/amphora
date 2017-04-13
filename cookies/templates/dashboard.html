@@ -89,9 +89,13 @@
                               <p>Sent</p>
                           </a>
                       </div>
+                      <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ ASSIGNED }}">
+                          <p class="data-small"><span class="text-success">{{ uploads_assigned }}</span> Assigned for polling</p>
+                      </a>
                       <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ GILES_ERROR }}">
                           <p class="data-small"><span class="text-danger">{{ uploads_giles_error }}</span> Giles encountered an error</p>
                       </a>
+
 
                   </div>
                   <div class="col-sm-3">
