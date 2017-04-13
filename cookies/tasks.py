@@ -150,7 +150,7 @@ def check_giles_uploads():
 
     # for upload_id, username in qs.order_by('updated').values_list('upload_id', 'created_by__username')[:500]:
     qs = GilesUpload.objects.filter(state=GilesUpload.SENT)
-    for upload in qs.order_by('updated')[:500]:
+    for upload in qs.order_by('updated')[:100]:
         print '::: checking upload status for %s :::' % upload.upload_id
         upload.state = GilesUpload.ASSIGNED
         upload.save()
