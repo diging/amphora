@@ -66,7 +66,7 @@ class ResourceContainerFilter(django_filters.FilterSet):
             return queryset
         return queryset.filter(primary__tags__tag__id=value)
 
-    def lookup_name_in_parts(self, queryset, value):
+    def lookup_name_in_parts(self, queryset, name, value):
         q = Q()
         for part in value.split():
             q &= Q(primary__name__icontains=part)
