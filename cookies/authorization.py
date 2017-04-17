@@ -126,7 +126,7 @@ def check_authorization(auth, user, obj):
     if is_owner(user, obj):
         return True
 
-    if not isinstance(obj, ResourceContainer):
+    if not isinstance(obj, ResourceContainer) and not isinstance(obj, Collection):
         obj = obj.container
 
     if isinstance(user, AnonymousUser):
