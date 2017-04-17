@@ -55,7 +55,7 @@
         <ul class="list-group list-group-compact">
         {% for collection_element in collections %}
             <a class="list-group-item list-group-item-compact" href="{{ collection_element.get_absolute_url }}">{{ collection_element.name }}
-                <span class="pull-right badge">{{ collection_element.resourcecontainer_set.count }}</span>
+                <span class="pull-right badge">{{ collection_element.size }}</span>
             </a>
         {% endfor %}
 
