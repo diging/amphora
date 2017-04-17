@@ -163,7 +163,7 @@ CELERYBEAT_SCHEDULE = {
 
 # File handling.
 FILE_UPLOAD_HANDLERS = ["cookies.uploadhandler.PersistentTemporaryFileUploadHandler",]
-FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'uploads')
+FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'upload')
 
 # Authentication.
 AUTHENTICATION_BACKENDS = (
