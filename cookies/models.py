@@ -30,8 +30,9 @@ def _resource_file_name(instance, filename):
     """
     Generates a file name for Files added to a :class:`.LocalResource`\.
     """
+    full_ident = list(unicode(instance.id))
 
-    return u'/'.join([unicode(instance.id), 'content', os.path.split(filename)[-1]])
+    return u'/'.join(full_ident + ['content', os.path.split(filename)[-1]])
 
 
 class ActiveManager(models.Manager):
