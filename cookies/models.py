@@ -293,9 +293,17 @@ class Collection(ResourceBase):
 
     @property
     def children(self):
+        children_ids = []
+        def _decomp(obj):
+            for item in obj:
+                if isinstance(item, list):
+                    _decomp(item)
+                else:
+                    children_ids.append(item)
         def _get_children(collection_id):
             return [collection_id] + map(_get_children, filter(lambda pk: pk is not None, Collection.objects.filter(part_of_id=collection_id).values_list('id', flat=True)))
-        return _get_children(self)
+        _decomp(_get_children(self))
+        return children_ids
 
     @property
     def size(self):
