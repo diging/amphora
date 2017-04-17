@@ -25,7 +25,7 @@ def new_users_are_inactive_by_default(sender, **kwargs):
         instance.save()
 
 
-@receiver(post_save, sender=ContentRelation)
+# @receiver(post_save, sender=ContentRelation)
 def send_all_files_to_giles(sender, **kwargs):    # Hey, that rhymes!
     """
     Create a :class:`.GilesUpload` instance to indicate that an upload should
@@ -43,7 +43,7 @@ def send_all_files_to_giles(sender, **kwargs):    # Hey, that rhymes!
                               delete_on_complete=settings.DELETE_LOCAL_FILES)
 
 
-@receiver(post_save, sender=ConceptEntity)
+# @receiver(post_save, sender=ConceptEntity)
 def conceptentity_post_save(sender, **kwargs):
     """
     When a :class:`.ConceptEntity` is saved, we will attempt to assign an
