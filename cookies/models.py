@@ -295,6 +295,7 @@ class Collection(ResourceBase):
     def children(self):
         def _get_children(collection_id):
             return [collection_id] + map(_get_children, filter(lambda pk: pk is not None, Collection.objects.filter(part_of_id=collection_id).values_list('id', flat=True)))
+        return _get_children(self)
 
     @property
     def size(self):
