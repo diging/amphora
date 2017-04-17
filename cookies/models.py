@@ -293,12 +293,15 @@ class Collection(ResourceBase):
 
     @property
     def size(self):
-        return self.resources.count()
+        def _count_recurse(collection):
+            return collection.resourcecontainer_set.count() + sum(map(_count_recurse(collection.collection_set.all())))
+        return _count_recurse(self)
 
     @property
     def resources(self):
         return Resource.objects.filter(is_primary_for__part_of_id=self.id,
                                        is_deleted=False)
+
 
 ### Types and Fields ###
 
