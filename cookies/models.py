@@ -293,12 +293,9 @@ class Collection(ResourceBase):
 
     @property
     def size(self):
-        def _tree(collection):
-            return [collection.id] + list(collection.collection_set.values_list('id', flat=True))
-        return ResourceContainer.objects.filter(part_of__in=_tree(self))
-        # def _count_recurse(collection):
-        #     return collection.resourcecontainer_set.count() + sum(map(_count_recurse, collection.collection_set.all()))
-        # return _count_recurse(self)
+        def _count_recurse(collection):
+            return ResourceContainer.objects.filter(part_of=collection).count() + sum(map(_count_recurse, collection.collection_set.values_list('id', flat=True)))
+        return _count_recurse(self)
 
     @property
     def resources(self):
