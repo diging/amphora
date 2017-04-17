@@ -70,7 +70,7 @@
         <a href="{{ collection.get_absolute_url }}"
             class="list-group-item"><strong>{{ collection.name }}</strong>
             <span class="text-muted">added by <span class="text-warning">{{ collection.created_by }}</span>  on {{ collection.created }}</span>
-            <span class="badge pull-right">{{ collection.size }}</span>
+            <span class="badge pull-right">{{ collection.resourcecontainer_set.count }}</span>
         </a>
         {% endfor %}
     </ul>
