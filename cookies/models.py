@@ -294,7 +294,7 @@ class Collection(ResourceBase):
     @property
     def size(self):
         def _count_recurse(collection):
-            return collection.resourcecontainer_set.count() + sum(map(_count_recurse(collection.collection_set.all())))
+            return collection.resourcecontainer_set.count() + sum(map(_count_recurse, collection.collection_set.all()))
         return _count_recurse(self)
 
     @property
