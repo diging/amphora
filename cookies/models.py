@@ -292,13 +292,13 @@ class Collection(ResourceBase):
         return reverse("collection", args=(self.id,))
 
     @property
+    def children(self):
+        def _get_children(collection_id):
+            return [collection_id] + map(_get_children, Collection.objects.filter(part_of_id=collection_id).values_list('id', flat=True))
+
+    @property
     def size(self):
-        def _count_recurse(collection):
-            return ResourceContainer.objects.filter(part_of=collection).count()\
-                + sum(map(_count_recurse,
-                          Collection.objects.filter(part_of=collection)\
-                                    .values_list('id', flat=True)))
-        return _count_recurse(self)
+        return ResourceContainer.objects.filter(part_of_id__in=self.children).count()
 
     @property
     def resources(self):
