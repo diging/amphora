@@ -10,7 +10,7 @@ from django.core.urlresolvers import reverse
 from django.conf import settings
 
 
-import iso8601, json, sys, six, logging, rest_framework, jsonpickle
+import iso8601, json, sys, six, logging, rest_framework, jsonpickle, os
 from uuid import uuid4
 
 logging.basicConfig()
@@ -31,7 +31,7 @@ def _resource_file_name(instance, filename):
     Generates a file name for Files added to a :class:`.LocalResource`\.
     """
 
-    return '/'.join([str(instance.id), 'content', filename])
+    return u'/'.join([unicode(instance.id), 'content', os.path.split(filename)[-1]])
 
 
 class ActiveManager(models.Manager):
