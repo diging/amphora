@@ -15,17 +15,17 @@ logger = settings.LOGGER
 import mimetypes
 
 
-
 @receiver(post_save, sender=User)
 def new_users_are_inactive_by_default(sender, **kwargs):
     instance = kwargs.get('instance', None)
     if instance and kwargs.get('created', False):
-        logger.debug('%s is a new user; setting inactive by default' % instance.username)
+        logger.debug('%s is a new user; setting inactive by default' %\
+                     instance.username)
         instance.is_active = False
         instance.save()
 
 
-# @receiver(post_save, sender=ContentRelation)
+@receiver(post_save, sender=ContentRelation)
 def send_all_files_to_giles(sender, **kwargs):    # Hey, that rhymes!
     """
     Create a :class:`.GilesUpload` instance to indicate that an upload should
@@ -76,52 +76,3 @@ def conceptentity_post_save(sender, **kwargs):
             #  concepts.Type instance to make it easier to find later on.
             instance.entity_type = ctype_instance
             instance.save()
-
-
-# @receiver(post_save, sender=Resource)
-def resource_post_save(sender, **kwargs):
-    """
-    When a :class:`.Resource` is saved, we will attempt to extract any
-    indexable content from its associated file (if there is one).
-    """
-
-    instance = kwargs.get('instance', None)
-    # logger.debug(
-    #     'post_save signal for Resource, instance: {0}'.format(instance))
-
-    if instance.processed:
-        return
-
-    # Only attempt to extract content if the instance has a file associated
-    #  with it, and indexable_content has not been set.
-    if instance.file._committed and not instance.indexable_content:
-        try:
-            handle_content.delay(instance)
-        except ConnectionError:
-            logger.error("resource_post_save: there was an error connecting to"
-                         " the redis message passing backend.")
-
-
-# TODO: list for RemoteResource post_save and try to get text via request and
-# BeautifulSoup.text
-
-
-# class ResourceSignalProcessor(signals.RealtimeSignalProcessor):
-#     def handle_save(self, sender, instance, **kwargs):
-#         """
-#         Given an individual model instance, determine which backends the
-#         update should be sent to & update the object on those backends.
-#         """
-#         if hasattr(instance, 'content_resource'):
-#             if instance.content_resource:
-#                 return
-#
-#         using_backends = self.connection_router.for_write(instance=instance)
-#
-#         for using in using_backends:
-#             try:
-#                 index = self.connections[using].get_unified_index().get_index(sender)
-#                 index.update_object(instance, using=using)
-#             except NotHandled:
-#                 # TODO: Maybe log it or let the exception bubble?
-#                 pass
