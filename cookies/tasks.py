@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 
 from django.conf import settings
+from django.core.files import File
+from django.utils import timezone
 
 from celery import shared_task, task
 
@@ -9,10 +11,15 @@ from cookies.models import *
 from concepts import authorities
 from cookies.accession import IngesterFactory
 from cookies.exceptions import *
-from django.core.files import File
-logger = settings.LOGGER
 
-import jsonpickle, json, datetime
+
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel(settings.LOGLEVEL)
+
+import jsonpickle, json
+from datetime import timedelta
 
 
 @shared_task
@@ -114,15 +121,15 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
     return {'view': 'collection', 'id': collection.id}
 
 
-@shared_task
+@shared_task(rate_limit="6/m")
 def send_to_giles(upload_pk, created_by):
-    print '::: sending Giles upload %s :::' % upload_pk
+    logger.debug('send upload %i for user %s' % (upload_pk, username))
     giles.send_giles_upload(upload_pk, created_by)
 
 
-@shared_task
+@shared_task(rate_limit="1/s")
 def check_giles_upload(upload_id, username):
-    print '::async:: check_giles_upload', upload_id, username
+    logger.debug('check_giles_upload %s for user %s' % (upload_id, username))
     return giles.process_upload(upload_id, username)
 
 
@@ -137,55 +144,34 @@ def check_giles_uploads():
     Periodic task that reviews currently outstanding Giles uploads, and checks
     their status.
     """
-    from datetime import datetime, timedelta
-    from django.utils import timezone
 
-    # for upload in GilesUpload.objects.filter(state=GilesUpload.PENDING)[:10]:
-    #     print '::: adding %s to Giles upload queue :::' % upload.id
-    #     send_to_giles.delay(upload.id, upload.created_by)
-    #     upload.state = GilesUpload.ENQUEUED
-    #     upload.save()
+    outstanding = GilesUpload.objects.filter(state__in=GilesUpload.OUTSTANDING)
+    pending = GilesUpload.objects.filter(state=GilesUpload.PENDING)
+
+    # We limit the number of simultaneous requests to Giles.
+    remaining = settings.MAX_GILES_UPLOADS - outstanding.count()
+    logger.debug("there are %i GilesUploads pending and %i outstanding, with %i"
+                 " remaining to be enqueued" %\
+                 (pending.count(), outstanding.count(), remaining))
+    if remaining <= 0 or pending.count() == 0:
+        return
+
+    _e = 0
+    for upload in pending[:remaining]:
+        send_to_giles.delay(upload.id, upload.created_by)
+        upload.state = GilesUpload.ENQUEUED
+        upload.save()
+        _e += 1
+    logger.debug('enqueued %i uploads to send' % _e)
 
     q = Q(last_checked__gte=timezone.now() - timedelta(seconds=300)) | Q(last_checked=None)#.filter(q)
 
     # for upload_id, username in qs.order_by('updated').values_list('upload_id', 'created_by__username')[:500]:
     qs = GilesUpload.objects.filter(state=GilesUpload.SENT)
+    _u = 0
     for upload in qs.order_by('updated')[:100]:
-        print '::: checking upload status for %s :::' % upload.upload_id
         upload.state = GilesUpload.ASSIGNED
         upload.save()
         check_giles_upload.delay(upload.upload_id, upload.created_by.username)
-
-
-# @shared_task
-# def send_giles_uploads():
-#     """
-#     Check for outstanding :class:`.GilesUpload`\s, and send as able.
-#     """
-#     logger.debug('Checking for outstanding GilesUploads')
-#     query = Q(resolved=False) & ~Q(sent=None) & Q(fail=False)
-#     outstanding = GilesUpload.objects.filter(query)
-#     pending = GilesUpload.objects.filter(resolved=False, sent=None, fail=False)
-#
-#     # We limit the number of simultaneous requests to Giles.
-#     remaining = settings.MAX_GILES_UPLOADS - outstanding.count()
-#     if remaining <= 0 or pending.count() == 0:
-#         return
-#
-#     logger.debug('Found GilesUpload, processing...')
-#
-#     to_upload = min(remaining, pending.count())
-#     if to_upload <= 0:
-#         return
-#
-#     for upload in pending[:to_upload]:
-#         content_resource = upload.content_resource
-#         creator = content_resource.created_by
-#         resource = content_resource.parent.first().for_resource
-#
-#         anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
-#         public = authorization.check_authorization('view', anonymous,
-#                                                    content_resource)
-#         result = send_to_giles(content_resource.file.name, creator,
-#                                resource=resource, public=public,
-#                                gilesupload_id=upload.id)
+        _u += 1
+    logger.debug('assigned %i uploads to check' % _u)

@@ -553,6 +553,7 @@ class GilesUpload(models.Model):
     CALLBACK_ERROR = 'CE'
     ASSIGNED = 'AS'     # A worker is polling this task.
     ERROR_STATES = (SEND_ERROR, GILES_ERROR, PROCESS_ERROR, CALLBACK_ERROR)
+    OUTSTANDING = (ASSIGNED, ENQUEUED, SENT)
     STATES = (
         (PENDING, 'Pending'),      # Upload is ready to be dispatched.
         (ENQUEUED, 'Enqueued'),    # Dispatcher has created an upload task.
