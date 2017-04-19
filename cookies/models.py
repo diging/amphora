@@ -15,27 +15,35 @@ from uuid import uuid4
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
-logger.setLevel('ERROR')
+logger.setLevel(settings.LOGLEVEL)
 
 from django.conf import settings
 import concepts
 
 
-def help_text(text):
-    return u' '.join([chunk.strip() for chunk in text.split('\n')])
-
-
-
 def _resource_file_name(instance, filename):
     """
     Generates a file name for Files added to a :class:`.LocalResource`\.
+
+    E.g. if the content resource has ID 12345 and ``filename == 'file.txt'``,
+    the path (relative to MEDIA_ROOT) will be ``1/2/3/4/5/content/file.txt``.
+
+    Parameters
+    ----------
+    instance : :class:`.Resource`
+    filename : str
+        File name or path to file (only the head will be used).
     """
     full_ident = list(unicode(instance.id))
-
     return u'/'.join(full_ident + ['content', os.path.split(filename)[-1]])
 
 
+# TODO: include filtering of hidden records?
 class ActiveManager(models.Manager):
+    """
+    Convenience manager for filtering out "deleted" records. This can be used
+    with any model that inherits from :class:`.Entity`\.
+    """
     def get_queryset(self):
         return super(ActiveManager, self).get_queryset().filter(is_deleted=False)
 
@@ -50,14 +58,11 @@ class Entity(models.Model):
     updated = models.DateTimeField(auto_now=True)
 
     entity_type = models.ForeignKey('Type', blank=True, null=True,
-                                    verbose_name='type',
-                                    help_text="Specifying a type helps to"
-                                    " determine what metadata fields are"
-                                    " appropriate for this resource, and can"
-                                    " help with searching. Note that type-"
-                                    "specific filtering of metadata fields"
-                                    " will only take place after this resource"
-                                    " has been saved.")
+                                    verbose_name='type', help_text="Specifying"
+    " a type helps to determine what metadata fields are appropriate for this"
+    " resource, and can help with searching. Note that type-specific filtering"
+    " of metadata fields will only take place after this resource has been"
+    " saved.")
 
     name = models.CharField(max_length=255)
 
@@ -67,18 +72,16 @@ class Entity(models.Model):
     not be accessible directly, even for logged-in users.
     """
 
+    # TODO: remove this field; it is no longer relevant.
     public = models.BooleanField(default=False, help_text="If a resource is not"
-                                 " public it will only be accessible to"
-                                 " logged-in users and will not appear in"
-                                 " public search results. If this option is"
-                                 " selected, you affirm that you have the right"
-                                 " to upload and distribute this resource.")
+    " public it will only be accessible to logged-in users and will not appear"
+    " in public search results. If this option is selected, you affirm that you"
+    " have the right to upload and distribute this resource.")
 
     namespace = models.CharField(max_length=255, blank=True, null=True)
-    uri = models.CharField(max_length=255, verbose_name='URI',
-                           help_text="You may provide your own URI, or allow"
-                           " the system to assign one automatically"
-                           " (recommended).")
+    uri = models.CharField(max_length=255, verbose_name='URI', help_text="You"
+    " may provide your own URI, or allow the system to assign one"
+    " automatically.")
 
     relations_from = GenericRelation('Relation',
                                      content_type_field='source_type',
@@ -102,9 +105,10 @@ class Entity(models.Model):
         #  TODO: this should call a method to generate a URI, to allow for more
         #        flexibility (e.g. calling a Handle server).
         if not self.uri:
-            self.uri = u'/'.join([settings.URI_NAMESPACE,
-                                  self.__class__.__name__.lower(),
-                                  unicode(self.id)])
+            ns = settings.URI_NAMESPACE
+            if ns.endswith('/'):
+                ns = ns[:-1]
+            self.uri = '/'.join([ns, self.__class__.__name__.lower(), str(self.id)])
         super(Entity, self).save()
 
     def __unicode__(self):
@@ -113,23 +117,27 @@ class Entity(models.Model):
 
 class ResourceBase(Entity):
     """
+    Provides some generic fields for :class:`.Resource` and :class:`.Collection`
+    models.
     """
 
+    # TODO: remove indexable_content and processed, as they are no longer used.
     indexable_content = models.TextField(blank=True, null=True)
     processed = models.BooleanField(default=False)
+
     content_type = models.CharField(max_length=255, blank=True, null=True)
+
+    # If true, we expect (by convention) that either ``file`` or ``location``
+    #  will be set.
     content_resource = models.BooleanField(default=False)
 
     file = models.FileField(upload_to=_resource_file_name, blank=True,
-                            null=True, max_length=2000, help_text=help_text(
-        """
-        Drop a file onto this field, or click "Choose File" to select a file on
-        your computer.
-        """))
+                            null=True, max_length=2000)
 
     location = models.URLField(max_length=255, verbose_name='URL', blank=True,
                                null=True)
 
+    # TODO: remove this property.
     @property
     def text_available(self):
         if self.indexable_content:
@@ -148,15 +156,14 @@ class ResourceBase(Entity):
 
     @property
     def parts(self):
-        page_field, _ = Field.objects.get_or_create(uri='http://purl.org/dc/terms/isPartOf')
-        return self.relations_to.filter(predicate=page_field)
+        """
+        Many resources will have several parts (e.g. pages), which are connected
+        via :class:`.Relation` entries.
+        """
+        __isPartOf__, _ = Field.objects.get_or_create(uri=settings.IS_PART_OF)
+        return self.relations_to.filter(predicate=__isPartOf__)
 
     class Meta:
-        permissions = (
-            ('view_resource', 'View resource'),
-            ('change_authorizations', 'Change authorizations'),
-            ('view_authorizations', 'View authorizations'),
-        )
         abstract = True
 
 
@@ -454,7 +461,8 @@ class Relation(Entity):
                                   verbose_name='field')
 
     target_type = models.ForeignKey(ContentType, related_name='relations_to',
-                                    on_delete=models.CASCADE, blank=True, null=True)
+                                    on_delete=models.CASCADE, blank=True,
+                                    null=True)
     target_instance_id = models.PositiveIntegerField(blank=True, null=True)
     target = GenericForeignKey('target_type', 'target_instance_id')
 
@@ -462,11 +470,6 @@ class Relation(Entity):
 
     class Meta:
         verbose_name = 'metadata relation'
-        permissions = (
-            ('view_relation', 'View relation'),
-            ('change_authorizations', 'Change authorizations'),
-            ('view_authorizations', 'View authorizations'),
-        )
 
         # Unless otherwise specified, relations will be displayed in order of
         #  their creation (oldest first).
@@ -476,9 +479,6 @@ class Relation(Entity):
         self.name = uuid4()
         super(Relation, self).save(*args, **kwargs)
 
-
-
-### Actions and Events ###
 
 
 class ConceptEntity(Entity):
@@ -494,19 +494,14 @@ class ConceptEntity(Entity):
     def get_absolute_url(self):
         return reverse('entity-details', args=(self.id,))
 
-    class Meta:
-        permissions = (
-            ('view_entity', 'View entity'),
-            ('change_authorizations', 'Change authorizations'),
-            ('view_authorizations', 'View authorizations'),
-        )
-
 
 class Identity(models.Model):
     created_by = models.ForeignKey(User)
     created = models.DateTimeField(auto_now_add=True)
-    representative = models.ForeignKey('ConceptEntity', related_name='represents')
-    entities = models.ManyToManyField('ConceptEntity', related_name='identities')
+    representative = models.ForeignKey('ConceptEntity',
+                                       related_name='represents')
+    entities = models.ManyToManyField('ConceptEntity',
+                                      related_name='identities')
 
 
 class ConceptType(Type):

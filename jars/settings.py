@@ -193,16 +193,16 @@ GILES = os.environ.get('GILES', 'https://diging-dev.asu.edu/giles-review')
 if GILES.endswith('/'):
     GILES = GILES[:-1]
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
-GET = requests.get
-POST = requests.post
 GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
 GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
+GILES_TOKEN_EXPIRATION = os.environ.get('GILES_TOKEN_EXPIRATION', 120)    # min.
 MAX_GILES_UPLOADS = 20
 
 # Metadata globals.
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
 PROVENANCE = 'http://purl.org/dc/terms/provenance'
+IS_PART_OF = 'http://purl.org/dc/terms/isPartOf'
 
 URI_NAMESPACE = os.environ.get('NAMESPACE', 'http://diging.asu.edu/amphora')
 

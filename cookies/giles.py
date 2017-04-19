@@ -1,44 +1,82 @@
+"""
+This module provides methods for interacting with Giles.
+"""
+
+
 from django.conf import settings
 from django.core.files import File
+from  django.core.exceptions import ObjectDoesNotExist
 
 from cookies.models import *
+from cookies import models    # TODO: wtf.
 from cookies.exceptions import *
 
-import requests, os, jsonpickle
+import requests, os, jsonpickle, urllib, urlparse
 from datetime import datetime, timedelta
 from django.utils import timezone
 from collections import defaultdict
 
 _fix_url = lambda url: url#url.replace('http://', 'https://') if url is not None else None
 
-
+GET = requests.get
+POST = requests.post
 ACCEPTED = 202
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel(settings.LOGLEVEL)
+
+
+class StatusException(Exception):
+    def __init__(self, response):
+        self.message = 'Encountered status %i: %s' % (response.status_code, response.content)
+        self.response = response
+        self.status_code = response.status_code
+
+    def __str__(self):
+        return repr(self.message)
+
+
+class UserHasNoProviderToken(Exception):
+    pass
 
 
 def handle_status_exception(func):
+    """
+    Decorator for functions that call Giles. Provides automatic token refresh,
+    and raises a :class:`.StatusException` for non-200-series HTTP status codes.
+    """
     def wrapper(user, *args, **kwargs):
         response = func(user, *args, **kwargs)
-        if isinstance(user, str):    # May be a username, rather than a User.
+
+        if type(user) in [str, unicode]:    # May be a username, rather than a User.
             user = User.objects.get(username=user)
+
         if response.status_code == 401:    # Auth token expired.
             try:
                 user.giles_token.delete()
-            except AssertionError:
+            except (AssertionError, ObjectDoesNotExist):
                 pass
+            except Exception as E:
+                raise
 
-            get_user_auth_token(user, **kwargs)
+            get_user_auth_token(user, fresh=True, **kwargs)
             user.refresh_from_db()
-            # TODO: we could put some Exception handling here.
+
             return func(user, *args, **kwargs)
         elif response.status_code != requests.codes.ok and response.status_code != 202:
-            message = 'Status %i, content: %s' % (response.status_code, response.content)
-            logger.error(message)
+            logger.error('Giles responded with status %i: content: %s' % \
+                         (response.status_code, response.content))
             raise StatusException(response)
         return response
     return wrapper
 
 
 def api_request(func):
+    """
+    Convenience decorator for functions that call Giles. Automatically pulls
+    out the status code and JSON data from the response.
+    """
     def wrapper(user, *args, **kwargs):
         response = func(user, *args, **kwargs)
         return response.status_code, response.json()
@@ -46,19 +84,18 @@ def api_request(func):
 
 
 def _create_auth_header(user, **kwargs):
+    """
+    Convenience function for generating the authorization header for Giles
+    requests.
+    """
     provider = kwargs.get('provider', settings.GILES_DEFAULT_PROVIDER)
-    # token = user.social_auth.get(provider=provider).extra_data['access_token']
-    token = get_user_auth_token(user)
-    return {'Authorization': 'token %s' % token}
+    return {'Authorization': 'token %s' % get_user_auth_token(user)}
 
 
 def get_user_auth_token(user, **kwargs):
     """
-    Get the current auth token for a :class:`.User`\.
-
-    If the user has no auth token, retrieve one and store it.
-
-    Supports dependency injection.
+    Get the current auth token for a :class:`.User`\. If the user has no auth
+    token, retrieves one and stores it.
 
     Parameters
     ----------
@@ -70,34 +107,33 @@ def get_user_auth_token(user, **kwargs):
     str
         Giles authorization token for ``user``.
     """
-    fresh = kwargs.get('fresh', False)
+    fresh = kwargs.pop('fresh', False)
+    logger.debug('get_user_auth_token:: for %s' % user.username)
 
     try:
-        if user.giles_token and not fresh and user.giles_token.created > timezone.now() - timedelta(minutes=120):
+        _expiry = timezone.now() - timedelta(minutes=settings.GILES_TOKEN_EXPIRATION)
+        if not fresh and user.giles_token.created > _expiry:
             return user.giles_token.token
-    except AttributeError:    # RelatedObjectDoesNotExist.
+    except (AttributeError, ObjectDoesNotExist):    # RelatedObjectDoesNotExist.
         pass    # Will proceed to retrieve token.
 
     try:
-        status_code, data = get_auth_token(user, **kwargs)
-        try:
+        try:    # Delete the old token first.
             user.giles_token.delete()
-        except:
+        except (AssertionError, ObjectDoesNotExist):
             pass
+
+        status_code, data = get_auth_token(user, **kwargs)
         user.giles_token = GilesToken.objects.create(for_user=user, token=data["token"])
         user.save()
         return user.giles_token.token
     except Exception as E:
-
-        template = "Failed to retrieve access token for user {u}"
-        msg = template.format(u=user.username)
+        logger.error("Failed to retrieve access token for %s: %s" % \
+                     (user.username, str(E)))
         if kwargs.get('raise_exception', False):
             raise E
-        logger.error(msg)
-        logger.error(str(E))
 
 
-# @handle_status_exception
 @api_request
 def get_auth_token(user, **kwargs):
     """
@@ -106,13 +142,17 @@ def get_auth_token(user, **kwargs):
     See https://diging.atlassian.net/wiki/display/GIL/REST+Authentication.
     """
     giles = kwargs.get('giles', settings.GILES)
-    post = kwargs.get('post', settings.POST)
+    post = kwargs.get('post', POST)
     provider = kwargs.get('provider', settings.GILES_DEFAULT_PROVIDER)
     app_token = kwargs.get('app_token', settings.GILES_APP_TOKEN)
 
     path = '/'.join([giles, 'rest', 'token'])
-    provider_token = user.social_auth.get(provider=provider)\
-                                     .extra_data.get('access_token')
+    try:
+        provider_token = user.social_auth.get(provider=provider)\
+                                         .extra_data.get('access_token')
+    except ObjectDoesNotExist:
+        raise UserHasNoProviderToken('User %s has no token for provider %s' % \
+                                     (user.username, provider))
 
     return post(path, data={'providerToken': provider_token},
                 headers={'Authorization': 'token %s' % app_token})
@@ -122,46 +162,39 @@ def get_auth_token(user, **kwargs):
 @handle_status_exception
 def send_to_giles(username, file_name, public=False, **kwargs):
     """
+    Send a file to Giles.
 
     Parameters
     ----------
-    user : :class:`.User`
-    file_obj : file-like object
-    giles : str
-        Giles endpoint.
-    post : callable
-        POST method should return an object with properties ``status_code``
-        (int) and ``content`` (unicode-like), and a method called ``json()``
-        that returns a dict.
-    resource : :class:`.Resource`
-        If a :class:`.Resource` already exists for this document, then the
-        file(s) sent to Giles will be linked to that :class:`.Resource` as
-        content resources. Otherwise a new :class:`.Resource` will be created.
+    username : str
+        The owner of the file. This will be used to select the authorization
+        token, and the resource will permanently belong to this user in Giles.
+    file_name : str
+        File path relative to MEDIA_ROOT.
+    public : bool
+        Whether or not the file should be publically accessible on Giles. The
+        current approach is to set all files to private, and then provide
+        paths with short-lived Giles tokens to individual users on a
+        case-by-case basis.
 
     Returns
     -------
-    :class:`.Resource`
+    :class:`requests.Response`
 
     """
     user = User.objects.get(username=username)
     giles = kwargs.get('giles', settings.GILES)
-    post = kwargs.get('post', settings.POST)
+    post = kwargs.get('post', POST)
 
     path = '/'.join([giles, 'rest', 'files', 'upload'])
     headers = _create_auth_header(user, **kwargs)
-    headers.update({
-        # 'Content-Type': 'multipart/form-data',
-    })
+    # headers.update({ 'Content-Type': 'multipart/form-data', })
 
     data = {'access': 'PUBLIC' if public else 'PRIVATE',}
-
-    # POST request.
+    _full_path = os.path.join(settings.MEDIA_ROOT, file_name.encode('utf-8'))
+    # POST payload.
     files = {
-        'files': (
-            file_name,
-              File(open(os.path.join(settings.MEDIA_ROOT, file_name.encode('utf-8')), 'rb')),
-              'application/pdf'
-          )
+        'files': ( file_name, File(open(_full_path, 'rb')), 'application/pdf')
     }
 
     # Giles should respond with a token for each upload, which we should
@@ -180,6 +213,9 @@ def create_giles_upload(resource_id, content_relation_id, username,
     """
     Create a new pending :class:`.GilesUpload` for a :class:`.Resource`\.
 
+    No files will have been sent at this point -- a worker will add this upload
+    to the queue.
+
     Parameters
     ----------
     resource_id : int
@@ -187,15 +223,13 @@ def create_giles_upload(resource_id, content_relation_id, username,
     content_relation_id : int
     username : str
     delete_on_complete : bool
-        If True, the local file will be removed upon successful completion, and
-        the content resource will be set to ``is_deleted=True``\.
+        If True, the local file will be removed once Giles has fully processed
+        the upload; the content resource will be flagged as deleted.
 
     Returns
     -------
     int
-        The pk-id of the :class:`.GilesUpload`\. No files will have been sent
-        at this point -- a worker will add this upload to the queue, and update
-        the record accordingly.
+        The ID of the :class:`.GilesUpload`\.
     """
     resource = Resource.objects.get(pk=resource_id)
     content_relation = ContentRelation.objects.get(pk=content_relation_id)
@@ -208,6 +242,7 @@ def create_giles_upload(resource_id, content_relation_id, username,
         'state': GilesUpload.PENDING,
         'created_by': user,
     }
+
     if delete_on_complete:
         data.update({
             'on_complete': jsonpickle.encode([
@@ -215,13 +250,79 @@ def create_giles_upload(resource_id, content_relation_id, username,
                 ('ContentRelation', content_relation_id, 'delete'),
             ])
         })
-    upload = GilesUpload.objects.create(**data)
-    return upload.id
+
+    return GilesUpload.objects.create(**data).id
+
+
+
+def send_giles_upload(upload_pk, username):
+    """
+    Send data for a pending :class:`.GilesUpload`\.
+
+    If successfuly, transitions state from PENDING to SENT. If an exception is
+    raised, transitions state from PENDING to SEND_ERROR.
+
+    Parameters
+    ----------
+    upload_pk : int
+    username : str
+    """
+    upload = GilesUpload.objects.get(pk=upload_pk)
+
+    # This will trigger an actual upload, and we don't want to do it twice.
+    if not upload.state in [GilesUpload.PENDING, GilesUpload.ENQUEUED]:
+        return
+
+    try:
+        code, result = send_to_giles(username, upload.file_path, public=False)
+        upload.upload_id = result.get('id')
+        upload.state = GilesUpload.SENT
+    except AttributeError as E:
+        message = str(result)
+        logger.error("Giles returned an uninterpretable message when sending"
+                     " upload %i: %s" % (upload.id, message))
+        upload.message = message
+        upload.state = GilesUpload.SEND_ERROR
+    except Exception as E:    # TODO: be more specific.
+        logger.error('Encountered exception when sending upload %i: %s' % \
+                     (upload.id, str(E)))
+        upload.message = str(E)
+        upload.state = GilesUpload.SEND_ERROR
+    upload.save()
+
+
+@api_request
+@handle_status_exception
+def check_upload_status(username, upload_id , **kwargs):
+    """
+    Poll Giles for the status of a POSTed upload.
+
+    Parameters
+    ----------
+    username : str
+        This must be the same user on whose behalf we uploaded the file.
+    upload_id : str
+        The "poll id" that Giles returned upon upload.
+    kwargs : kwargs
+        Can inject ``giles`` (base path for Giles instance) and ``get``
+        (callable that accepts an URL and ``headers`` kwarg).
+
+    Returns
+    -------
+    :class:`requests.Response`
+    """
+    user = User.objects.get(username=username)
+    giles = kwargs.get('giles', settings.GILES)
+    get = kwargs.get('get', GET)
+    checkURL = giles + '/rest/files/upload/check/%s' % upload_id
+    return get(checkURL, headers=_create_auth_header(user, **kwargs))
 
 
 def _create_content_resource(parent_resource, resource_type, creator, uri, url,
                              public=False, **meta):
     """
+    Helper function for creating appropriate resources and relations after
+    Giles successfully processes an upload.
 
     Parameters
     ----------
@@ -282,6 +383,8 @@ def _create_content_resource(parent_resource, resource_type, creator, uri, url,
 def _create_page_resource(parent_resource, page_nr, resource_type, creator, uri,
                           url, public=False, **meta):
     """
+    Helper function for creating appropriate resources and relations after
+    Giles successfully processes an upload.
 
     Parameters
     ----------
@@ -324,42 +427,13 @@ def _create_page_resource(parent_resource, page_nr, resource_type, creator, uri,
     return resource
 
 
-def format_giles_url(url, username, dw=300):
-    """
-    Adds ``accessToken`` and ``dw`` parameters to ``url``.
-    """
-    import urllib, urlparse
-    user = User.objects.get(username=username)
-    parts = list(tuple(urlparse.urlparse(url)))
-    q = {k: v[0] for k, v in urlparse.parse_qs(parts[4]).iteritems()}
-    q.update({
-        'accessToken': get_user_auth_token(user),
-        'dw': dw,
-    })
-
-    parts[4] = urllib.urlencode(q)
-    return urlparse.urlunparse(tuple(parts))
-
-
-@api_request
-@handle_status_exception
-def check_upload_status(username, upload_id , **kwargs):
-    """
-    Poll Giles for the status of a POSTed upload.
-    """
-    user = User.objects.get(username=username)
-    giles = kwargs.get('giles', settings.GILES)
-    get = kwargs.get('get', settings.GET)
-    checkURL = giles + '/rest/files/upload/check/%s' % upload_id
-    return get(checkURL, headers=_create_auth_header(user, **kwargs))
-
-
 def process_on_complete(on_complete):
     """
     Perform post-processing actions.
 
-    Currently only supports ``'delete'`` action, which sets ``is_deleted`` and
-    permanently deletes any attached files in the filesystem.
+    These are set when a :class:`.GilesUpload` is created. Currently only
+    supports ``'delete'`` action, which sets ``is_deleted`` and permanently
+    deletes any attached files in the filesystem.
 
     Parameters
     ----------
@@ -367,8 +441,6 @@ def process_on_complete(on_complete):
         Should be a list of 3-tuples: ``(model, pk, action)``.
     """
 
-    from cookies import models
-    import os
     def _delete(obj):
         if getattr(obj, 'file', None):
             path = os.path.join(settings.MEDIA_ROOT, obj.file.name)
@@ -386,16 +458,18 @@ def process_on_complete(on_complete):
 
 def process_upload(upload_id, username):
     """
-    Given a Giles upload id, attempt to retrieve file details and create
-    local data structures (if ready).
+    Given a Giles upload id, attempt to retrieve file details and create local
+    data structures (if ready).
 
-    Transitions state from SENT to DONE, or (if there are exceptions) to
-    GILES_ERROR, PROCESS_ERROR, or CALLBACK_ERROR.
+    Transitions state from SENT to DONE, or (if there are exceptions) one of
+    the error states.
 
     Parameters
     ----------
     upload_id : str
+        The "poll id" returned by Giles when the file was uploaded.
     username : str
+        This must be the same user on whose behalf we uploaded the file.
     """
     import datetime, jsonpickle
     from django.utils import timezone
@@ -406,11 +480,12 @@ def process_upload(upload_id, username):
     _defaults = {'created_by': user, 'state': GilesUpload.SENT}
     upload, _created = GilesUpload.objects.get_or_create(upload_id=upload_id,
                                                          defaults=_defaults)
-    if not _created and upload.created_by != user:
-        raise RuntimeError('Only the creator of the GilesUpload can do this')
 
+    if not _created and upload.created_by != user:
+        raise RuntimeError('Upload was made on behalf of a different user')
+
+    upload.last_checked = timezone.now()    # TODO: this is probably redundant.
     try:
-        upload.last_checked = timezone.now()
         code, data = check_upload_status(username, upload_id)
     except Exception as E:
         upload.message = str(E)
@@ -456,24 +531,32 @@ def process_upload(upload_id, username):
 def process_details(data, upload_id, username):
     """
     Process document data from Giles.
+
+    Paramters
+    ---------
+    data : dict
+    upload_id : str
+        The original poll ID returned by Giles upon upload.
+    username : str
+
+    Returns
+    -------
+    :class:`.Resource`
     """
+
     if isinstance(data, list):
         if len(data) == 0:
             raise ValueError('data is empty')
         data = data[0]
 
     upload = GilesUpload.objects.get(upload_id=upload_id)
-    resource = upload.resource
+    resource = upload.resource    # This is the master resource.
     creator = User.objects.get(username=username)
 
     giles = settings.GILES
     __text__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Text')
     __image__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Image')
     __document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
-
-    # Everything attached to this document will receive the same access
-    #  value.
-    public = data.get('access', 'PUBLIC') == 'PUBLIC'
 
     document_id = data.get('documentId')
 
@@ -523,7 +606,7 @@ def process_details(data, upload_id, username):
         page_resource = _create_page_resource(resource, page_nr, __document__,
                                               creator, page_uri,
                                               _fix_url(page_data.get('url')),
-                                              public=public)
+                                              public=False)
 
         pages[page_nr]['resource'] = page_resource
 
@@ -539,7 +622,7 @@ def process_details(data, upload_id, username):
                                      __image__ if fmt == 'image' else __text__,
                                      creator, page_fmt_uri,
                                      _fix_url(fmt_data.get('url')),
-                                     public=public,
+                                     public=False,
                                      content_type=fmt_data.get('content-type'),
                                      name='%s (%s)' % (page_resource.name, fmt))
 
@@ -555,35 +638,29 @@ def process_details(data, upload_id, username):
     return resource
 
 
-def send_giles_upload(upload_pk, username):
+def format_giles_url(url, username, dw=300):
     """
-    Send data for a pending :class:`.GilesUpload`\.
-
-    If successfuly, transitions state from PENDING to SENT.
-
-    If an exception is raised, transitions state from PENDING to SEND_ERROR.
+    Adds ``accessToken`` and ``dw`` parameters to ``url``.
 
     Parameters
     ----------
-    upload_pk : int
+    url : str
+        This should be an URL for content in Giles.
     username : str
+        Name of the user who owns (or has Giles-level rights) to the resource.
+        Will be used to select the Giles access token.
+    dw : int
+        Display width (for images); for Digilib.
+
+    Returns
+    -------
+    str
+        URL with auth token and display width GET parameters.
     """
-    upload = GilesUpload.objects.get(pk=upload_pk)
 
-    # This will trigger an actual upload, and we don't want to do it twice.
-    if not upload.state in [GilesUpload.PENDING, GilesUpload.ENQUEUED]:
-        return
-
-    public = False    # For now, we'll set everything private.
-
-    try:
-        code, result = send_to_giles(username, upload.file_path, public=public)
-    except Exception as E:
-        upload.message = str(E)
-        upload.state = GilesUpload.SEND_ERROR
-        upload.save()
-        return
-
-    upload.upload_id = result.get('id')
-    upload.state = GilesUpload.SENT
-    upload.save()
+    user = User.objects.get(username=username)
+    parts = list(tuple(urlparse.urlparse(url)))
+    q = {k: v[0] for k, v in urlparse.parse_qs(parts[4]).iteritems()}
+    q.update({'accessToken': get_user_auth_token(user), 'dw': dw})
+    parts[4] = urllib.urlencode(q)
+    return urlparse.urlunparse(tuple(parts))
