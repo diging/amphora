@@ -122,7 +122,7 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
 
 @shared_task(rate_limit="6/m")
 def send_to_giles(upload_pk, created_by):
-    logger.debug('send upload %i for user %s' % (upload_pk, username))
+    logger.debug('send upload %i for user %s' % (upload_pk, created_by))
     giles.send_giles_upload(upload_pk, created_by)
 
 
