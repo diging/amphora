@@ -151,10 +151,10 @@ MEDIA_URL = BASE_URL + 'media/'
 CELERY_IMPORTS = ('cookies.tasks',)
 CELERY_DEFAULT_RATE_LIMIT = "100/m"
 CELERYBEAT_SCHEDULE = {
-     'check_giles_uploads': {
-         'task': 'cookies.tasks.check_giles_uploads',
-         'schedule': timedelta(seconds=30)
-     }
+    'check_giles_uploads': {
+        'task': 'cookies.tasks.check_giles_uploads',
+        'schedule': timedelta(seconds=30)
+    }
 }
 
 # File handling.
