@@ -144,6 +144,16 @@ def check_giles_uploads():
     their status.
     """
 
+    # for upload_id, username in qs.order_by('updated').values_list('upload_id', 'created_by__username')[:500]:
+    qs = GilesUpload.objects.filter(state=GilesUpload.SENT)
+    _u = 0
+    for upload in qs.order_by('updated')[:100]:
+        upload.state = GilesUpload.ASSIGNED
+        upload.save()
+        check_giles_upload.delay(upload.upload_id, upload.created_by.username)
+        _u += 1
+    logger.debug('assigned %i uploads to check' % _u)
+
     outstanding = GilesUpload.objects.filter(state__in=GilesUpload.OUTSTANDING)
     pending = GilesUpload.objects.filter(state=GilesUpload.PENDING)
 
@@ -164,13 +174,3 @@ def check_giles_uploads():
     logger.debug('enqueued %i uploads to send' % _e)
 
     q = Q(last_checked__gte=timezone.now() - timedelta(seconds=300)) | Q(last_checked=None)#.filter(q)
-
-    # for upload_id, username in qs.order_by('updated').values_list('upload_id', 'created_by__username')[:500]:
-    qs = GilesUpload.objects.filter(state=GilesUpload.SENT)
-    _u = 0
-    for upload in qs.order_by('updated')[:100]:
-        upload.state = GilesUpload.ASSIGNED
-        upload.save()
-        check_giles_upload.delay(upload.upload_id, upload.created_by.username)
-        _u += 1
-    logger.debug('assigned %i uploads to check' % _u)

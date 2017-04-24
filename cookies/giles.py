@@ -62,8 +62,9 @@ def handle_status_exception(func):
 
             get_user_auth_token(user, fresh=True, **kwargs)
             user.refresh_from_db()
-
-            return func(user, *args, **kwargs)
+            response  = func(user, *args, **kwargs)
+            logger.debug('response %s: %s' % response.status_code, response.content)
+            return response
         elif response.status_code != requests.codes.ok and response.status_code != 202:
             logger.error('Giles responded with status %i: content: %s' % \
                          (response.status_code, response.content))
@@ -130,6 +131,8 @@ def get_user_auth_token(user, **kwargs):
     except Exception as E:
         logger.error("Failed to retrieve access token for %s: %s" % \
                      (user.username, str(E)))
+        import json
+        logger.error(json.dumps(data))
         if kwargs.get('raise_exception', False):
             raise E
 
