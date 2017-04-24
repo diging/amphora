@@ -130,6 +130,8 @@ def get_user_auth_token(user, **kwargs):
     except Exception as E:
         logger.error("Failed to retrieve access token for %s: %s" % \
                      (user.username, str(E)))
+        import json
+        logger.error(json.dumps(data))
         if kwargs.get('raise_exception', False):
             raise E
 

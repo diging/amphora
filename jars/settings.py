@@ -151,10 +151,10 @@ MEDIA_URL = BASE_URL + 'media/'
 CELERY_IMPORTS = ('cookies.tasks',)
 CELERY_DEFAULT_RATE_LIMIT = "100/m"
 CELERYBEAT_SCHEDULE = {
-    # 'check_giles_uploads': {
-    #     'task': 'cookies.tasks.check_giles_uploads',
-    #     'schedule': timedelta(seconds=120)
-    # }
+     'check_giles_uploads': {
+         'task': 'cookies.tasks.check_giles_uploads',
+         'schedule': timedelta(seconds=30)
+     }
 }
 
 # File handling.
@@ -192,7 +192,7 @@ IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
 GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
 GILES_TOKEN_EXPIRATION = os.environ.get('GILES_TOKEN_EXPIRATION', 120)    # min.
-MAX_GILES_UPLOADS = 20
+MAX_GILES_UPLOADS = 50
 
 # Metadata globals.
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
