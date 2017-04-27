@@ -43,7 +43,7 @@ def add_creation_metadata(resource, user):
     })
 
 
-def _transfer_all_relations(from_instance, to_instance_id, content_type):
+def _transfer_all_relations(from_instance, to_instance, content_type):
     """
     Transfers relations from one model instance to another.
 
@@ -52,16 +52,19 @@ def _transfer_all_relations(from_instance, to_instance_id, content_type):
     from_instance : object
         An instance of any model, usually a :class:`.Resource` or
         :class:`.ConceptEntity`\.
-    to_instance_id : int
-        PK id of the model instance that will inherit relations.
+    to_instance :
     content_type : :class:`.ContentType`
         :class:`.ContentType` for the model of the instance that will inherit
         relations.
     """
+
+
+
     from_instance.relations_from.update(source_type=content_type,
-                                        source_instance_id=to_instance_id)
+                                        source_instance_id=to_instance.id)
+
     from_instance.relations_to.update(target_type=content_type,
-                                      target_instance_id=to_instance_id)
+                                      target_instance_id=to_instance.id)
 
 
 def prune_relations(resource, user=None):
@@ -203,6 +206,8 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
     return master
 
 
+
+
 def merge_resources(resources, master_id=None, delete=True, user=None):
     """
     Merge selected resources to a single resource.
@@ -245,11 +250,14 @@ def merge_resources(resources, master_id=None, delete=True, user=None):
         master = resources.first()
 
     to_merge = resources.filter(~Q(pk=master.id))
+
     for resource in to_merge:
-        _transfer_all_relations(resource, master.id, resource_type)
+        _transfer_all_relations(resource, master, resource_type)
         resource.content.all().update(for_resource=master)
-        for collection in resource.part_of.all():
-            master.part_of.add(collection)
+        for rel in ['resource_set', 'conceptentity_set', 'relation_set', 'content_relations', 'value_set']:
+            getattr(resource.container, rel).update(container_id=master.container.id)
+        # for collection in resource.part_of.all():
+        #     master.part_of.add(collection)
 
     prune_relations(master, user)
 

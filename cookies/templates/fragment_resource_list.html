@@ -29,7 +29,8 @@
 
 
       <div class="btn-group">
-        <input type="submit" class="btn btn-primary btn-xs selection-required" value="Add tag" disabled="disabled">
+        <input type="submit" name="action" class="btn btn-primary btn-xs selection-required" value="Add tag" disabled="disabled">
+        <input type="submit" name="action" class="btn btn-primary btn-xs selection-required" value="Merge" disabled="disabled">
         <script>
         $('body').ready(function() {
             $('[name="addresources"]').change(function(e) {
@@ -52,8 +53,8 @@
   <div class="collection_resources">
     <ul class="list-group">
       {% for resource in resources %}
-      <div class="list-group-item resource-item" id="resource-{{ resource.id }}">
-
+      <div class="list-group-item resource-item" id="resource-{{ resource.primary.id }}">
+          {% if user.is_authenticated %}<input type="checkbox" name="addresources" id="select-{{ resource.primary.id }}" value={{resource.primary.id}}>{% endif %}
           <a href="{{ resource.primary.get_absolute_url }}">{{ resource.primary.name }}</a> <span class="text-muted">{{ resource.primary.entity_type }}</span>
           <div>
               <span class="text-muted">Added by <span class="text-warning">{{ resource.primary.created_by }}</span> on {{ resource.primary.created }} Last updated on {{ resource.primary.updated }}</span>
@@ -69,7 +70,7 @@
                   </span>
                   {% endif %}
               </span>
-              {% if user.is_authenticated %}<input type="checkbox" style="visibility: hidden;" name="addresources" id="select-{{ resource.id }}" value={{resource.primary.id}}>{% endif %}
+
           </div>
           <div class="clearfix">
               {% for resource_tag in resource.primary.tags.all %}
@@ -83,28 +84,7 @@
       </div>
       {% endfor %}
     </ul>
-    <script>
-    $(document).ready(function() {
-        $('.resource-item').click(function(e) {
 
-            e.stopPropagation();
-            var resource_elem = $(e.delegateTarget);
-            var resource_id = resource_elem.attr('id').split('-')[1];
-            var input_elem = $('#select-' + resource_id);
-            if (input_elem.attr('checked') == 'checked') {
-                input_elem.removeAttr('checked');
-            } else {
-                input_elem.attr('checked', 'checked');
-            }
-            input_elem.trigger('change');
-            if (resource_elem.hasClass('resource-item-selected')) {
-                resource_elem.removeClass('resource-item-selected');
-            } else {
-                resource_elem.addClass('resource-item-selected');
-            }
-        });
-    });
-    </script>
 
     </div>
 </form>
