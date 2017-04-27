@@ -63,7 +63,7 @@ def handle_status_exception(func):
             get_user_auth_token(user, fresh=True, **kwargs)
             user.refresh_from_db()
             response  = func(user, *args, **kwargs)
-            logger.debug('response %s: %s' % response.status_code, response.content)
+            logger.debug('response %s: %s' % (response.status_code, response.content))
             return response
         elif response.status_code != requests.codes.ok and response.status_code != 202:
             logger.error('Giles responded with status %i: content: %s' % \
@@ -118,6 +118,7 @@ def get_user_auth_token(user, **kwargs):
     except (AttributeError, ObjectDoesNotExist):    # RelatedObjectDoesNotExist.
         pass    # Will proceed to retrieve token.
 
+    data = None
     try:
         try:    # Delete the old token first.
             user.giles_token.delete()

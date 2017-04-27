@@ -320,7 +320,7 @@ def create_resource_bulk(request):
                 job = UserJob.objects.create(**{
                     'created_by': request.user,
                 })
-                result = handle_bulk.delay(file_path, safe_data, file_name, job)
+                result = handle_bulk(file_path, safe_data, file_name, job) #delay
                 return HttpResponseRedirect(reverse('job-status', args=(result.id,)))
 
 
