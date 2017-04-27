@@ -25,7 +25,11 @@ def suggest_similar(entity, qs=None):
         similarity.
     """
 
+    # Get representative concepts for identities to which this entity is a
+    #  subordinate party.
     rep_ids = Identity.objects.filter(entities=entity.id).values_list('representative', flat=True)
+    ent_ids = list(Identity.objects.filter(entities=entity.id).values_list('entities__id', flat=True)) + list(Identity.objects.filter(representative_id=entity.id).values_list('entities__id', flat=True))
+
     identities = Identity.objects.filter(representative__id__in=rep_ids)
     if not qs:
         qs = ConceptEntity.objects.all()
@@ -36,7 +40,7 @@ def suggest_similar(entity, qs=None):
     name_parts = _tokenize(name)
     _id = lambda o: o.id
     _name = lambda o: o.name   #similar_entities = similar_entities.filter()
-    _find = lambda part: qs.filter(Q(name__icontains=part) & ~Q(id=entity.id) & ~Q(identities__id__in=identities))
+    _find = lambda part: qs.filter(Q(name__icontains=part) & ~Q(id=entity.id) & ~Q(identities__id__in=identities) & ~Q(pk__in=ent_ids) & ~Q(pk__in=rep_ids))
     for name, group in groupby(sorted(chain(*[_find(part) for part in name_parts]), key=_name), key=_name):
         for pk, subgroup in groupby(sorted(group, key=_id), key=_id):
             subgroup = [o for o in subgroup]

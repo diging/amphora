@@ -73,7 +73,7 @@
         <a class="list-group-item clearfix"
             href="{{ entity.get_absolute_url }}">
             {{ entity.name }} <span class="label label-primary">{{ entity.entity_type.name }}</span>
-            {% if entity.concept %}<span class="fa fa-anchor pull-right"></span>{% endif %}
+            {% if entity.concept.count > 0 %}<span class="fa fa-anchor pull-right"></span>{% endif %}
         </a>
         {% endfor %}
     </ul>
