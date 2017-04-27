@@ -557,8 +557,13 @@ def bulk_action_resource(request):
     """
     resource_ids = request.POST.getlist('addresources', [])
     next_page = request.POST.get('next')
+    action = request.POST.get('action')
+    
     # TODO: use proper URL parameter encoding.
-    target = reverse('bulk-add-tag-to-resource') + "?" + '&'.join(["resource=%s" % r_id for r_id in resource_ids])
+    if action == 'Add tag':
+        target = reverse('bulk-add-tag-to-resource') + "?" + '&'.join(["resource=%s" % r_id for r_id in resource_ids])
+    elif action == 'Merge':
+        target = reverse('resource-merge') + "?" + '&'.join(["resource=%s" % r_id for r_id in resource_ids])
     if next_page:
         target += '&next=' + next_page
     return HttpResponseRedirect(target)

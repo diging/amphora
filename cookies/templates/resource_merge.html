@@ -24,9 +24,12 @@
         {% for resource in resources %}
         <li class="list-group-item">
             <input type="radio" name="master" value="{{resource.id}}" />
-            <a href="{{ resource.get_absolute_url }}" target="_blank">{{ resource.title }}</a>
+            <a href="{{ resource.get_absolute_url }}" target="_blank">{{ resource.name }}</a>
             <span class="text-muted">a {{ resource.entity_type.schema }}/{{ resource.entity_type.name }}</span>
-            <span class="pull-right text-warning">{{ resource.uri }}</spa>
+            <span class="pull-right text-warning">{{ resource.uri }}</span>
+            <div class="text-muted">
+                Created by {{ resource.created_by }} on {{ resource.created }}.
+            </div>
         </li>
         {% endfor %}
     </ul>
