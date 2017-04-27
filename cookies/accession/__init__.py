@@ -251,7 +251,7 @@ class IngestManager(object):
             try:
                 resource = Resource.objects.get(uri=uri)
                 container = resource.container
-            except DoesNotExist:
+            except Resource.DoesNotExist:
                 resource = None
 
         if resource is None:
