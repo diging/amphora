@@ -15,7 +15,7 @@ logger = settings.LOGGER
 import mimetypes
 
 
-# @receiver(post_save, sender=User)
+@receiver(post_save, sender=User)
 def new_users_are_inactive_by_default(sender, **kwargs):
     instance = kwargs.get('instance', None)
     if instance and kwargs.get('created', False):
@@ -25,7 +25,7 @@ def new_users_are_inactive_by_default(sender, **kwargs):
         instance.save()
 
 
-# @receiver(post_save, sender=ContentRelation)
+@receiver(post_save, sender=ContentRelation)
 def send_all_files_to_giles(sender, **kwargs):    # Hey, that rhymes!
     """
     Create a :class:`.GilesUpload` instance to indicate that an upload should
