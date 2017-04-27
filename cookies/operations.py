@@ -159,7 +159,7 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
         _first = lambda qs: qs.first()
     elif isinstance(entities, list):
         _len = lambda qs: len(qs)
-        _uri = lambda qs: [getattr(o.concept, 'uri', None) for o in qs]
+        _uri = lambda qs: [concept.uri for obj in qs for concept in obj.concept.all()]#[getattr(o.concept, 'uri', None) for o in qs]
         _get_master = lambda qs, pk: [e for e in entities if e.id == pk].pop()
         _get_rep = lambda qs: [e for e in entities if e.represents.count() > 0].pop()
         _first = lambda qs: qs[0]
