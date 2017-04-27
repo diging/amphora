@@ -118,6 +118,7 @@ def get_user_auth_token(user, **kwargs):
     except (AttributeError, ObjectDoesNotExist):    # RelatedObjectDoesNotExist.
         pass    # Will proceed to retrieve token.
 
+    data = None
     try:
         try:    # Delete the old token first.
             user.giles_token.delete()

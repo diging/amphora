@@ -10,7 +10,7 @@ logger = settings.LOGGER
 
 ### Handle Concept and Type signals. ###
 
-@receiver(post_save, sender=Concept)
+# @receiver(post_save, sender=Concept)
 def concept_post_save_receiver(sender, **kwargs):
     """
     When a :class:`.Concept` is saved, attempt to resolve it using one of the
@@ -21,7 +21,7 @@ def concept_post_save_receiver(sender, **kwargs):
     resolve(sender, instance)
 
 
-@receiver(post_save, sender=Type)
+# @receiver(post_save, sender=Type)
 def type_post_save_receiver(sender, **kwargs):
     """
     When a :class:`.Type` is saved, attempt to resolve it using one of the

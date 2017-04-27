@@ -244,15 +244,24 @@ class IngestManager(object):
         data.update(resource_data)
         file_path = data.pop('link', None)
         location = data.pop('url', None)
+        uri = data.get('uri')
 
         collection = data.pop('collection', None)
-        resource = Resource.objects.create(**data)
-        container = ResourceContainer.objects.create(primary=resource,
-                                                     created_by=resource.created_by,
-                                                     part_of=collection)
-        resource.refresh_from_db()
-        resource.container = container
-        resource.save()
+        if uri:
+            try:
+                resource = Resource.objects.get(uri=uri)
+                container = resource.container
+            except DoesNotExist:
+                resource = None
+
+        if resource is None:
+            resource = Resource.objects.create(**data)
+            container = ResourceContainer.objects.create(primary=resource,
+                                                         created_by=resource.created_by,
+                                                         part_of=collection)
+            resource.refresh_from_db()
+            resource.container = container
+            resource.save()
 
         if file_path:
             try:
