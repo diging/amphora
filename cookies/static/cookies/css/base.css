@@ -71,3 +71,17 @@ body {
     border: 0px;
     top: 0;
 }
+
+
+.text-small {
+    font-size: 8pt;
+}
+
+
+.panel-heading .collapse-toggle:after {
+    font-family: 'Glyphicons Halflings';
+    content: "\e259";
+    float: right;
+    color: grey;
+}
+.panel-heading .collapse-toggle.collapsed:after { content: "\e258"; }
