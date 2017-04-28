@@ -41,11 +41,14 @@
         {% endif %}
     </span>
     <div class="h3 collection_name">{{ collection.name }}</div>
+    <p>
+        There are {{ collection.get_number_of_conceptentities }} unique entities in this collection. <a href="{% url "entity-list" %}?collection={{ collection.id }}">View all</a>
+    </p>
 
-      <div class="h4">{% if collection.part_of %}Part of: <a class="text-info" href="{{ collection.part_of.get_absolute_url }}">{{ collection.part_of.name }}</a>{% endif %}</div>
-      {% if collection.description %}
-      <p class="text-muted">{{ collection.description }}</p>
-          {% endif %}
+    <div class="h4">{% if collection.part_of %}Part of: <a class="text-info" href="{{ collection.part_of.get_absolute_url }}">{{ collection.part_of.name }}</a>{% endif %}</div>
+    {% if collection.description %}
+    <p class="text-muted">{{ collection.description }}</p>
+    {% endif %}
 
 
     <div class="container-fluid">

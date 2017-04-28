@@ -42,6 +42,8 @@
 
             </div>
             <dl class="dl-horizontal">
+                <dt>Collection</dt>
+                <dd><a href="{{ entity.container.part_of.get_absolute_url }}">{{ entity.container.part_of.name }}</a></dd>
                 <dt>Part of</dt>
                 <dd><a href="{{ entity.container.primary.get_absolute_url }}">{{ entity.container.primary.name }}</a></dd>
                 <dt>Created</dt>
@@ -66,7 +68,7 @@
                 </a>
                 {% endif %}
             </div>
-            <p class="text-muted">
+            <p class="text-muted text-small">
                 Linking entities to external records (e.g. in a controlled vocabulary or authority service)
                 can help Amphora leverage linked data to enhance metadata.
             </p>
@@ -116,11 +118,10 @@
 
             {% if relations_from|length > 0 %}
             <div class="h4">Relations about (from) this entity</div>
-            <p class="text-muted">
+            <p class="text-muted text-small">
                 These relations represent everything that we know about this entity.
                 Note that relations from merged entities (see above) are also included
-                in the summaries below. {% if can_edit %}To edit a relation from a merged entity, click
-                on the <span class="glyphicon glyphicon-arrow-right"></span> button.{% endif %}
+                in the summaries below.
             </p>
 
                 {% if can_edit %}<div id="add-new-predicate"></div>
@@ -142,7 +143,7 @@
                                     v-for="predicate in predicates"
                                     v-bind:href="getPredicateURL(predicate)">
                                     {{ predicate.schema.name }}: {{ predicate.name }}
-                                    <span class="text-muted">{{ predicate.description }}</span>
+                                    <span class="text-muted text-small">{{ predicate.description }}</span>
                                 </a>
                             </div>
                         </div>
@@ -188,7 +189,7 @@
                                 href="{% url "entity-edit-relation-as-table" entity.id predicate.id %}"></a>
                             {% endif %}
                         </div>
-                        <div class="text-muted">
+                        <div class="text-muted text-small">
                             {{ predicate.description }}
                         </div>
                     </div>
@@ -208,19 +209,24 @@
         <div class="col-sm-6 col-md-4">
 
             {% if similar_entities|length > 0 %}
-            <div class="panel panel-default">
+            <div class="panel">
                 <div class="panel-heading clearfix">
-                    <span class="h4">Similar entities</span>
+                    <div class="panel-title">
+                        <span class="h4">
+                            <a data-toggle="collapse" class="collapse-toggle collapsed" href="#similar-list">Similar entities</a>
+                        </span>
+                    </div>
+
+
+                </div>
+                <div class="list-group panel-collapse collapse" id="similar-list">
                     {% if can_edit %}
-                    <div class="pull-right">
+                    <div class="list-group-item list-group-item-compact text-right">
                         <a class="btn btn-success btn-xs" href="{% url "entity-merge" %}?entity={{ entity.id }}&{% for ent in similar_entities %}entity={{ent.id}}&{% endfor %}">Merge all</a>
                     </div>
                     {% endif %}
-
-                </div>
-                <div class="list-group"  style="max-height: 600px; overflow-y: scroll;">
                     {% for ent in similar_entities %}
-                    <li class="list-group-item">
+                    <li class="list-group-item list-group-item-compact">
                         <span class="btn-group">
                             {% if can_edit %}
                             <a href="{% url "entity-merge" %}?entity={{entity.id}}&entity={{ent.id}}"
@@ -254,7 +260,7 @@
 
             {% if relations_to|length > 0 %}
             <div class="h4">Relations to this entity</div>
-            <p class="text-muted">
+            <p class="text-muted text-small">
                 This entity is the target of the following relations. These relations can
                 be edited from their respective source resources.
             </p>

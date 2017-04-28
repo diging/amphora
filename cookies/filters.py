@@ -3,6 +3,7 @@ from django.db.models import Q, Count
 import django_filters
 
 from cookies.models import *
+from cookies import authorization
 
 
 class GilesUploadFilter(django_filters.FilterSet):
@@ -25,9 +26,14 @@ class GilesUploadFilter(django_filters.FilterSet):
 
 
 
+def get_collections(request):
+    # def apply_filter(auth, user, qs):
+    return authorization.apply_filter(CollectionAuthorization.VIEW, request.user, Collection.objects.all())
+
 class ConceptEntityFilter(django_filters.FilterSet):
     name = django_filters.CharFilter(method='lookup_name_in_parts')
     entity_type = django_filters.ModelChoiceFilter(queryset=Type.objects.annotate(num_instances=Count('conceptentity')).filter(num_instances__gt=0))
+    collection = django_filters.ModelChoiceFilter(queryset=get_collections, name='container__part_of', label='Collection')
 
 
     def lookup_name_in_parts(self, queryset, name, value):
@@ -36,15 +42,10 @@ class ConceptEntityFilter(django_filters.FilterSet):
             q &= Q(name__icontains=part)
         return queryset.filter(q)
 
+
     class Meta:
         model = ConceptEntity
         fields = ['name', 'uri', 'entity_type', 'created_by',]
-        # order_by = (
-        #     ('name', 'Name (ascending)'),
-        #     ('-name', 'Name (descending)'),
-        #     ('entity_type', 'Type (ascending)'),
-        #     ('-entity_type', 'Type (descending)'),
-        # )
 
 
 
