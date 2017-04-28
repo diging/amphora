@@ -27,14 +27,38 @@ class GilesUploadFilter(django_filters.FilterSet):
 
 
 def get_collections(request):
-    # def apply_filter(auth, user, qs):
-    return authorization.apply_filter(CollectionAuthorization.VIEW, request.user, Collection.objects.all())
+    """
+    Retrieve collections for which the current user has VIEW access.
+    """
+    return authorization.apply_filter(CollectionAuthorization.VIEW,
+                                      request.user,
+                                      Collection.objects.all())
+
 
 class ConceptEntityFilter(django_filters.FilterSet):
     name = django_filters.CharFilter(method='lookup_name_in_parts')
     entity_type = django_filters.ModelChoiceFilter(queryset=Type.objects.annotate(num_instances=Count('conceptentity')).filter(num_instances__gt=0))
     collection = django_filters.ModelChoiceFilter(queryset=get_collections, name='container__part_of', label='Collection')
+    has_concept = django_filters.ChoiceFilter(choices=((True, 'Yes'), (False, 'No')), method='filter_has_concept', label='Has concept')
+    has_predicate = django_filters.ModelChoiceFilter(queryset=Field.objects.annotate(num_instances=Count('instances')).filter(num_instances__gt=0), method='filter_has_predicate', label='Has relation')
 
+
+    def filter_has_concept(self, queryset, name, value):
+        if value is None:
+            return queryset
+        if value is True:
+            return queryset.filter(concept__id__isnull=False)
+        return queryset.exclude(concept__id__isnull=False)
+
+    def filter_has_predicate(self, queryset, name, value):
+        if value is None:
+            return queryset
+        try:
+            queryset = queryset.filter(relations_from__predicate=value)
+        except Exception as E:
+            print str(E)
+
+        return queryset
 
     def lookup_name_in_parts(self, queryset, name, value):
         q = Q()

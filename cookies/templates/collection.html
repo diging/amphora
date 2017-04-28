@@ -68,12 +68,12 @@
     </div>
 </div>
 
-<div class="row">
 
-    <div class="col-xs-4 text-center">
-        {% paginate %}
-    </div>
+
+<div class="text-center">
+    {% paginate %}
 </div>
+
 
 <form class="form" action="." method="GET">
 {% with filtered_objects.form.name as field %}
@@ -181,11 +181,11 @@
     </div>
 </div>
 
-<div class="row">
-    <div class="col-xs-offset-4 col-xs-4 text-center">
-        {% paginate %}
-    </div>
+
+<div class="text-center">
+    {% paginate %}
 </div>
+
 
 {% if collection.relations_from.count > 0 %}
 <h3>Metadata</h2>

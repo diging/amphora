@@ -403,7 +403,9 @@ class Field(models.Model):
                                    " any value.")
 
     def __unicode__(self):
-        return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
+        if self.name:
+            return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
+        return self.uri
 
 
 ### Values ###
