@@ -160,7 +160,8 @@
                             search: function() {
                                 if (this.q.length < 2) return;
                                 var self = this;
-                                this.$http.get('/rest/field/?name='+this.q).then(function(response) {
+                                // TODO: use a base url
+                                this.$http.get('/amphora/rest/field/?name='+this.q).then(function(response) {
                                     self.predicates = response.body.results;
                                 });
                             },
