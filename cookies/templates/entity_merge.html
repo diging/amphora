@@ -26,7 +26,17 @@
             <input type="radio" name="master" value="{{ entity.id }}">
             <a href="{{ entity.get_absolute_url }}" target="_blank">{{ entity.name.title }}</a>
             <span class="text-muted">a {{ entity.entity_type.schema }}/{{ entity.entity_type.name }}</span>
-            <span class="pull-right">{{ entity.relations_from.count }}/{{ entity.relations_to.count }}</span>
+            <span class="pull-right">
+                {% if entity.concept.count > 0 %}
+                <span class="btn btn-xs"
+                    data-toggle="tooltip"
+                    data-title="View linked concept">
+                    <i class="fa fa-anchor" aria-hidden="true"></i>
+                </span>
+                {% endif %}
+                <span class="badge">{{ entity.relations_from.count }}</span><span class="badge">{{ entity.relations_to.count }}</span>
+
+            </span>
             <input type="hidden" name="entity" value="{{ entity.id }}" />
         </li>
         {% endfor %}
