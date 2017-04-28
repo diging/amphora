@@ -19,6 +19,10 @@
     undone! Clicking on an entity will open the detail view for that entity
     in a new tab or window.
 </p>
+<p class="text-warning">
+    Please select the "primary" entity for this merge. This entity will inherit
+    everything that we know about the other entities.
+</p>
 <form class="form" action="{% url "entity-merge" %}" method="GET">
     <ul class="list-group">
         {% for entity in entities %}

@@ -295,8 +295,18 @@ class Collection(ResourceBase):
 
     description = models.TextField(blank=True, null=True)
 
+    def get_number_of_conceptentities(self):
+        """
+        Count all of the :class:`.ConceptEntity` instances associated with
+        resources in this :class:`.Collection`\.
+        """
+        return len(set(self.resourcecontainer_set.values_list('conceptentity__id')))
+
     def get_absolute_url(self):
         return reverse("collection", args=(self.id,))
+
+    def __unicode__(self):
+        return self.name
 
     @property
     def children(self):
@@ -493,6 +503,15 @@ class ConceptEntity(Entity):
 
     def get_absolute_url(self):
         return reverse('entity-details', args=(self.id,))
+
+    def get_predicates(self):
+        """
+        Get information about all of the predicates for which this
+        :class:`.ConceptEntity` instance has associated :class:`.Relation`\s.
+        """
+        fields = 'predicate_id', 'predicate__name', 'predicate__uri'
+        raw = self.relations_from.order_by().values(*fields).distinct('predicate_id')
+        return [{k.split('_')[-1]: v for k, v in d.iteritems()} for d in raw]
 
 
 class Identity(models.Model):

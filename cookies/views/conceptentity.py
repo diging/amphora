@@ -76,10 +76,12 @@ def entity_list(request):
     List view for :class:`.ConceptEntity`\.
     """
     qs = ConceptEntity.active.all()
-    qs = qs.filter(Q(identities__id__isnull=True) | Q(represents__isnull=False)).distinct('id')
+    qs = qs.filter(Q(identities__id__isnull=True)
+                   | Q(represents__isnull=False)).distinct('id')
     qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user, qs)
 
-    filtered_objects = ConceptEntityFilter(request.GET, queryset=qs)
+    filtered_objects = ConceptEntityFilter(request.GET, queryset=qs,
+                                           request=request)
 
     context = {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
@@ -108,8 +110,9 @@ def entity_merge(request):
 
     if request.GET.get('confirm', False) == 'true':
         master_id = request.GET.get('master', None)
-        master = operations.merge_conceptentities(qs, master_id, user=request.user)
-        return HttpResponseRedirect(reverse('entity-details', args=(master.id,)))
+        if master_id is not None:
+            master = operations.merge_conceptentities(qs, master_id, user=request.user)
+            return HttpResponseRedirect(reverse('entity-details', args=(master.id,)))
 
     context = {
         'entities': qs,
