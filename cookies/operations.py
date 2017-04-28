@@ -198,7 +198,7 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
 
     concepts = filter(lambda pk: pk is not None, entities.values_list('concept__id', flat=True))
     if concepts:
-        master.concept.add(*Concept.objects.get(pk__in=concepts))
+        master.concept.add(*Concept.objects.filter(pk__in=concepts))
         master.save()
 
     identity = Identity.objects.create(
