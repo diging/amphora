@@ -65,6 +65,7 @@ urlpatterns = patterns('',
 
     url(r'^entity/$', views.conceptentity.entity_list, name='entity-list'),
     url(r'^entity/merge/$', views.conceptentity.entity_merge, name='entity-merge'),
+    url(r'^entity/bulk/$', views.conceptentity.bulk_action_entity, name='bulk-action-entity'),
     url(r'^entity/([0-9]+)/$', views.conceptentity.entity_details, name='entity-details'),
     url(r'^entity/([0-9]+)/change/$', views.conceptentity.entity_change, name='entity-change'),
     url(r'^entity/([0-9]+)/change/concept/$', views.conceptentity.entity_change_concept, name='entity-change-concept'),

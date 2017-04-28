@@ -11,7 +11,6 @@ from cookies.filters import *
 from cookies.forms import *
 from cookies import entities, metadata, operations
 from cookies import authorization as auth
-
 from itertools import groupby
 
 
@@ -23,7 +22,12 @@ def _get_entity_by_id(request, entity_id, *args):
 def entity_details(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
     template = 'entity_details.html'
-    similar_entities = entities.suggest_similar(entity, qs=auth.apply_filter(ResourceAuthorization.VIEW, request.user, ConceptEntity.objects.all()))
+    if entity.identities.count() == 0:
+        qs = ConceptEntity.objects.all()
+        qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user, qs)
+        similar_entities = entities.suggest_similar(entity, qs=qs)
+    else:
+        similar_entities = []
 
     entity_ctype = ContentType.objects.get_for_model(ConceptEntity)
 
@@ -89,6 +93,8 @@ def entity_list(request):
     }
     return render(request, 'entity_list.html', context)
 
+
+from urllib import urlencode
 
 # Authorization is handled internally.
 @login_required
@@ -301,3 +307,20 @@ def entity_prune(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
     operations.prune_relations(entity, request.user)
     return HttpResponseRedirect(entity.get_absolute_url())
+
+
+
+@login_required
+def bulk_action_entity(request):
+    """
+    """
+    resource_ids = request.POST.getlist('entity', [])
+    action = request.POST.get('action')
+    # TODO: use proper URL parameter encoding.
+    # if action == 'Add tag':
+    #     target = reverse('bulk-add-tag-to-entity') + "?" + '&'.join(["resource=%s" % r_id for r_id in resource_ids])
+    if action == 'Merge':
+        target = reverse('entity-merge') + "?" + '&'.join(["entity=%s" % r_id for r_id in resource_ids])
+    else:
+        target = reverse('entity-list')
+    return HttpResponseRedirect(target)
