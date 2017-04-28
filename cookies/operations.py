@@ -196,7 +196,7 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
         except AssertionError:    # If a slice has already been taken.
             master = entities[0]
 
-    concepts = filter(lambda pk: pk is not None, entities.values_list('concept__id'))
+    concepts = filter(lambda pk: pk is not None, entities.values_list('concept__id', flat=True))
     if concepts:
         master.concept.add(*Concept.objects.get(pk__in=concepts))
         master.save()
