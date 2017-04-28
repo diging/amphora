@@ -13,6 +13,26 @@ goat.GOAT_APP_TOKEN = settings.GOAT_APP_TOKEN
 goat.GOAT = settings.GOAT
 
 
+def get_concept_data(uri):
+    """
+    Retrieve data about a remote concept from BlackGoat.
+
+    Parameters
+    ----------
+    uri : str
+
+    Returns
+    -------
+    dict
+    """
+    data = goat.Concept.retrieve(uri)
+    return {
+        'label': data.data['name'],
+        'description': data.data['description'],
+        'authority': data.data['authority']['name']
+    }
+
+
 def get_or_create(uri):
     """
     Get or create a :class:`.Concept` instance.
@@ -29,15 +49,7 @@ def get_or_create(uri):
     except Concept.DoesNotExist:
         pass
 
-    data = goat.Concept.retrieve(uri)
-    defaults = {
-        'label': data.data['name'],
-        'description': data.data['description'],
-        'authority': data.data['authority']['name']
-    }
-
-    # TODO: hmmm, that looks redundant.
-    return Concept.objects.get_or_create(uri=uri, defaults=defaults)
+    return Concept.objects.get_or_create(uri=uri, defaults=get_concept_data(uri))
 
 
 
