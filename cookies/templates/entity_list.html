@@ -51,7 +51,7 @@
                             {% endfor %}
                             <div class="form-group">
                                 <label>{{ field.label }}</label>
-                                {{ field|addcss:"form-control" }}
+                                {{ field|addcss:"form-control input-sm" }}
                             </div>
                             {% endwith %}
                             {% with filtered_objects.form.uri as field %}
@@ -60,7 +60,7 @@
                             {% endfor %}
                             <div class="form-group">
                                 <label>URI</label>
-                                {{ field|addcss:"form-control" }}
+                                {{ field|addcss:"form-control input-sm" }}
                             </div>
                             {% endwith %}
 
@@ -70,7 +70,17 @@
                             {% endfor %}
                             <div class="form-group">
                                 <label>{{ field.label }}</label>
-                                {{ field|addcss:"form-control" }}
+                                {{ field|addcss:"form-control input-sm" }}
+                            </div>
+                            {% endwith %}
+
+                            {% with filtered_objects.form.has_predicate as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>{{ field.label }}</label>
+                                {{ field|addcss:"form-control input-sm" }}
                             </div>
                             {% endwith %}
                         </div>
@@ -81,7 +91,7 @@
                             {% endfor %}
                             <div class="form-group">
                                 <label>{{ field.label }}</label>
-                                {{ field|addcss:"form-control" }}
+                                {{ field|addcss:"form-control input-sm" }}
                             </div>
                             {% endwith %}
 
@@ -91,14 +101,24 @@
                             {% endfor %}
                             <div class="form-group">
                                 <label>{{ field.label }}</label>
-                                {{ field|addcss:"form-control" }}
+                                {{ field|addcss:"form-control input-sm" }}
+                            </div>
+                            {% endwith %}
+
+                            {% with filtered_objects.form.has_concept as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>{{ field.label }}</label>
+                                {{ field|addcss:"form-control input-sm" }}
                             </div>
                             {% endwith %}
                         </div>
 
                     </div>
 
-                <input type="submit" class="pull-right btn btn-success" value="Apply">
+                <input type="submit" class="pull-right btn btn-sm btn-success" value="Apply">
                 </form>
             </div>
         </div>
@@ -118,14 +138,23 @@
         {% for entity in entities %}
         <a class="list-group-item clearfix"
             href="{{ entity.get_absolute_url }}">
-            <span class="label label-primary pull-right">{{ entity.entity_type.name }}</span>
+            <div class="pull-right">
+                {% if entity.concept.count > 0 %}<span class="fa fa-anchor" style="margin-right: 5px;"></span>{% endif %}
+                <span class="label label-primary">{{ entity.entity_type.name }}</span>
+            </div>
             {{ entity.name }}
-            {% if entity.concept.count > 0 %}<span class="fa fa-anchor pull-right"></span>{% endif %}
             <div>
-                <span class="text-muted text-small">Created by {{ entity.created_by }} on {{ entity.created }} for <span class="text-warning">{{ entity.container.primary.name|truncatechars:50 }}</span>.</span>
+                <span class="text-muted text-small">
+                    Created by {{ entity.created_by }} on {{ entity.created }} for
+                    <span class="text-warning">{{ entity.container.primary.name|truncatechars:50 }}</span>.
+                </span>
             </div>
             <div>
-                {% for predicate in entity.get_predicates %}<span class="label label-success text-small" style="margin-right: 8px;">{{ predicate.name }}</span>{% endfor %}
+                {% for predicate in entity.get_predicates %}
+                <span class="label label-success text-small" style="margin-right: 8px;">
+                    {{ predicate.name }}
+                </span>
+                {% endfor %}
             </div>
         </a>
         {% endfor %}
