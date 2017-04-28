@@ -28,19 +28,24 @@
         {% for entity in entities %}
         <li class="list-group-item">
             <input type="radio" name="master" value="{{ entity.id }}">
-            <a href="{{ entity.get_absolute_url }}" target="_blank">{{ entity.name.title }}</a>
-            <span class="text-muted">a {{ entity.entity_type.schema }}/{{ entity.entity_type.name }}</span>
-            <span class="pull-right">
-                {% if entity.concept.count > 0 %}
-                <span class="btn btn-xs"
-                    data-toggle="tooltip"
-                    data-title="View linked concept">
-                    <i class="fa fa-anchor" aria-hidden="true"></i>
+            <div class="pull-right">
+                {% if entity.concept.count > 0 %}<span class="fa fa-anchor" style="margin-right: 5px;"></span>{% endif %}
+                <span class="label label-primary">{{ entity.entity_type.name }}</span>
+            </div>
+            <a href="{{ entity.get_absolute_url }}">{{ entity.name }}</a>
+            <div>
+                <span class="text-muted text-small">
+                    Created by {{ entity.created_by }} on {{ entity.created }} for
+                    <span class="text-warning">{{ entity.container.primary.name|truncatechars:50 }}</span>.
                 </span>
-                {% endif %}
-                <span class="badge">{{ entity.relations_from.count }}</span><span class="badge">{{ entity.relations_to.count }}</span>
-
-            </span>
+            </div>
+            <div>
+                {% for predicate in entity.get_predicates %}
+                <span class="label label-success text-small" style="margin-right: 8px;">
+                    {{ predicate.name }}
+                </span>
+                {% endfor %}
+            </div>
             <input type="hidden" name="entity" value="{{ entity.id }}" />
         </li>
         {% endfor %}

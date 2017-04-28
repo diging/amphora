@@ -27,27 +27,28 @@
           {% endif %}
       {% endif %}
 
-
-      <div class="btn-group">
-        <input type="submit" name="action" class="btn btn-primary btn-xs selection-required" value="Add tag" disabled="disabled">
-        <input type="submit" name="action" class="btn btn-primary btn-xs selection-required" value="Merge" disabled="disabled">
-        <script>
-        $('body').ready(function() {
-            $('[name="addresources"]').change(function(e) {
-                var anyChecked = false;
-                $('[name="addresources"]').each(function(i, elem) {
-                    if ($(elem).prop('checked')) anyChecked = true;
+        {% if user.is_authenticated %}
+        <div class="btn-group">
+            <input type="submit" name="action" class="btn btn-primary btn-xs selection-required" value="Add tag" disabled="disabled">
+            <input type="submit" name="action" class="btn btn-primary btn-xs selection-required" value="Merge" disabled="disabled">
+            <script>
+            $('body').ready(function() {
+                $('[name="addresources"]').change(function(e) {
+                    var anyChecked = false;
+                    $('[name="addresources"]').each(function(i, elem) {
+                        if ($(elem).prop('checked')) anyChecked = true;
+                    });
+                    if (anyChecked) {
+                        $('.selection-required').removeAttr('disabled');
+                    } else {
+                        $('.selection-required').attr('disabled', 'disabled');
+                    }
                 });
-                if (anyChecked) {
-                    $('.selection-required').removeAttr('disabled');
-                } else {
-                    $('.selection-required').attr('disabled', 'disabled');
-                }
             });
-        });
-        </script>
+            </script>
         <!-- <a class="btn btn-success btn-xs" href="{% url "resource-merge" %}?{% for resource in resources %}resource={{resource.id}}&{% endfor %}">Merge</a> -->
-    </div>
+        </div>
+        {% endif %}
 
   </div>
   <div class="collection_resources">
