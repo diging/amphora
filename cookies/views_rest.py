@@ -89,11 +89,18 @@ class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
                   'content_type', 'content_for', 'next', 'previous')
 
 
+class ContentRelationListSerializer(serializers.ListSerializer):
+    def to_representation(self, data):
+        data = data.filter(is_deleted=False)
+        return super(ContentRelationListSerializer, self).to_representation(data)
+
+
 class ContentRelationSerializer(serializers.HyperlinkedModelSerializer):
     content_resource = ContentResourceSerializer()
 
     class Meta:
         model = ContentRelation
+        list_serializer_class = ContentRelationListSerializer
         fields = ('id', 'content_resource', 'content_type', 'content_encoding')
 
 

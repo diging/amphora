@@ -189,6 +189,10 @@ class Resource(ResourceBase):
     description = models.TextField(blank=True, null=True)
 
     @property
+    def active_content(self):
+        return self.content.filter(is_deleted=False, hidden=False)
+
+    @property
     def content_location(self):
         if self.content_resource:
             if self.file:
