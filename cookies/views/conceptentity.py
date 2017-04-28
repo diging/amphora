@@ -27,16 +27,36 @@ def entity_details(request, entity_id):
 
     entity_ctype = ContentType.objects.get_for_model(ConceptEntity)
 
-    relations_from = Relation.objects.filter(Q(source_type=entity_ctype, source_instance_id=entity_id) | Q(source_type=entity_ctype, source_instance_id__in=list(entity.represents.values_list('entities__id', flat=True)))).order_by('predicate')
-    relations_from = auth.apply_filter(ResourceAuthorization.VIEW, request.user, relations_from)
-    relations_from = [(predicate, [rel for rel in relations]) for predicate, relations in groupby(relations_from, key=lambda r: r.predicate)]
+    # Aggregate all relations for this entity and any subordinate entities.
+    #  A subordinate entity is one that belongs to an Identity instance for
+    #  which this (current) entity is the representative.
+    subordinate = list(entity.represents.values_list('entities__id', flat=True))
+    query = Q(source_type=entity_ctype, source_instance_id=entity_id)\
+            | Q(source_type=entity_ctype, source_instance_id__in=subordinate)
+    relations_from = Relation.objects.filter(query).order_by('predicate')
+    relations_from = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
+                                       relations_from)
+    # TODO: seems like we could use aggregation/annotation here.
+    _by_target = lambda r: r.target.name
+    relations_from = [(predicate, [(target_name, len([rel for rel in rels]))
+                                   for target_name, rels
+                                   in groupby(sorted(relations, key=_by_target),
+                                              key=_by_target)])
+                      for predicate, relations
+                      in groupby(relations_from, key=lambda r: r.predicate)]
 
-    relations_to = Relation.objects.filter(Q(target_type=entity_ctype, target_instance_id=entity_id) | Q(target_type=entity_ctype, target_instance_id__in=list(entity.represents.values_list('entities__id', flat=True)))).order_by('predicate')
-    relations_to = auth.apply_filter(ResourceAuthorization.VIEW, request.user, relations_to)
-    relations_to = [(predicate, [rel for rel in relations]) for predicate, relations in groupby(relations_to, key=lambda r: r.predicate)]
+    relations_to_qs = Relation.objects.filter(Q(target_type=entity_ctype, target_instance_id=entity_id) | Q(target_type=entity_ctype, target_instance_id__in=list(entity.represents.values_list('entities__id', flat=True)))).order_by('predicate')
+    relations_to_qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user, relations_to_qs)
+    predicates = relations_to_qs.order_by().distinct('predicate_id').values('predicate_id', 'predicate__uri', 'predicate__name')
+    relations_to = []
+    for predicate in predicates:
+        qs = relations_to_qs.filter(predicate_id=predicate['predicate_id'])
+        relations_to.append((predicate, qs.count(), qs[:5]))
 
-    represents = entity.represents.values_list('entities__id', 'entities__name', 'entities__container__primary__name').distinct()
-    represented_by = entity.identities.filter(~Q(representative=entity)).values_list('representative_id', 'representative__name').distinct()
+    # relations_to = [(predicate, [rel for rel in relations]) for predicate, relations in groupby(relations_to, key=lambda r: r.predicate)]
+
+    represents = entity.represents.values_list('entities__id', 'entities__name', 'entities__container__primary__name').distinct('entities__id')
+    represented_by = entity.identities.filter(~Q(representative=entity)).values_list('representative_id', 'representative__name').distinct('representative_id')
 
     context = {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
@@ -56,7 +76,7 @@ def entity_list(request):
     List view for :class:`.ConceptEntity`\.
     """
     qs = ConceptEntity.active.all()
-    qs = qs.filter(Q(identities__isnull=True) | Q(represents__isnull=False))
+    qs = qs.filter(Q(identities__id__isnull=True) | Q(represents__isnull=False)).distinct('id')
     qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user, qs)
 
     filtered_objects = ConceptEntityFilter(request.GET, queryset=qs)
@@ -69,6 +89,7 @@ def entity_list(request):
 
 
 # Authorization is handled internally.
+@login_required
 def entity_merge(request):
     """
     User can merge selected entities.
@@ -100,16 +121,18 @@ def entity_merge(request):
 @auth.authorization_required(ResourceAuthorization.EDIT, _get_entity_by_id)
 def entity_edit_relation_as_table(request, entity_id, predicate_id):
     """
-    Edit a :class:`.ConceptEntity` instance.
+    Provides a tabular Vue2-driven interface for editing relations from a
+    :class:`.ConceptEntity` instance.
     """
     next_page = request.GET.get('next')
     entity = _get_entity_by_id(request, entity_id)
     predicate = get_object_or_404(Field, pk=predicate_id)
     entity_ctype = ContentType.objects.get_for_model(ConceptEntity)
-    relations = Relation.objects.filter(source_type=entity_ctype,
-                                        source_instance_id=entity_id,
-                                        predicate=predicate,
-                                        hidden=False)
+    subordinate = list(entity.represents.values_list('entities__id', flat=True))
+    query = Q(predicate=predicate) & Q(hidden=False) & Q(source_type=entity_ctype)
+    query &= (Q(source_instance_id=entity_id)
+                | Q(source_instance_id__in=subordinate))
+    relations = Relation.objects.filter(query)
 
     request_format = request.GET.get('format')
     if request_format == 'json':
