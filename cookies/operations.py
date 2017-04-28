@@ -150,6 +150,9 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
         ``entities``, or if more than one unique :class:`.Concept` is
         implicated.
     """
+
+
+
     conceptentity_type = ContentType.objects.get_for_model(ConceptEntity)
     if isinstance(entities, QuerySet):
         _len = lambda qs: qs.count()
@@ -168,11 +171,11 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
     if _len(entities) < 2:
         raise RuntimeError("Need more than one ConceptEntity instance to merge")
 
-    _concepts = list(set([v for v in _uri(entities) if v]))
-    if len(_concepts) > 1:
-        raise RuntimeError("Cannot merge two ConceptEntity instances with"
-                           " conflicting external concepts")
-    _uri = _concepts[0] if _concepts else None
+    # _concepts = list(set([v for v in _uri(entities) if v]))
+    # if len(_concepts) > 1:
+    #     raise RuntimeError("Cannot merge two ConceptEntity instances with"
+    #                        " conflicting external concepts")
+    # _uri = _concepts[0] if _concepts else None
 
     master = None
     if master_id:    # If a master is specified, use it...
@@ -193,8 +196,9 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
         except AssertionError:    # If a slice has already been taken.
             master = entities[0]
 
-    if _uri is not None:
-        master.concept.add(Concept.objects.get(uri=_uri))
+    concepts = filter(lambda pk: pk is not None, entities.values_list('concept__id'))
+    if concepts:
+        master.concept.add(*Concept.objects.get(pk__in=concepts))
         master.save()
 
     identity = Identity.objects.create(
