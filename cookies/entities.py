@@ -27,14 +27,21 @@ def suggest_similar(entity, qs=None):
 
     # Get representative concepts for identities to which this entity is a
     #  subordinate party.
-    collection = entity.container.part_of
+
     rep_ids = Identity.objects.filter(entities=entity.id).values_list('representative', flat=True)
     ent_ids = list(Identity.objects.filter(entities=entity.id).values_list('entities__id', flat=True)) + list(Identity.objects.filter(representative_id=entity.id).values_list('entities__id', flat=True))
 
     identities = Identity.objects.filter(representative__id__in=rep_ids)
     if not qs:
         qs = ConceptEntity.objects.all()
-    qs = qs.filter(container__part_of=collection)
+    if entity.container:
+        collection = entity.container.part_of
+    elif entity.belongs_to:
+        collection = entity.belongs_to
+    else:
+        collection = None
+    if collection:
+        qs = qs.filter(container__part_of=collection)
     name = _normalize(entity.name)
     suggestions = []
     # suggestions += [o.id ConceptEntity.objects.filter(Q(name__icontains=name) & ~Q(id=entity.id))
