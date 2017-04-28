@@ -230,18 +230,22 @@
                                 <i class="fa fa-compress" aria-hidden="true"></i>
                             </a>
                             {% endif %}
-                            {% if entity.concept.id %}
-                            <a class="btn btn-xs"
-                                data-toggle="tooltip"
-                                data-title="View linked concept">
-                                <i class="fa fa-anchor" aria-hidden="true"></i>
-                            </a>
-                            {% endif %}
+
 
                         </span>
                         <a href="{{ ent.get_absolute_url }}">{{ ent.name.title }}</a>
                         <span class="text-muted">a {{ ent.entity_type.schema }}/{{ ent.entity_type.name }}</span>
-                        <span class="pull-right">{{ ent.relations_from.count }}/{{ ent.relations_to.count }}</span>
+                        <span class="pull-right">
+                            {% if ent.concept.count > 0 %}
+                            <span class="btn btn-xs"
+                                data-toggle="tooltip"
+                                data-title="View linked concept">
+                                <i class="fa fa-anchor" aria-hidden="true"></i>
+                            </span>
+                            {% endif %}
+                            <span class="badge">{{ ent.relations_from.count }}</span><span class="badge">{{ ent.relations_to.count }}</span>
+
+                        </span>
                     </li>
                     {% endfor %}
                 </div>
@@ -261,7 +265,7 @@
                     <a class="btn btn-xs glyphicon glyphicon-list" href="{% url "resources" %}?predicate={{ predicate.predicate_id }}&target={{ entity.id }}&target_type={{ entity_type.id }}"></a>
                 </div>
                 {% for relation in relations %}
-                    <li class="source list-group-item list-group-item-compact clearfix"
+                    <li class="source list-group-item list-group-item-compact"
                         id="source_{{ relation.source.id }}"
                         uri="{{ relation.source.uri }}">
                         {% with relation.source.get_absolute_url as resource_url %}
