@@ -116,7 +116,6 @@ def check_authorization(auth, user, obj):
     -------
     bool
     """
-    print ':::', auth, user, obj
     if not obj:
         return False
 
