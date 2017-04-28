@@ -79,7 +79,7 @@ class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
 
         url = request.build_absolute_uri(obj.content_location)
         if authorization.check_authorization(ResourceAuthorization.VIEW, request.user, obj):
-            return giles.format_giles_url(url, request.user)
+            return giles.format_giles_url(url, obj.created_by)
         return url
 
     class Meta:
