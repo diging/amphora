@@ -255,7 +255,7 @@ class ConceptViewSet(viewsets.ModelViewSet):
 
 class CollectionViewSet(viewsets.ModelViewSet):
     parser_classes = (JSONParser,)
-    queryset = Collection.objects.all()
+    queryset = Collection.objects.filter(content_resource=False, hidden=False, part_of__isnull=True)
     serializer_class = CollectionSerializer
     permission_classes = (CollectionPermission,)
 
