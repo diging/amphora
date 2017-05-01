@@ -247,12 +247,13 @@ class IngestManager(object):
         uri = data.get('uri')
 
         collection = data.pop('collection', None)
+        resource = None
         if uri:
             try:
                 resource = Resource.objects.get(uri=uri)
                 container = resource.container
             except Resource.DoesNotExist:
-                resource = None
+                pass
 
         if resource is None:
             resource = Resource.objects.create(**data)

@@ -108,20 +108,6 @@ class TestMergeConceptEntities(unittest.TestCase):
         master = operations.merge_conceptentities(entities, user=User.objects.create(username='TestUser'))
         self.assertIn(uri, master.concept.values_list('uri', flat=True))
 
-    def test_cannot_merge_with_two_concepts(self):
-        """
-
-        """
-        for i in xrange(5):
-            c = ConceptEntity.objects.create(name='entity %i' % i)
-            if i == 3 or i == 1:
-                c.concept.add(Concept.objects.create(uri='http://f%i.ake' % i))
-                c.save()
-
-        entities = ConceptEntity.objects.all()
-        with self.assertRaises(RuntimeError):
-            operations.merge_conceptentities(entities, user=User.objects.create(username='TestUser'))
-
     def test_cannot_merge_one(self):
         """
         Should raise a RuntimeError if less than two :class:`.ConceptEntity`
@@ -135,105 +121,6 @@ class TestMergeConceptEntities(unittest.TestCase):
     def tearDown(self):
         for model in [ConceptEntity, User, Identity]:
             model.objects.all().delete()
-#
-#
-# class TestAddResourcesToCollection(unittest.TestCase):
-#     def test_add_one(self):
-#         """
-#         Only one :class:`.Resource` instance should be added to a collection.
-#         """
-#         resource = Resource.objects.create(name='first_resource')
-#         qs_resource = Resource.objects.all()
-#         collection_before = Collection.objects.create(name='first_collection')
-#         collection_after = operations.add_resources_to_collection(qs_resource, collection_before)
-#
-#         self.assertIn(resource, collection_after.resources.all(), "resource not added to collection\
-#             add_resources_to_collection operation not performed")
-#         self.assertIsInstance(collection_after, Collection,
-#                               "add_resources_to_collection method should return a"
-#                               " Collection instance")
-#
-#     def test_add_N(self):
-#         """
-#         All :class:`.Resource` instances should be added to collection
-#         """
-#
-#         for i in xrange(5):
-#             Resource.objects.create(name='resource_%i' % i)
-#         resources = Resource.objects.all()
-#         collection_before = Collection.objects.create(name='first_collection')
-#         collection_after = operations.add_resources_to_collection(resources, collection_before)
-#
-#         self.assertIsInstance(collection_after, Collection,
-#                               "Collection instance should be returned from"
-#                               "add_resources_to_collection method")
-#         for resource in resources:
-#             self.assertIn(resource, collection_after.resources.all(), "%s not added to collection \
-#                 add_resources_to_collection operation not performed" %resource.name)
-#
-#     def test_no_resource(self):
-#         """
-#         Should raise a RuntimeError if no :class:`.Resource`
-#         instance is passed in the QuerySet.
-#         """
-#         resource = Resource.objects.all()
-#         collection = Collection.objects.create(name='first_collection')
-#         with self.assertRaises(RuntimeError):
-#             operations.add_resources_to_collection(resource, collection)
-#
-#     def test_invalid_collection(self):
-#         """
-#         Should raise a RuntimeError if invalid :class:`.Collection`
-#         instance is passed.
-#         """
-#         resource = Resource.objects.create(name='resource_1')
-#         qs_resource = Resource.objects.all()
-#         collection = resource
-#         with self.assertRaises(RuntimeError):
-#             operations.add_resources_to_collection(qs_resource, collection)
-#
-#     def tearDown(self):
-#         Resource.objects.all().delete()
-#         Collection.objects.all().delete()
-
-
-
-class TestIsolationOperations(unittest.TestCase):
-    def test_isolate_conceptentity(self):
-        u = User.objects.create(username='TestUser')
-        instance = ConceptEntity.objects.create(name='TestEntity', created_by=u)
-        value = Value.objects.create()
-        value.name = 'Test'
-        value.save()
-        Relation.objects.create(source=instance, target=value, predicate=Field.objects.create(name='Test'))
-
-        resources = []
-        for i in xrange(10):
-            resource = Resource.objects.create(name='TestResource %i' % i, created_by=u)
-            relation = Relation.objects.create(source=resource,
-                                               target=instance,
-                                               predicate=Field.objects.create(name='Test'))
-            resources.append(resource)
-
-        self.assertEqual(instance.relations_to.count(), 10)
-        self.assertEqual(instance.relations_from.count(), 1)
-
-        operations.isolate_conceptentity(instance)
-        self.assertEqual(instance.relations_to.count(), 0)
-        for resource in resources:
-            self.assertEqual(resource.relations_from.count(), 1,
-                             "Each Resource should have a single relation...")
-            target = resource.relations_from.first().target
-            self.assertIsInstance(target, ConceptEntity, "..to a ConceptEntity")
-            self.assertEqual(target.relations_from.count(), 1,
-                             "Relations from the original instance should also"
-                             " be cloned...")
-            alt_target = target.relations_from.first()
-            self.assertEqual(alt_target.target.name, value.name,
-                             "...along with the targets of those relations.")
-
-        instance = ConceptEntity.objects.create(name='TestEntity', created_by=u)
-        operations.isolate_conceptentity(instance)
 
 
 class TestExportCoauthorData(unittest.TestCase):
