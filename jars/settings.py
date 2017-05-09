@@ -1,18 +1,3 @@
-"""
-Django settings for jars project.
-
-Sensitive or configurable settings should be set in your environment.
-
-DO NOT write secrets in this file, or store them anywhere else in the project
-repository.
-
-Environment defaults can also be set by writing a module called
-``jars_config.py`` in ``/etc/jars`` (or wherever you specify with CONFIG_PATH);
-this module should contain a dict-like object called ``env_settings``, the
-contents of which will be passed to :func:`os.environ.setdefault()`\. This can
-be a useful way to manage secrets if the configuration file is secure.
-"""
-
 import os, socket, sys, requests, dj_database_url
 from urlparse import urlparse
 from datetime import timedelta
