@@ -64,7 +64,7 @@ class Entity(models.Model):
     " of metadata fields will only take place after this resource has been"
     " saved.")
 
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=2000)
 
     hidden = models.BooleanField(default=False)
     """

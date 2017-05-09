@@ -1,5 +1,7 @@
 import unittest, mock, tempfile, types, os, datetime
 
+from django.db.models.signals import post_save
+
 from rdflib import Graph, Literal, BNode, Namespace, RDF, URIRef
 from rdflib.namespace import DC, FOAF, DCTERMS
 
@@ -12,12 +14,24 @@ from cookies.tests.mocks import MockFile, MockIngester
 from cookies.models import *
 from cookies.accession.zotero import ZoteroIngest
 from cookies import tasks
+from cookies.signals import send_all_files_to_giles
 os.environ.setdefault('LOGLEVEL', 'ERROR')
+
+
+def disconnect_signal(signal, receiver, sender):
+    disconnect = getattr(signal, 'disconnect')
+    disconnect(receiver, sender)
+
+
+def reconnect_signal(signal, receiver, sender):
+    connect = getattr(signal, 'connect')
+    connect(receiver, sender=sender)
 
 
 class TestImport(unittest.TestCase):
     def setUp(self):
         self.factory = IngesterFactory()
+        disconnect_signal(post_save, send_all_files_to_giles, ContentRelation)
 
     def test_import_factory(self):
         """
@@ -36,9 +50,13 @@ class TestImport(unittest.TestCase):
         self.assertIsInstance(ingester.next(), Resource)
         self.assertEqual(mock_file.read.call_count, 1)
 
+    def tearDown(self):
+        reconnect_signal(post_save, send_all_files_to_giles, ContentRelation)
+
 
 class TestHandleBulkWithZotero(unittest.TestCase):
     def setUp(self):
+        disconnect_signal(post_save, send_all_files_to_giles, ContentRelation)
         User.objects.get_or_create(username='AnonymousUser')
         self.user = User.objects.create(username='Test User')
         self.form_data = {
@@ -64,10 +82,12 @@ class TestHandleBulkWithZotero(unittest.TestCase):
         Relation.objects.all().delete()
         Collection.objects.all().delete()
         ContentRelation.objects.all().delete()
+        reconnect_signal(post_save, send_all_files_to_giles, ContentRelation)
 
 
 class TestZoteroIngesterWithManager(unittest.TestCase):
     def setUp(self):
+        disconnect_signal(post_save, send_all_files_to_giles, ContentRelation)
         self.resource_data = {
             'created_by': User.objects.create(username='TestUser')
         }
@@ -93,10 +113,12 @@ class TestZoteroIngesterWithManager(unittest.TestCase):
         Relation.objects.all().delete()
         Collection.objects.all().delete()
         ContentRelation.objects.all().delete()
+        reconnect_signal(post_save, send_all_files_to_giles, ContentRelation)
 
 
 class TestZoteroIngesterWithManagerZIP(unittest.TestCase):
     def setUp(self):
+        disconnect_signal(post_save, send_all_files_to_giles, ContentRelation)
         self.resource_data = {
             'created_by': User.objects.create(username='TestUser')
         }
@@ -121,6 +143,7 @@ class TestZoteroIngesterWithManagerZIP(unittest.TestCase):
         ConceptEntity.objects.all().delete()
         Resource.objects.all().delete()
         Relation.objects.all().delete()
+        reconnect_signal(post_save, send_all_files_to_giles, ContentRelation)
 
 
 class TestZoteroIngesterRDFOnly(unittest.TestCase):
@@ -137,6 +160,7 @@ class TestZoteroIngesterRDFOnly(unittest.TestCase):
 
 class TestZoteroIngesterWithLinks(unittest.TestCase):
     def setUp(self):
+        disconnect_signal(post_save, send_all_files_to_giles, ContentRelation)
         self.location = "http://asdf.com/2/"
         self.link = "file:///some/path.pdf"
 
@@ -182,10 +206,12 @@ class TestZoteroIngesterWithLinks(unittest.TestCase):
 
     def tearDown(self):
         os.remove(self.rdf_path)
+        reconnect_signal(post_save, send_all_files_to_giles, ContentRelation)
 
 
 class TestZoteroIngester(unittest.TestCase):
     def setUp(self):
+        disconnect_signal(post_save, send_all_files_to_giles, ContentRelation)
         self.test_uri = 'http://the.cool.uri/1'
         self.test_doi = '10.123/45678'
         self.date = Literal("1991")
@@ -356,3 +382,4 @@ class TestZoteroIngester(unittest.TestCase):
 
     def tearDown(self):
         os.remove(self.rdf_path)
+        reconnect_signal(post_save, send_all_files_to_giles, ContentRelation)
