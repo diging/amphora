@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.files import File
+from django.db.models import QuerySet
 
 
 import importlib, mimetypes, copy, os
@@ -10,6 +11,12 @@ from cookies import metadata
 logger = settings.LOGGER
 
 from itertools import repeat, imap
+
+
+__part__ = Field.objects.get_or_create(uri='http://purl.org/dc/terms/isPartOf')[0]
+__text__ = Type.objects.get_or_create(uri='http://purl.org/dc/dcmitype/Text')[0]
+__image__ = Type.objects.get_or_create(uri='http://purl.org/dc/dcmitype/Image')[0]
+__document__ = Type.objects.get_or_create(uri='http://xmlns.com/foaf/0.1/Document')[0]
 
 
 
@@ -68,6 +75,8 @@ class IngestManager(object):
         'name',
         'uri',
         'part_of',
+        'external_source',
+        'location'
     ]
 
     def __init__(self, wraps):
@@ -103,6 +112,8 @@ class IngestManager(object):
         if not data.startswith('http'):
             return data
         if predicate == 'entity_type':
+            if type(data) is list:
+                data = data[0]
             return metadata.field_or_type_from_uri(data, Type)
 
     def _get_or_create_entity(self, uri, entity_type=None, **defaults):
@@ -127,13 +138,14 @@ class IngestManager(object):
         :class:`.Resource`\, :class:`.Collection`\, or :class:`.ConceptEntity`
         """
         instance = None
-        for model in [self.Resource, self.Collection, self.ConceptEntity]:
+
+        for queryset in [self.Resource, self.Collection, self.ConceptEntity]:
             try:
-                instance = model.objects.get(uri=value)
+                instance = queryset.get(uri=uri)
                 if entity_type and instance.entity_type \
                     and instance.entity_type != entity_type:
                     continue
-            except model.DoesNotExist:
+            except queryset.model.DoesNotExist:
                 continue
         if instance is None:
             instance = ConceptEntity.objects.create(uri=uri, **defaults)
@@ -155,6 +167,8 @@ class IngestManager(object):
             If a list, each item will be treated as a separate relation target.
 
         """
+        if type(predicate) is list:
+            predicate = predicate[0]
         predicate = metadata.field_or_type_from_uri(predicate)
         values = [values] if not isinstance(values, list) else values
         n = len(values)
@@ -184,10 +198,14 @@ class IngestManager(object):
         defaults.update({'container': resource.container})
         if type(value) is dict:   # This is an entity with relations of its own.
             uri = value.pop('uri', None)
-            entity_type = value.pop('entity_type', None)
+            entity_type = value.pop('entity_type', defaults.get('entity_type', None))
+
+
             name = value.pop('name', None)
 
             if entity_type:
+                if type(entity_type) is list:
+                    entity_type = entity_type[0]
                 entity_type = metadata.field_or_type_from_uri(entity_type, Type)
                 defaults.update({'entity_type': entity_type})
 
@@ -195,9 +213,11 @@ class IngestManager(object):
                 name = 'Unnamed %s: %s' % (entity_type.name, unicode(uuid4()))
             defaults.update({'name': name})
 
+            extra = {k: v for k, v in defaults.iteritems() if k != 'entity_type'}
+            if 'container' not in extra:
+                extra['container'] = resource.container
             if uri:
-                instance = self._get_or_create_entity(value, entity_type,
-                                                      **defaults)
+                instance = self._get_or_create_entity(value, entity_type, **extra)
             else:
                 instance = ConceptEntity.objects.create(**defaults)
 
@@ -207,20 +227,21 @@ class IngestManager(object):
                     repeat(instance, n))
 
         elif type(value) in [str, unicode] and value.startswith('http'):
-            instance = self._get_or_create_entity(value)
+            instance = self._get_or_create_entity(value, container=resource.container)
         else:
             instance = Value.objects.create()
-            instance.container = defaults.get('container', None)
+            instance.container = resource.container
             instance.name = value
             instance.save()
+
         relation = Relation.objects.create(**{
             'source': resource,
             'predicate': predicate,
             'target': instance,
-            'container': defaults.get('container', None)
+            'container': resource.container
         })
 
-    def create_resource(self, resource_data, relation_data):
+    def create_resource(self, resource_data, relation_data, container=None):
         """
         Create a new :class:`.Resource`\.
 
@@ -246,6 +267,8 @@ class IngestManager(object):
         location = data.pop('url', None)
         uri = data.get('uri')
 
+        part_data = relation_data.pop('parts', None)
+
         collection = data.pop('collection', None)
         resource = None
         if uri:
@@ -257,10 +280,10 @@ class IngestManager(object):
 
         if resource is None:
             resource = Resource.objects.create(**data)
-            container = ResourceContainer.objects.create(primary=resource,
-                                                         created_by=resource.created_by,
-                                                         part_of=collection)
-            resource.refresh_from_db()
+            if container is None:
+                container = ResourceContainer.objects.create(primary=resource,
+                                                             created_by=resource.created_by,
+                                                             part_of=collection)
             resource.container = container
             resource.save()
 
@@ -276,9 +299,25 @@ class IngestManager(object):
             resource.location = location
             resource.save()
 
+        if part_data is not None:
+            for datum in part_data:
+                self.create_part(datum, resource)
+
         map(self.create_relations, relation_data.keys(), relation_data.values(),
             repeat(resource, len(relation_data)))
         return resource
+
+    def create_part(self, datum, resource):
+        resource_data, relation_data, file_data = self.separate_field_and_relation_data(datum)
+        part = self.process(resource_data, relation_data, file_data, container=resource.container)
+
+        __part__ = Field.objects.get_or_create(uri='http://purl.org/dc/terms/isPartOf')[0]
+        Relation.objects.create(source=part,
+                                predicate=__part__,
+                                target=resource,
+                                created_by=resource.created_by,
+                                container=resource.container)
+
 
     def create_content_relation(self, content_resource, resource,
                                 content_type=None):
@@ -341,8 +380,16 @@ class IngestManager(object):
         relation_data = {}
         for key, value in content_data.items():
             if key in self.model_fields + ['link', 'url']:
-                resource_data[key] = value if key == 'url' \
-                                        else self._handle_uri_ref(key, value)
+                if key in ['url', 'location']:
+                    if value and type(value) is list:
+                        value = value[0]
+                    if value.startswith('http'):
+                        resource_data['is_external'] = True
+                    resource_data['location'] = value
+                elif key == 'external_source':
+                    resource_data[key] = value
+                else:
+                    self._handle_uri_ref(key, value)
             else:
                 relation_data[key] = value
 
@@ -350,8 +397,7 @@ class IngestManager(object):
             'content_resource': True,
             'container': resource.container,
         })
-
-        content_resource = self.create_resource(resource_data, relation_data)
+        content_resource = self.create_resource(resource_data, relation_data, resource.container)
         self.create_content_relation(content_resource, resource, content_type)
 
     def get_or_create_predicate(self, pred_data):
@@ -378,13 +424,8 @@ class IngestManager(object):
     def __iter__(self):
         return self
 
-    def next(self):
-        """
-        Yield a :class:`.Resource`\.
 
-        Draw data from the wrapped ingest class via its ``next()`` method.
-        """
-        raw_data = self.wraps.next()
+    def separate_field_and_relation_data(self, raw_data):
         resource_data = {}
         relation_data = {}
         file_data = None
@@ -397,12 +438,26 @@ class IngestManager(object):
                 file_data = value
             else:
                 relation_data[key] = value
+        return resource_data, relation_data, file_data
 
-        resource = self.create_resource(resource_data, relation_data)
+    def process(self, resource_data, relation_data, file_data, container=None):
+        resource = self.create_resource(resource_data, relation_data, container=container)
 
         if file_data:
             n = len(file_data)
             map(self.create_content_resource, file_data, repeat(resource, n))
+        return resource
+
+    def next(self):
+        """
+        Yield a :class:`.Resource`\.
+
+        Draw data from the wrapped ingest class via its ``next()`` method.
+        """
+        raw_data = self.wraps.next()
+
+        resource_data, relation_data, file_data = self.separate_field_and_relation_data(raw_data)
+        resource = self.process(resource_data, relation_data, file_data)
 
         return resource
 

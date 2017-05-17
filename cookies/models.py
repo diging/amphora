@@ -100,7 +100,7 @@ class Entity(models.Model):
         abstract = True
 
     def save(self, *args, **kwargs):
-        super(Entity, self).save()
+        super(Entity, self).save(*args, **kwargs)
         # Generate a URI if one has not already been assigned.
         #  TODO: this should call a method to generate a URI, to allow for more
         #        flexibility (e.g. calling a Handle server).
@@ -179,9 +179,11 @@ class Resource(ResourceBase):
 
     GILES = 'GL'
     WEB = 'WB'
+    HATHITRUST = 'HT'
     SOURCES = (
         (GILES, 'Giles'),
         (WEB, 'Web'),
+        (HATHITRUST, 'HathiTrust'),
     )
     external_source = models.CharField(max_length=2, choices=SOURCES,
                                        blank=True, null=True)
@@ -371,7 +373,12 @@ class Type(models.Model):
     description = models.TextField(blank=True, null=True)
 
     def __unicode__(self):
-        return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
+        try:
+            return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
+        except Schema.DoesNotExist:
+            return self.name
+
+
 
 
 class Field(models.Model):
@@ -407,9 +414,10 @@ class Field(models.Model):
                                    " any value.")
 
     def __unicode__(self):
-        if self.name:
+        try:
             return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
-        return self.uri
+        except Schema.DoesNotExist:
+            return self.name
 
 
 ### Values ###
