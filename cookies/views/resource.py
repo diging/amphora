@@ -323,12 +323,9 @@ def create_resource_bulk(request):
                 result = handle_bulk.delay(file_path, safe_data, file_name, job)
                 return HttpResponseRedirect(reverse('job-status', args=(result.id,)))
 
-
     template = 'create_resource_bulk.html'
     context.update({'form': form})
     return render(request, template, context)
-
-
 
 
 @auth.authorization_required(ResourceAuthorization.EDIT, _get_resource_by_id)
@@ -558,7 +555,7 @@ def bulk_action_resource(request):
     resource_ids = request.POST.getlist('addresources', [])
     next_page = request.POST.get('next')
     action = request.POST.get('action')
-    
+
     # TODO: use proper URL parameter encoding.
     if action == 'Add tag':
         target = reverse('bulk-add-tag-to-resource') + "?" + '&'.join(["resource=%s" % r_id for r_id in resource_ids])

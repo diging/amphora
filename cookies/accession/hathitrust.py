@@ -12,21 +12,16 @@ class IngestError(IOError):
     pass
 
 
-class HathiTrustRemoteIngest(object):
-    """
-    Ingest remote resources from HathiTrust.
-    """
-
+class HathiTrustRemote(object):
     BASE = 'https://babel.hathitrust.org/cgi/htd'
     METADATA = 'https://catalog.hathitrust.org/api/volumes/brief/htid/{htid}.json'
 
-    def __init__(self, identifiers, client_key, client_secret, metadata={}):
-        self.identifiers = map(str, identifiers)    # No surprises!
+    def __init__(self, client_key, client_secret):
         self.session = oauth1.Client(client_key, client_secret=client_secret)
-        self.metadata = metadata
 
-
-    def get(self, target):
+    def get(self, target, sign=True):
+        if sign:
+            target = self.sign_uri(target)
         response = requests.get(target)
         if response.status_code != 200:
             raise IngestError(response.content)
@@ -90,37 +85,6 @@ class HathiTrustRemoteIngest(object):
         response = self.get(uri)
         return response.json()
 
-    def process_metadata(self, identifier, data):
-        """
-        Retrieve ingestable relations from an HT metadata record.
-
-        Parameters
-        ----------
-        data : dict
-
-        Returns
-        -------
-        dict
-        """
-        if len(data['records']) == 0:
-            return {}
-        htrn = data['records'].keys()[0]
-        record = data['records'][htrn]
-        item = data['items'][0]    # TODO: do they ever not return items?
-        return {
-            'http://purl.org/dc/elements/1.1/identifier': \
-                  ['isbn:%s' % isbn for isbn in record['isbns']] \
-                + ['issn:%s' % issn for issn in record['issns']] \
-                + ['lccn:%s' % lccn for issn in record['lccns']] \
-                + ['oclc:%s' % oclc for oclc in record['oclcs']],
-            'http://purl.org/dc/terms/created': record['publishDates'],
-            'uri': [item['itemURL']],
-            'name': [' | '.join(record['titles'])],
-            'http://purl.org/dc/terms/accessRights': [item['rightsCode']],
-            'http://purl.org/dc/terms/rightsHolder': [item['orig']],
-            'entity_type': ['http://purl.org/dc/dcmitype/Text']
-        }
-
     def get_content_metadata(self, identifier):
         """
         Execute a call against the API for ``identifier``, returning raw
@@ -135,8 +99,59 @@ class HathiTrustRemoteIngest(object):
         dict
 
         """
-        response = self.get(self.sign_uri(self.build_uri(identifier)))
+        response = self.get(self.build_uri(identifier), sign=False)
         return response.json()
+
+
+
+class HathiTrustRemoteIngest(HathiTrustRemote):
+    """
+    Ingest remote resources from HathiTrust.
+    """
+
+    BASE = 'https://babel.hathitrust.org/cgi/htd'
+    METADATA = 'https://catalog.hathitrust.org/api/volumes/brief/htid/{htid}.json'
+
+    def __init__(self, identifiers, client_key, client_secret, metadata={}):
+        self.identifiers = map(str, identifiers)    # No surprises!
+        self.metadata = metadata
+        super(HathiTrustRemoteIngest, self).__init__(client_key, client_secret)
+
+    def process_metadata(self, identifier, data):
+        """
+        Retrieve ingestable relations from an HT metadata record.
+
+        Parameters
+        ----------
+        data : dict
+
+        Returns
+        -------
+        dict
+        """
+        try:
+            if len(data['records']) == 0:
+                return {}
+            htrn = data['records'].keys()[0]
+            record = data['records'][htrn]
+            item = data['items'][0]    # TODO: do they ever not return items?
+            return {
+                'http://purl.org/dc/elements/1.1/identifier': \
+                      ['isbn:%s' % isbn for isbn in record['isbns']] \
+                    + ['issn:%s' % issn for issn in record['issns']] \
+                    + ['lccn:%s' % lccn for lccn in record['lccns']] \
+                    + ['oclc:%s' % oclc for oclc in record['oclcs']],
+                'http://purl.org/dc/terms/created': record['publishDates'],
+                'uri': [item['itemURL']],
+                'name': [' | '.join(record['titles'])],
+                'http://purl.org/dc/terms/accessRights': [item['rightsCode']],
+                'http://purl.org/dc/terms/rightsHolder': [item['orig']],
+                'entity_type': ['http://purl.org/dc/dcmitype/Text']
+            }
+        except Exception as E:
+            print E
+            print data
+            raise E
 
     def process_content_metadata(self, identifier, raw):
         """
@@ -150,46 +165,75 @@ class HathiTrustRemoteIngest(object):
         Returns
         -------
         """
+        try:
 
-        _key = lambda o: o['pgnum']
-        page_data = raw['htd:pgmap'][0]['htd:pg']
-        page_numbers = map(_key, page_data)
-        page_resources = {
-            pgnum: [d['content'] for d in group]
-            for pgnum, group in groupby(sorted(page_data, key=_key), key=_key)
-        }
-
-        return {
-            'http://purl.org/dc/terms/accessRights': [raw.get('htd:access_use_statement'), raw.get('htd:access_use')],
-            'http://purl.org/dc/terms/modified': [raw.get('updated')],
-            'http://purl.org/dc/terms/extent': ['%s pages' % raw.get('htd:numpages')],
-            'parts': [
-                {
-                    'name': ['%s page %s' % (identifier, pagenum)],
+            pgmap = raw.get('htd:pgmap', [])
+            seqmap = raw.get('htd:seqmap', [])
+            if len(pgmap) > 0 and 'htd:pg' in pgmap[0]:
+                _key = lambda o: o['pgnum']
+                page_data = pgmap[0]['htd:pg']
+                page_numbers = set(map(_key, page_data))
+                page_resources = {
+                    pgnum: [d['content'] for d in group]
+                    for pgnum, group in groupby(sorted(page_data, key=_key), key=_key)
+                }
+                return {
+                    'http://purl.org/dc/terms/accessRights': [raw.get('htd:access_use_statement'), raw.get('htd:access_use')],
+                    'http://purl.org/dc/terms/modified': [raw.get('updated')],
+                    'http://purl.org/dc/terms/extent': ['%s pages' % raw.get('htd:numpages')],
                     'parts': [
                         {
-                            'name': ['%s page %s (part %s)' % (identifier, pagenum, partnum)],
-                            'uri': [self.BASE + '/volume/pagemeta/%s/%s?v=2&format=json' % (identifier, partnum)],
+                            'name': ['%s page %s' % (identifier, pagenum)],
+                            'parts': [
+                                {
+                                    'name': ['%s page %s (part %s)' % (identifier, pagenum, partnum)],
+                                    'uri': [self.BASE + '/volume/pagemeta/%s/%s?v=2&format=json' % (identifier, partnum)],
+                                    'file': [{
+                                        'location': [self.BASE + '/volume/pageocr/%s/%s?v=2' % (identifier, partnum)],
+                                        'content_type': 'text/plain',
+                                        'external_source': 'HT',
+                                    }],
+                                    'entity_type': ['http://purl.org/dc/dcmitype/Text']
+                                }
+                            for partnum in page_resources[pagenum]],
+                            'entity_type': ['http://purl.org/net/biblio#Part']
+
+                        }
+                    for pagenum in page_numbers]
+                }
+            else:
+                n_pages = int(raw.get('htd:numpages'))
+
+                return {
+                    'http://purl.org/dc/terms/accessRights': [raw.get('htd:access_use_statement'), raw.get('htd:access_use')],
+                    'http://purl.org/dc/terms/modified': [raw.get('updated')],
+                    'http://purl.org/dc/terms/extent': ['%s pages' % raw.get('htd:numpages')],
+                    'parts': [
+                        {
+                            'name': ['%s page %i' % (identifier, pagenum)],
+                            'uri': [self.BASE + '/volume/pagemeta/%s/%i?v=2&format=json' % (identifier, pagenum)],
                             'file': [{
-                                'location': [self.BASE + '/volume/pageocr/%s/%s?v=2' % (identifier, partnum)],
+                                'location': [self.BASE + '/volume/pageocr/%s/%i?v=2' % (identifier, pagenum)],
                                 'content_type': 'text/plain',
                                 'external_source': 'HT',
                             }],
-                            'entity_type': ['http://purl.org/dc/dcmitype/Text']
+                            'entity_type': ['http://purl.org/net/biblio#Part']
                         }
-                    for partnum in page_resources[pagenum]],
-                    'entity_type': ['http://purl.org/net/biblio#Part']
-
+                    for pagenum in xrange(1, n_pages + 1)]
                 }
-            for pagenum in page_numbers]
-        }
+
+
+
+        except Exception as E:
+            print E
+            print raw
+            raise E
 
 
     def get_record(self, identifier):
         record = self.process_metadata(identifier, self.get_metadata(identifier))
         record.update(self.process_content_metadata(identifier, self.get_content_metadata(identifier)))
         return record
-
 
     def __len__(self):
         return len(self.identifiers)

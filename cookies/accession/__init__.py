@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.core.files import File
 from django.db.models import QuerySet
-
+from django.db import transaction
 
 import importlib, mimetypes, copy, os
 from cookies.models import *
@@ -18,6 +18,26 @@ __text__ = Type.objects.get_or_create(uri='http://purl.org/dc/dcmitype/Text')[0]
 __image__ = Type.objects.get_or_create(uri='http://purl.org/dc/dcmitype/Image')[0]
 __document__ = Type.objects.get_or_create(uri='http://xmlns.com/foaf/0.1/Document')[0]
 
+
+
+def get_remote(source):
+    if source == Resource.HATHITRUST:
+        from cookies.accession.hathitrust import HathiTrustRemote
+        return HathiTrustRemote(settings.HATHITRUST_CLIENT_KEY,
+                                settings.HATHITRUST_CLIENT_SECRET)
+    return requests.get
+
+
+
+class RemoteFactory(object):
+    def get(self, path):
+        path_parts = path.split('.')
+        class_name = path_parts[-1]
+        import_source = '.'.join(path_parts[:-1])
+
+        # TODO: use importlib instead.
+        module = __import__(import_source, fromlist=[class_name])
+        return getattr(module, class_name)
 
 
 class IngesterFactory(object):
@@ -88,6 +108,11 @@ class IngestManager(object):
         self.Resource = Resource.objects.all()
         self.Collection = Collection.objects.all()
         self.ConceptEntity = ConceptEntity.objects.all()
+        
+        self.collection = None
+
+    def set_collection(self, collection):
+        self.collection = collection
 
     def set_resource_defaults(self, **resource_data):
         """
@@ -238,7 +263,8 @@ class IngestManager(object):
             'source': resource,
             'predicate': predicate,
             'target': instance,
-            'container': resource.container
+            'container': resource.container,
+            'created_by': resource.created_by
         })
 
     def create_resource(self, resource_data, relation_data, container=None):
@@ -271,21 +297,20 @@ class IngestManager(object):
 
         collection = data.pop('collection', None)
         resource = None
-        if uri:
-            try:
-                resource = Resource.objects.get(uri=uri)
-                container = resource.container
-            except Resource.DoesNotExist:
-                pass
 
         if resource is None:
-            resource = Resource.objects.create(**data)
-            if container is None:
-                container = ResourceContainer.objects.create(primary=resource,
-                                                             created_by=resource.created_by,
-                                                             part_of=collection)
-            resource.container = container
-            resource.save()
+            try:
+                resource = Resource.objects.create(**data)
+            except Exception as E:
+                print data
+                print E
+                raise E
+        if container is None:
+            container = ResourceContainer.objects.create(primary=resource,
+                                                         created_by=resource.created_by,
+                                                         part_of=self.collection)
+        resource.container = container
+        resource.save()
 
         if file_path:
             try:
@@ -456,8 +481,9 @@ class IngestManager(object):
         """
         raw_data = self.wraps.next()
 
-        resource_data, relation_data, file_data = self.separate_field_and_relation_data(raw_data)
-        resource = self.process(resource_data, relation_data, file_data)
+        with transaction.atomic():
+            resource_data, relation_data, file_data = self.separate_field_and_relation_data(raw_data)
+            resource = self.process(resource_data, relation_data, file_data)
 
         return resource
 

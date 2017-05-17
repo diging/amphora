@@ -78,6 +78,7 @@
                 {% endfor %}
                 {% endif %}
             </dl>
+
         </div>
 
         <h3>Metadata</h2>
@@ -106,6 +107,15 @@
         {{ resource|preview:request }}
     </div>
     {% endif %}
+</div>
+
+<div class="container">
+    <dt>Parts</dt>
+    {% for relation in resource.relations_to.all %}
+    <dd>
+        <a href="{{ relation.source.get_absolute_url }}">{{ relation.source.name }}</a>
+    </dd>
+    {% endfor %}
 </div>
 
 

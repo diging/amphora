@@ -94,8 +94,8 @@ class TestHathiTrust(unittest.TestCase):
 
         self.assertIsInstance(data, Resource)
         self.assertEqual(ResourceContainer.objects.count(), 1)
-        self.assertEqual(Resource.objects.filter(content_resource=False).count(), 121)
-        self.assertEqual(Resource.objects.filter(content_resource=True).count(), 66)
+        self.assertEqual(Resource.objects.filter(content_resource=False).count(), 119)
+        self.assertEqual(Resource.objects.filter(content_resource=True).count(), 60)
 
     def tearDown(self):
         Resource.objects.all().delete()
