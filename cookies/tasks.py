@@ -70,6 +70,7 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
             'name': collection_name,
             'created_by': creator,
         })
+        operations.add_creation_metadata(collection, creator)
         if form_data.get('public'):
             #  Create an authoirzation for AnonymousUser.
             CollectionAuthorization.objects.create(granted_by=creator,
@@ -79,7 +80,6 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
                                                    action=CollectionAuthorization.VIEW)
             public_policy = True
 
-    operations.add_creation_metadata(collection, creator)
 
     # User can indicate a default Type to assign to each new Resource.
     default_type = form_data.pop('default_type', None)
@@ -97,16 +97,20 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
     ingester.set_resource_defaults(entity_type=default_type,
                                    collection=collection,
                                    created_by=creator, **form_data)
+    ingester.set_collection(collection)
 
     N = len(ingester)
+    resource_auths = []
     for resource in ingester:
         resource.container.part_of = collection
         if form_data.get('public') and not public_policy:
-            ResourceAuthorization.objects.create(granted_by=creator,
-                                                 granted_to=None,
-                                                 for_resource=resource.container,
-                                                 policy=ResourceAuthorization.ALLOW,
-                                                 action=ResourceAuthorization.VIEW)
+            resource_auths.append(
+                ResourceAuthorization(granted_by=creator,
+                                      granted_to=None,
+                                      for_resource=resource.container,
+                                      policy=ResourceAuthorization.ALLOW,
+                                      action=ResourceAuthorization.VIEW)
+            )
         resource.container.save()
         # collection.resources.add(resource)
         operations.add_creation_metadata(resource, creator)
@@ -114,6 +118,7 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
         if job:
             job.progress += 1./N
             job.save()
+    ResourceAuthorization.objects.bulk_create(resource_auths)
     job.result = jsonpickle.encode({'view': 'collection', 'id': collection.id})
     job.save()
 

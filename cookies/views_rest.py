@@ -25,6 +25,7 @@ from cookies.models import *
 from concepts.models import *
 from cookies.exceptions import *
 from cookies import authorization, tasks, giles
+from cookies.accession import get_remote
 
 logger = settings.LOGGER
 
@@ -79,7 +80,9 @@ class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
 
         url = request.build_absolute_uri(obj.content_location)
         if authorization.check_authorization(ResourceAuthorization.VIEW, request.user, obj):
-            return giles.format_giles_url(url, obj.created_by)
+            remote = get_remote(obj.external_source, request.user)
+            url = remote.sign_uri(obj.location)
+
         return url
 
     class Meta:

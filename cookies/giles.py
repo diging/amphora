@@ -427,6 +427,7 @@ def _create_page_resource(parent_resource, page_nr, resource_type, creator, uri,
         'target': parent_resource,
         'predicate': __part__,
         'container': parent_resource.container,
+        'sort_order': int(page_nr),
     })
     return resource
 

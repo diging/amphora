@@ -32,7 +32,10 @@ class TypeModelChoiceField(forms.ModelChoiceField):
     """
 
     def label_from_instance(self, obj):
-         return u'%s: %s' % (obj.schema.name, obj.name)
+        if obj.schema is not None:
+            return u'%s: %s' % (obj.schema.name, obj.name)
+        else:
+            return obj.name
 
 
 class ContenteditableInput(forms.TextInput):

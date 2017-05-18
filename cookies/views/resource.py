@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.core.cache import caches
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
@@ -11,6 +12,7 @@ from cookies.forms import *
 from cookies.tasks import *
 from cookies import giles, operations
 from cookies import authorization as auth
+from cookies.accession import get_remote
 
 import hmac, base64, time, urllib, datetime, mimetypes, copy
 
@@ -24,7 +26,7 @@ def resource(request, obj_id):
     """
     Display the resource with the given id
     """
-
+    __isPartOf__ = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
     resource = _get_resource_by_id(request, obj_id)
 
     # Get a fresh Giles auth token, if needed.
@@ -37,6 +39,7 @@ def resource(request, obj_id):
         'part_of': resource.container.part_of,
         'relations_from': resource.relations_from.filter(is_deleted=False),
         'content_relations': resource.content.filter(is_deleted=False),
+        'part_relations': resource.relations_to.filter(predicate=__isPartOf__).order_by('sort_order')
     }
     if request.GET.get('format', None) == 'json':
         return JsonResponse(ResourceDetailSerializer(context=context).to_representation(resource))
@@ -323,12 +326,9 @@ def create_resource_bulk(request):
                 result = handle_bulk.delay(file_path, safe_data, file_name, job)
                 return HttpResponseRedirect(reverse('job-status', args=(result.id,)))
 
-
     template = 'create_resource_bulk.html'
     context.update({'form': form})
     return render(request, template, context)
-
-
 
 
 @auth.authorization_required(ResourceAuthorization.EDIT, _get_resource_by_id)
@@ -558,7 +558,7 @@ def bulk_action_resource(request):
     resource_ids = request.POST.getlist('addresources', [])
     next_page = request.POST.get('next')
     action = request.POST.get('action')
-    
+
     # TODO: use proper URL parameter encoding.
     if action == 'Add tag':
         target = reverse('bulk-add-tag-to-resource') + "?" + '&'.join(["resource=%s" % r_id for r_id in resource_ids])
@@ -625,6 +625,7 @@ def resource_content(request, resource_id):
     This is not the most efficient way to serve files, but we need some kind of
     security layer here for non-public content.
     """
+
     resource = _get_resource_by_id(request, resource_id)
     if resource.content_type:
         content_type = resource.content_type
@@ -637,14 +638,18 @@ def resource_content(request, resource_id):
         except IOError:    # Whoops....
             return HttpResponse('Hmmm....something went wrong.')
     elif resource.location:
-        target = resource.location
-        if 'giles' in target:
-            user = resource.created_by
-
-            if user:
-                auth_token = giles.get_user_auth_token(user, fresh=True)
-                target += '?accessToken=' + auth_token
-        return HttpResponseRedirect(target)
+        cache = caches['remote_content']
+        content = cache.get(resource.location)
+        if not content:
+            remote = get_remote(resource.external_source, resource.created_by)
+            target = resource.location
+            if resource.external_source == Resource.GILES:
+                target += '?dw=300'
+            content = remote.get(target)
+            print resource.content_type
+            cache.set(resource.location, content, None)
+        return HttpResponse(content, content_type=resource.content_type)
+        # return HttpResponseRedirect(target)
     return HttpResponse('Nope')    # TODO: say something more informative!
 
 

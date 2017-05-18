@@ -213,3 +213,21 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 DELETE_LOCAL_FILES = True
 APPEND_SLASH = True    # Rewrite URLs that lack a slash.
 USE_THOUSAND_SEPARATOR = False
+
+
+HATHITRUST_CLIENT_KEY = os.environ.get('HATHITRUST_CLIENT_KEY')
+HATHITRUST_CLIENT_SECRET = os.environ.get('HATHITRUST_CLIENT_SECRET')
+HATHITRUST_CONTENT_BASE = 'https://babel.hathitrust.org/cgi/htd'
+HATHITRUST_METADATA_BASE = 'https://catalog.hathitrust.org/api/volumes/brief/htid'
+
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'content_cache',
+    },
+    'remote_content': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'content_cache',
+    },
+}
