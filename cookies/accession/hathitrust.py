@@ -164,6 +164,12 @@ class HathiTrustRemoteIngest(HathiTrustRemote):
         Returns
         -------
         """
+        def try_int(val):
+            try:
+                return int(val)
+            except ValueError:
+                return -1
+                
         try:
 
             pgmap = raw.get('htd:pgmap', [])
@@ -194,11 +200,11 @@ class HathiTrustRemoteIngest(HathiTrustRemote):
                                     }],
                                     'content_type': 'text/plain',
                                     'entity_type': ['http://purl.org/dc/dcmitype/Text'],
-                                    'sort_order': int(partnum)
+                                    'sort_order': try_int(partnum)
                                 }
                             for partnum in page_resources[pagenum]],
                             'entity_type': ['http://purl.org/net/biblio#Part'],
-                            'sort_order': int(pagenum)
+                            'sort_order': try_int(pagenum)
                         }
                     for pagenum in page_numbers]
                 }
@@ -220,7 +226,7 @@ class HathiTrustRemoteIngest(HathiTrustRemote):
                             }],
                             'content_type': 'text/plain',
                             'entity_type': ['http://purl.org/net/biblio#Part'],
-                            'sort_order': int(pagenum)
+                            'sort_order': try_int(pagenum)
                         }
                     for pagenum in xrange(1, n_pages + 1)]
                 }

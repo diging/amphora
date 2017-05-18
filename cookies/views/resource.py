@@ -646,7 +646,6 @@ def resource_content(request, resource_id):
             if resource.external_source == Resource.GILES:
                 target += '?dw=300'
             content = remote.get(target)
-            print resource.content_type
             cache.set(resource.location, content, None)
         return HttpResponse(content, content_type=resource.content_type)
         # return HttpResponseRedirect(target)
