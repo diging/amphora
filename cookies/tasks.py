@@ -120,13 +120,13 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
     return {'view': 'collection', 'id': collection.id}
 
 
-@shared_task(rate_limit="6/m")
+@shared_task(rate_limit="15/m")
 def send_to_giles(upload_pk, created_by):
     logger.debug('send upload %i for user %s' % (upload_pk, created_by))
     giles.send_giles_upload(upload_pk, created_by)
 
 
-@shared_task(rate_limit="1/s")
+@shared_task(rate_limit="2/s")
 def check_giles_upload(upload_id, username):
     logger.debug('check_giles_upload %s for user %s' % (upload_id, username))
     return giles.process_upload(upload_id, username)
@@ -173,4 +173,4 @@ def check_giles_uploads():
         _e += 1
     logger.debug('enqueued %i uploads to send' % _e)
 
-    q = Q(last_checked__gte=timezone.now() - timedelta(seconds=300)) | Q(last_checked=None)#.filter(q)
+    q = Q(last_checked__gte=timezone.now() - timedelta(seconds=30)) | Q(last_checked=None)#.filter(q)
