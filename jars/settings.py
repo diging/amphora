@@ -131,6 +131,8 @@ STATIC_ROOT = os.environ.get('STATIC_ROOT', '')
 MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '')
 MEDIA_URL = BASE_URL + 'media/'
 
+EXPORT_ROOT = os.environ.get('EXPORT_ROOT', os.path.join(MEDIA_ROOT, 'export'))
+
 
 # Celery: async tasks.
 CELERY_IMPORTS = ('cookies.tasks',)
@@ -219,6 +221,8 @@ HATHITRUST_CLIENT_KEY = os.environ.get('HATHITRUST_CLIENT_KEY')
 HATHITRUST_CLIENT_SECRET = os.environ.get('HATHITRUST_CLIENT_SECRET')
 HATHITRUST_CONTENT_BASE = 'https://babel.hathitrust.org/cgi/htd'
 HATHITRUST_METADATA_BASE = 'https://catalog.hathitrust.org/api/volumes/brief/htid'
+
+
 
 
 CACHES = {
