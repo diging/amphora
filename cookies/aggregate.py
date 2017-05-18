@@ -18,9 +18,12 @@ For performance sake, we should take full advantage of the content cache.
 """
 
 from django.db.models import Q
+from django.core.cache import caches
 from itertools import chain
 from cookies.accession import get_remote
 import smart_open, zipfile
+
+cache = caches['remote_content']
 
 
 def get_content(content_resource):
@@ -28,9 +31,13 @@ def get_content(content_resource):
     Retrieve the raw content for a content resource.
     """
     if content_resource.is_external:
-        remote = get_remote(content_resource.external_source,
-                            content_resource.created_by)
-        return remote.get(content_resource.location)
+        content = cache.get(content_resource.location)
+        if content is None:
+            remote = get_remote(content_resource.external_source,
+                                content_resource.created_by)
+            content = remote.get(content_resource.location)
+            cache.set(resource.location, content, None)
+        return content
     elif content_resource.file:
         with open(content_resource.file.path) as f:
             return f.read()
@@ -115,6 +122,8 @@ def aggregate_content(queryset, proc=lambda content, rsrc: content, **kwargs):
 def export(queryset, target_path, fname=lambda r: '%i.txt' % r.id, **kwargs):
     """
     Stream content to files (or something).
+
+    See https://github.com/RaRe-Technologies/smart_open for more on smart_open.
     """
     if not target_path.endswith('/'):
         target_path += '/'
