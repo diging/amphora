@@ -492,6 +492,8 @@ class Relation(Entity):
 
     data_source = models.CharField(max_length=1000, blank=True, null=True)
 
+    sort_order = models.IntegerField(default=0)
+
     class Meta:
         verbose_name = 'metadata relation'
 
@@ -673,7 +675,6 @@ class CollectionAuthorization(models.Model):
         (DENY, 'Deny'),
     )
     policy = models.CharField(choices=POLICIES, max_length=2)
-
 
 
 class ResourceAuthorization(models.Model):

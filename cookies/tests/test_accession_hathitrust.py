@@ -31,7 +31,7 @@ class TestHathiTrust(unittest.TestCase):
         identifier = 'njp.32101044814968'
         with open('cookies/tests/data/hathitrust_volume_metadata.json') as f:
             mock_get.return_value = MockDataResponse(200, json.load(f))
-        ingest = hathitrust.HathiTrustRemoteIngest([identifier], 'asdf', '1234')
+        ingest = hathitrust.HathiTrustRemoteIngest([identifier], 'asdf', '1234', 'http://asdf.com', 'http://asdf.com')
         data = ingest.get_content_metadata(identifier)
 
         self.assertIsInstance(data, dict)
@@ -42,7 +42,7 @@ class TestHathiTrust(unittest.TestCase):
         identifier = 'njp.32101044814968'
         with open('cookies/tests/data/hathitrust_brief_volume_metadata.json') as f:
             mock_get.return_value = MockDataResponse(200, json.load(f))
-        ingest = hathitrust.HathiTrustRemoteIngest([identifier], 'asdf', '1234')
+        ingest = hathitrust.HathiTrustRemoteIngest([identifier], 'asdf', '1234', 'http://asdf.com', 'http://asdf.com')
         data = ingest.get_metadata(identifier)
         self.assertIsInstance(data, dict)
         self.assertEqual(len(data), 2)
@@ -53,7 +53,7 @@ class TestHathiTrust(unittest.TestCase):
         identifier = 'wu.89069276731'
         with open('cookies/tests/data/hathitrust_brief_volume_metadata.json') as f:
             mock_get.return_value = MockDataResponse(200, json.load(f))
-        ingest = hathitrust.HathiTrustRemoteIngest([identifier], 'asdf', '1234')
+        ingest = hathitrust.HathiTrustRemoteIngest([identifier], 'asdf', '1234', 'http://asdf.com', 'http://asdf.com')
         data = ingest.process_metadata(identifier, ingest.get_metadata(identifier))
 
         for key in ['http://purl.org/dc/elements/1.1/identifier',
@@ -75,7 +75,7 @@ class TestHathiTrust(unittest.TestCase):
             side_effects.append(MockDataResponse(200, json.load(f)))
         mock_get.side_effect = side_effects
 
-        ingest = hathitrust.HathiTrustRemoteIngest([identifier], 'asdf', '1234')
+        ingest = hathitrust.HathiTrustRemoteIngest([identifier], 'asdf', '1234', 'http://asdf.com', 'http://asdf.com')
         data = ingest.next()
         self.assertIsInstance(data, dict)
 
@@ -89,13 +89,17 @@ class TestHathiTrust(unittest.TestCase):
             side_effects.append(MockDataResponse(200, json.load(f)))
         mock_get.side_effect = side_effects
 
-        ingest = IngesterFactory().get('cookies.accession.hathitrust.HathiTrustRemoteIngest')([identifier], 'asdf', '1234')
+        ingest = IngesterFactory().get('cookies.accession.hathitrust.HathiTrustRemoteIngest')([identifier], 'asdf', '1234', 'http://asdf.com', 'http://asdf.com')
         data = ingest.next()
 
         self.assertIsInstance(data, Resource)
         self.assertEqual(ResourceContainer.objects.count(), 1)
         self.assertEqual(Resource.objects.filter(content_resource=False).count(), 119)
         self.assertEqual(Resource.objects.filter(content_resource=True).count(), 60)
+        for resource in Resource.objects.filter(content_resource=True):
+            self.assertEqual(resource.content_type, 'text/plain')
+        for relation in ContentRelation.objects.all():
+            self.assertEqual(relation.content_type, 'text/plain')
 
     def tearDown(self):
         Resource.objects.all().delete()

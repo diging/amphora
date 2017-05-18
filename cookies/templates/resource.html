@@ -111,7 +111,7 @@
 
 <div class="container">
     <dt>Parts</dt>
-    {% for relation in resource.relations_to.all %}
+    {% for relation in part_relations %}
     <dd>
         <a href="{{ relation.source.get_absolute_url }}">{{ relation.source.name }}</a>
     </dd>

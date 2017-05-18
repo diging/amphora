@@ -1,14 +1,20 @@
 from django.conf import settings
 from django.core.files import File
+from  django.core.exceptions import ObjectDoesNotExist
 from django.db.models import QuerySet
 from django.db import transaction
+from django.utils import timezone
 
-import importlib, mimetypes, copy, os
+import importlib, mimetypes, copy, os, logging
 from cookies.models import *
 from uuid import uuid4
 from cookies import metadata
+from datetime import datetime, timedelta
 
-logger = settings.LOGGER
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel(settings.LOGLEVEL)
 
 from itertools import repeat, imap
 
@@ -19,25 +25,69 @@ __image__ = Type.objects.get_or_create(uri='http://purl.org/dc/dcmitype/Image')[
 __document__ = Type.objects.get_or_create(uri='http://xmlns.com/foaf/0.1/Document')[0]
 
 
+from functools import partial
 
-def get_remote(source):
-    if source == Resource.HATHITRUST:
+
+def provider_token_generator(user, provider):
+    try:
+        return user.social_auth.get(provider=provider).extra_data.get('access_token')
+    except ObjectDoesNotExist:
+        raise RuntimeError('User %s has no token for provider %s' % (user.username, provider))
+
+
+def access_token_generator(user, fallback):
+    """
+    Get the current auth token for a :class:`.User`\. If the user has no auth
+    token, retrieves one and stores it.
+
+    Parameters
+    ----------
+    user : :class:`django.contrib.auth.User`
+    fallback : function
+        Method for retrieving a new access token from the remote service.
+        Returns an authorization token (str).
+
+    Returns
+    -------
+    str
+        Authorization token for ``user``.
+    """
+
+    try:
+        ex = timezone.now() - timedelta(minutes=settings.GILES_TOKEN_EXPIRATION)
+        if user.giles_token.created > ex:
+            return user.giles_token.token
+    except (AttributeError, ObjectDoesNotExist):    # RelatedObjectDoesNotExist.
+        pass    # Will proceed to retrieve token.
+
+
+    try:    # Delete the old token first.
+        user.giles_token.delete()
+    except (AssertionError, ObjectDoesNotExist):
+        pass
+
+    token = fallback()
+    user.giles_token = GilesToken.objects.create(for_user=user, token=token)
+    user.save()
+    return user.giles_token.token
+
+
+def get_remote(external_source, user):
+    if external_source == Resource.HATHITRUST:
         from cookies.accession.hathitrust import HathiTrustRemote
         return HathiTrustRemote(settings.HATHITRUST_CLIENT_KEY,
-                                settings.HATHITRUST_CLIENT_SECRET)
-    return requests.get
+                                settings.HATHITRUST_CLIENT_SECRET,
+                                settings.HATHITRUST_CONTENT_BASE,
+                                settings.HATHITRUST_METADATA_BASE)
+    elif external_source == Resource.GILES:
+        from cookies.accession.giles import GilesRemote
 
+        return GilesRemote(settings.GILES_APP_TOKEN, settings.GILES,
+                           settings.GILES_DEFAULT_PROVIDER,
+                           partial(provider_token_generator, user),
+                           partial(access_token_generator, user))
 
-
-class RemoteFactory(object):
-    def get(self, path):
-        path_parts = path.split('.')
-        class_name = path_parts[-1]
-        import_source = '.'.join(path_parts[:-1])
-
-        # TODO: use importlib instead.
-        module = __import__(import_source, fromlist=[class_name])
-        return getattr(module, class_name)
+    return requests
 
 
 class IngesterFactory(object):
@@ -96,7 +146,8 @@ class IngestManager(object):
         'uri',
         'part_of',
         'external_source',
-        'location'
+        'location',
+        'content_type'
     ]
 
     def __init__(self, wraps):
@@ -108,7 +159,7 @@ class IngestManager(object):
         self.Resource = Resource.objects.all()
         self.Collection = Collection.objects.all()
         self.ConceptEntity = ConceptEntity.objects.all()
-        
+
         self.collection = None
 
     def set_collection(self, collection):
@@ -411,17 +462,21 @@ class IngestManager(object):
                     if value.startswith('http'):
                         resource_data['is_external'] = True
                     resource_data['location'] = value
-                elif key == 'external_source':
+                elif key in ['external_source', 'content_type']:
                     resource_data[key] = value
+                    if key == 'content_type':
+                        content_type = value
                 else:
                     self._handle_uri_ref(key, value)
             else:
                 relation_data[key] = value
-
         resource_data.update({
             'content_resource': True,
             'container': resource.container,
         })
+        if content_type:
+            resource_data['content_type'] = content_type
+            relation_data['content_type'] = content_type
         content_resource = self.create_resource(resource_data, relation_data, resource.container)
         self.create_content_relation(content_resource, resource, content_type)
 

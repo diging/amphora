@@ -13,19 +13,20 @@ class IngestError(IOError):
 
 
 class HathiTrustRemote(object):
-    BASE = 'https://babel.hathitrust.org/cgi/htd'
-    METADATA = 'https://catalog.hathitrust.org/api/volumes/brief/htid/{htid}.json'
-
-    def __init__(self, client_key, client_secret):
+    def __init__(self, client_key, client_secret, content_base, metadata_base):
         self.session = oauth1.Client(client_key, client_secret=client_secret)
+        self.content_base = content_base
+        self.metadata_base = metadata_base
 
-    def get(self, target, sign=True):
+    def get(self, target, sign=True, raw=False):
         if sign:
             target = self.sign_uri(target)
         response = requests.get(target)
         if response.status_code != 200:
             raise IngestError(response.content)
-        return response
+        if raw:
+            return response
+        return response.content
 
     def build_uri(self, identifier, page_number=None):
         """
@@ -41,7 +42,7 @@ class HathiTrustRemote(object):
 
         if page_number is not None:
             raise NotImplemented('Not there yet.')
-        return '%s/volume/meta/%s?v=2&format=json' % (HathiTrustRemoteIngest.BASE, identifier)
+        return '%s/volume/meta/%s?v=2&format=json' % (self.content_base, identifier)
 
 
     def sign_uri(self, uri):
@@ -60,7 +61,9 @@ class HathiTrustRemote(object):
         str
             Request-ready URI (use immediately).
         """
+
         signed_uri, headers, body = self.session.sign(uri)
+
         auth_raw = headers.get('Authorization')[6:]
         extra = dict([part.split('=') for part in auth_raw.split(', ')])
         extra_enc = '&'.join(['%s=%s' % (k, eval(v)) for k, v in extra.items()])
@@ -81,8 +84,7 @@ class HathiTrustRemote(object):
         """
         if identifier in self.metadata:
             return self.metadata.get(identifier)
-        uri = self.METADATA.format(htid=identifier)
-        response = self.get(uri)
+        response = self.get(self.metadata_base + '/%s.json' % identifier, sign=False, raw=True)
         return response.json()
 
     def get_content_metadata(self, identifier):
@@ -99,7 +101,7 @@ class HathiTrustRemote(object):
         dict
 
         """
-        response = self.get(self.build_uri(identifier), sign=False)
+        response = self.get(self.build_uri(identifier), raw=True)
         return response.json()
 
 
@@ -109,13 +111,10 @@ class HathiTrustRemoteIngest(HathiTrustRemote):
     Ingest remote resources from HathiTrust.
     """
 
-    BASE = 'https://babel.hathitrust.org/cgi/htd'
-    METADATA = 'https://catalog.hathitrust.org/api/volumes/brief/htid/{htid}.json'
-
-    def __init__(self, identifiers, client_key, client_secret, metadata={}):
+    def __init__(self, identifiers, client_key, client_secret, content_base, metadata_base, metadata={}):
         self.identifiers = map(str, identifiers)    # No surprises!
         self.metadata = metadata
-        super(HathiTrustRemoteIngest, self).__init__(client_key, client_secret)
+        super(HathiTrustRemoteIngest, self).__init__(client_key, client_secret, content_base, metadata_base)
 
     def process_metadata(self, identifier, data):
         """
@@ -187,17 +186,17 @@ class HathiTrustRemoteIngest(HathiTrustRemote):
                             'parts': [
                                 {
                                     'name': ['%s page %s (part %s)' % (identifier, pagenum, partnum)],
-                                    'uri': [self.BASE + '/volume/pagemeta/%s/%s?v=2&format=json' % (identifier, partnum)],
+                                    'uri': [self.content_base + '/volume/pagemeta/%s/%s?v=2&format=json' % (identifier, partnum)],
                                     'file': [{
-                                        'location': [self.BASE + '/volume/pageocr/%s/%s?v=2' % (identifier, partnum)],
+                                        'location': [self.content_base + '/volume/pageocr/%s/%s?v=2' % (identifier, partnum)],
                                         'content_type': 'text/plain',
                                         'external_source': 'HT',
                                     }],
+                                    'content_type': 'text/plain',
                                     'entity_type': ['http://purl.org/dc/dcmitype/Text']
                                 }
                             for partnum in page_resources[pagenum]],
                             'entity_type': ['http://purl.org/net/biblio#Part']
-
                         }
                     for pagenum in page_numbers]
                 }
@@ -211,18 +210,17 @@ class HathiTrustRemoteIngest(HathiTrustRemote):
                     'parts': [
                         {
                             'name': ['%s page %i' % (identifier, pagenum)],
-                            'uri': [self.BASE + '/volume/pagemeta/%s/%i?v=2&format=json' % (identifier, pagenum)],
+                            'uri': [self.content_base + '/volume/pagemeta/%s/%i?v=2&format=json' % (identifier, pagenum)],
                             'file': [{
-                                'location': [self.BASE + '/volume/pageocr/%s/%i?v=2' % (identifier, pagenum)],
+                                'location': [self.content_base + '/volume/pageocr/%s/%i?v=2' % (identifier, pagenum)],
                                 'content_type': 'text/plain',
                                 'external_source': 'HT',
                             }],
+                            'content_type': 'text/plain',
                             'entity_type': ['http://purl.org/net/biblio#Part']
                         }
                     for pagenum in xrange(1, n_pages + 1)]
                 }
-
-
 
         except Exception as E:
             print E
