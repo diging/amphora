@@ -39,7 +39,7 @@ def resource(request, obj_id):
         'part_of': resource.container.part_of,
         'relations_from': resource.relations_from.filter(is_deleted=False),
         'content_relations': resource.content.filter(is_deleted=False),
-        'part_relations': resource.relations_to.filter(predicate=__isPartOf__).order_by('id')
+        'part_relations': resource.relations_to.filter(predicate=__isPartOf__).order_by('sort_order')
     }
     if request.GET.get('format', None) == 'json':
         return JsonResponse(ResourceDetailSerializer(context=context).to_representation(resource))

@@ -385,6 +385,7 @@ class IngestManager(object):
 
     def create_part(self, datum, resource):
         resource_data, relation_data, file_data = self.separate_field_and_relation_data(datum)
+        sort_order = relation_data.pop('sort_order', 0)
         part = self.process(resource_data, relation_data, file_data, container=resource.container)
 
         __part__ = Field.objects.get_or_create(uri='http://purl.org/dc/terms/isPartOf')[0]
@@ -392,7 +393,8 @@ class IngestManager(object):
                                 predicate=__part__,
                                 target=resource,
                                 created_by=resource.created_by,
-                                container=resource.container)
+                                container=resource.container,
+                                sort_order=sort_order)
 
 
     def create_content_relation(self, content_resource, resource,

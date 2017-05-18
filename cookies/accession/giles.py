@@ -45,11 +45,10 @@ class GilesRemote(object):
         Add ``accessToken`` parameter to a Giles URI.
         """
         token = self.access_token_generator(self.get_auth_token)
-        print token
+
         parts = list(tuple(urlparse.urlparse(target)))
         q = {k: v[0] for k, v in urlparse.parse_qs(parts[4]).iteritems()}
         q.update({'accessToken': token})
-        print q
         parts[4] = urllib.urlencode(q)
 
         return urlparse.urlunparse(tuple(parts))

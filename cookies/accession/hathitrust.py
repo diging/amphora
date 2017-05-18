@@ -193,10 +193,12 @@ class HathiTrustRemoteIngest(HathiTrustRemote):
                                         'external_source': 'HT',
                                     }],
                                     'content_type': 'text/plain',
-                                    'entity_type': ['http://purl.org/dc/dcmitype/Text']
+                                    'entity_type': ['http://purl.org/dc/dcmitype/Text'],
+                                    'sort_order': int(partnum)
                                 }
                             for partnum in page_resources[pagenum]],
-                            'entity_type': ['http://purl.org/net/biblio#Part']
+                            'entity_type': ['http://purl.org/net/biblio#Part'],
+                            'sort_order': int(pagenum)
                         }
                     for pagenum in page_numbers]
                 }
@@ -217,7 +219,8 @@ class HathiTrustRemoteIngest(HathiTrustRemote):
                                 'external_source': 'HT',
                             }],
                             'content_type': 'text/plain',
-                            'entity_type': ['http://purl.org/net/biblio#Part']
+                            'entity_type': ['http://purl.org/net/biblio#Part'],
+                            'sort_order': int(pagenum)
                         }
                     for pagenum in xrange(1, n_pages + 1)]
                 }
