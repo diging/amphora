@@ -72,6 +72,14 @@ def access_token_generator(user, fallback):
     return user.giles_token.token
 
 
+class WebRemote(object):
+    def get(uri, raw=False):
+        response = requests.get(uri)
+        if raw:
+            return response
+        return content
+
+
 def get_remote(external_source, user):
     if external_source == Resource.HATHITRUST:
         from cookies.accession.hathitrust import HathiTrustRemote
@@ -87,7 +95,7 @@ def get_remote(external_source, user):
                            partial(provider_token_generator, user),
                            partial(access_token_generator, user))
 
-    return requests
+    return WebRemote()
 
 
 class IngesterFactory(object):
