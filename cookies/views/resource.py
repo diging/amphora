@@ -2,9 +2,10 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.cache import caches
 from django.core.urlresolvers import reverse
-from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
+from django.http import HttpResponseRedirect, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Q
+from django.utils.http import urlquote_plus
 
 from cookies.models import *
 from cookies.filters import *
@@ -85,7 +86,11 @@ def resource_list(request):
     #  should use a real search backend.
     #
     # TODO: implement a real search backend.
-    filter_parameters = request.GET.urlencode()
+
+    params = QueryDict(request.GET.urlencode(), mutable=True)
+    if 'page' in params:
+        del params['page']
+    filter_parameters = urlquote_plus(params.urlencode())
     filtered_resources = ResourceContainerFilter(request.GET, queryset=resources)
     tags = filtered_resources.qs.order_by('primary__tags__tag__id')\
             .values_list('primary__tags__tag__id', 'primary__tags__tag__name')\
@@ -95,7 +100,8 @@ def resource_list(request):
         'filtered_objects': filtered_resources,
         'tags': filter(lambda tag: tag[0] is not None, tags),
         'q': request.GET.get('name'),
-        'filter_parameters': filter_parameters
+        'filter_parameters': filter_parameters,
+        'resource_count': filtered_resources.qs.count()
     }
     return render(request, 'resources.html', context)
 
@@ -133,7 +139,6 @@ def create_resource_file(request):
                 'container': container,
             })
             collection = request.GET.get('collection')
-            print collection, 'collection'
             if collection:
                 container.part_of_id = collection
                 container.save()
@@ -697,3 +702,102 @@ def sign_s3(request):
 
 def test_upload(request):
     return render(request, 'testupload.html', {})
+
+
+def list_datasets(request):
+    datasets = Dataset.objects.all()
+    context = {'filtered_datasets': datasets}
+    return render(request, 'list_datasets.html', context)
+
+
+@login_required
+def create_snapshot(request, dataset_id):
+    """
+    Allows a user to create a snapshot of a dataset; this results in a new
+    :class:`cookies.models.Resource` instance with an attached ZIP archive.
+
+    Note tha the content included in the snapshot will be limited by the access
+    rights of the user creating the snapshot. So if the dataset was originally
+    created by someone else with broader access rights, the snapshot may not
+    include content for all of the original resources.
+    """
+    dataset = get_object_or_404(Dataset, pk=dataset_id)
+    if request.method == 'GET':
+        form = SnapshotForm()
+    if request.method == 'POST':
+        form = SnapshotForm(request.POST)
+        if form.is_valid():
+            content_type = form.cleaned_data.get('content_type')
+            content_type = ','.join(content_type)
+            export_structure = form.cleaned_data.get('export_structure')
+            snapshot = DatasetSnapshot.objects.create(created_by=request.user,
+                                                      dataset=dataset,
+                                                      content_type=content_type)
+
+            job = UserJob.objects.create(**{
+                'created_by': request.user,
+            })
+            result = create_snapshot_async.delay(dataset.id, snapshot.id, export_structure, job)
+            return HttpResponseRedirect(reverse('job-status', args=(result.id,)))
+
+    context = {
+        'dataset': dataset,
+        'form': form
+    }
+    return render(request, 'create_snapshot.html', context)
+
+
+def dataset(request, dataset_id):
+    """
+    Details about a dataset.
+    """
+    dataset = get_object_or_404(Dataset, pk=dataset_id)
+    if dataset.dataset_type == Dataset.EXPLICIT:
+        count = dataset.resources.count()
+    else:
+        params = QueryDict(dataset.filter_parameters)
+        containers = auth.apply_filter(ResourceAuthorization.VIEW, dataset.created_by,
+                                       ResourceContainer.active.all())
+        containers = ResourceContainerFilter(params, queryset=containers).qs
+        count = containers.count()
+
+    context = {'dataset': dataset, 'resource_count': count}
+    return render(request, 'dataset.html', context)
+
+
+@login_required
+def create_dataset(request):
+    """
+    Allows the user to create a new dataset with a set of filter parameters.
+    """
+    if request.method == 'GET':
+        filter_parameters = request.GET.get('filter_parameters')
+    elif request.method == 'POST':
+        filter_parameters = request.POST.get('filter_parameters')
+    if not filter_parameters:
+        return HttpResponseRedirect(reverse('resources'))
+
+    containers = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
+                                  ResourceContainer.active.all())
+    containers = ResourceContainerFilter(QueryDict(filter_parameters),
+                                         queryset=containers).qs
+    if request.method == 'GET':
+        form = DatasetForm(initial={'filter_parameters': filter_parameters})
+    elif request.method == 'POST':
+        form = DatasetForm(request.POST)
+        if form.is_valid():
+            data = dict(form.cleaned_data)
+            data.update({'created_by': request.user})
+            instance = Dataset.objects.create(**data)
+
+            if instance.dataset_type == Dataset.EXPLICIT:
+                with transaction.atomic():
+                    for container in containers:
+                        instance.resources.add(container)
+            return HttpResponseRedirect(reverse('dataset', args=(instance.id,)))
+
+    context = {
+        'form': form,
+        'resource_count': containers.count()
+    }
+    return render(request, 'create_dataset.html', context)

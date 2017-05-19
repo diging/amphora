@@ -54,6 +54,11 @@ urlpatterns = patterns('',
     url(r'^collection/([0-9]+)/authorizations/create/$', views.collection.collection_authorization_create, name="collection-authorization-create"),
     url(r'^collection/([0-9]+)/authorizations/remove/([0-9]+)/$', views.collection.collection_authorization_remove, name="collection-authorization-remove"),
 
+    url(r'^dataset/create/$', views.resource.create_dataset, name="create-dataset"),
+    url(r'^dataset/$', views.resource.list_datasets, name="list-datasets"),
+    url(r'^dataset/([0-9]+)/$', views.resource.dataset, name="dataset"),
+    url(r'^dataset/([0-9]+)/snapshot/$', views.resource.create_snapshot, name="snapshot-dataset"),
+
     url(r'^dashboard/$', views.dashboard, name="dashboard"),
     url(r'^inactive/$', views.inactive, name="inactive"),
 

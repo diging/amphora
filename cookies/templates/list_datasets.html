@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load pagination_tags %}
+{% load humanize %}
+
+{% load breadcrumbs %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Datasets' 'list-datasets' %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+{% autopaginate filtered_datasets 20 as datasets %}
+
+
+<div class="container-fluid">
+    <div class="h1">Datasets</div>
+</div>
+
+<div class="container-fluid">
+    <div class="text-center">
+        {% paginate %}
+    </div>
+    <div class="list-group">
+        {% for dataset in datasets %}
+        <a class="list-group-item" href="{% url "dataset" dataset.id %}">
+            {{ dataset.name }} <span class="text-muted">Created by <span class="text-warning">{{ dataset.created_by.username }}</span> on <span class="text-warning">{{ dataset.created}}</span></span>
+        </a>
+        {% endfor %}
+    </div>
+    <div class="text-center">
+        {% paginate %}
+    </div>
+</div>
+{% endblock %}

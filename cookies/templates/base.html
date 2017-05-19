@@ -107,38 +107,43 @@
         <div id="footer" class="footer text-center">
             {% if user.is_active %}
             <a href="{% url "create-resource" %}"
-                class="btn btn-lg glyphicon glyphicon-cloud-upload"
+                class="btn btn-md glyphicon glyphicon-cloud-upload"
                 data-toggle="tooltip"
                 data-title="Upload Resource">
             </a>
             {% endif %}
             <a href="{% url "collections" %}"
-                class="btn btn-lg glyphicon glyphicon-folder-close"
+                class="btn btn-md glyphicon glyphicon-folder-close"
                 data-toggle="tooltip"
                 data-title="Collections">
             </a>
             <a href="{% url "resources" %}"
-                class="btn btn-lg glyphicon glyphicon-list"
+                class="btn btn-md glyphicon glyphicon-list"
                 data-toggle="tooltip"
                 data-title="Resources">
             </a>
             <a href="{% url "dashboard" %}"
-                class="btn btn-lg glyphicon glyphicon-dashboard"
+                class="btn btn-md glyphicon glyphicon-dashboard"
                 data-toggle="tooltip"
                 data-title="Metadata">
             </a>
             <a href="{% url "entity-list" %}"
-                class="btn btn-lg fa fa-anchor fa-2"
+                class="btn btn-md fa fa-anchor fa-2"
                 data-toggle="tooltip"
                 data-title="Entities">
             </a>
             {% if user.is_active %}
             <a href="{% url "jobs" %}"
-                class="btn btn-lg glyphicon glyphicon-tasks"
+                class="btn btn-md glyphicon glyphicon-tasks"
                 data-toggle="tooltip"
                 data-title="Tasks">
             </a>
             {% endif %}
+            <a href="{% url "list-datasets" %}"
+                class="btn btn-md glyphicon glyphicon-hdd"
+                data-toggle="tooltip"
+                data-title="Datasets">
+            </a>
         </div>
         {% endblock %}
 

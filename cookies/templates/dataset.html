@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load addcss %}
+{% load preview %}
+{% load staticfiles}
+{% load humanize %}
+
+{% load breadcrumbs %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Datasets' 'list-datasets' %}
+    {% breadcrumb_url dataset.name 'dataset' dataset.id %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="h1">{{ dataset.name }}</div>
+    <p class="text-info">
+        {{ dataset.description }}
+    </p>
+    <dl class="dl-horizontal">
+        <dt>Created by</dt>
+        <dd>{{ dataset.created_by.username }} </dd>
+        <dt>Created on</dt>
+        <dd>{{ dataset.created }}</dd>
+        <dt>Updated on</dt>
+        <dd>{{ dataset.updated }}</dd>
+        <dt>Type</dt>
+        <dd>{{ dataset.get_dataset_type_display }} </dd>
+        <dt>Size</dt>
+        <dd>{{ resource_count|intcomma }} </dd>
+    </dl>
+
+    <div class="h2">Snapshots
+        {% if user.is_authenticated %}<a href="{% url "snapshot-dataset" dataset.id %}" class="btn btn-md"><span class="glyphicon glyphicon-download-alt"></span> Create</a>{% endif %}
+    </div>
+    <div class="list-group">
+        {% for snapshot in dataset.snapshots.all %}
+        <a class="list-group-item clearfix" {% if snapshot.resource %}href="{% url "resource" snapshot.resource.id %}"{% endif %}>
+            <span class="pull-right">{{ snapshot.get_state_display }}</span>
+            {{ snapshot.created }} by <span class="text-warning">{{ snapshot.created_by }}</span> using <strong>{{ snapshot.content_type }}</strong>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+
+{% endblock %}

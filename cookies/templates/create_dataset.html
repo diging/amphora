@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load addcss %}
+{% load preview %}
+{% load staticfiles}
+{% load humanize %}
+
+{% load breadcrumbs %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Datasets' 'list-datasets' %}
+    {% breadcrumb_url 'Create' 'create-dataset' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="h1">Create a new dataset</div>
+    <p class="text-info">
+        Use datasets to define groups of resources for future reference.
+    </p>
+    <p class="text-warning">
+        You have selected {{ resource_count|intcomma }} resources.
+    </p>
+</div>
+<div class="container-fluid">
+    <form class="form" action="{% if next %}?next={{ next }}{% else %}.{% endif %}" method="POST">
+       {% csrf_token %}
+       {% for error in form.non_field_errors %}
+       <div class="alert alert-warning">{{ error }}</div>
+       {% endfor %}
+
+       {% with form.name as field %}
+       <div class="form-group">
+          {% for error in field.errors %}
+          <div class="alert alert-warning">{{ error }}</div>
+          {% endfor %}
+          <label>{{ field.label }}</label>
+          {{ field|addcss:"form-control" }}
+          <p class="text-muted">{{ field.help_text }}</p>
+       </div>
+       {% endwith %}
+
+       {% with form.description as field %}
+       <div class="form-group">
+          {% for error in field.errors %}
+          <div class="alert alert-warning">{{ error }}</div>
+          {% endfor %}
+          <label>{{ field.label }}</label>
+          {{ field|addcss:"form-control" }}
+          <p class="text-muted">{{ field.help_text }}</p>
+       </div>
+       {% endwith %}
+
+       {% with form.dataset_type as field %}
+       <div class="form-group">
+          {% for error in field.errors %}
+          <div class="alert alert-warning">{{ error }}</div>
+          {% endfor %}
+          <label>{{ field.label }}</label>
+          {{ field|addcss:"form-control" }}
+          <p class="text-muted">{{ field.help_text }}</p>
+       </div>
+       {% endwith %}
+
+       {{ form.filter_parameters }}
+       <div class="text-right">
+          <input class="btn btn-success" type="submit" value="Create">
+       </div>
+    </form>
+</div>
+{% endblock %}

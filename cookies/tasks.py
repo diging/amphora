@@ -2,7 +2,12 @@ from __future__ import absolute_import
 
 from django.conf import settings
 from django.core.files import File
+from django.db import transaction
 from django.utils import timezone
+from django.utils.text import slugify
+
+from cookies import aggregate
+
 
 from celery import shared_task, task
 
@@ -17,8 +22,8 @@ logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOGLEVEL)
 
-import jsonpickle, json
-from datetime import timedelta
+import jsonpickle, json, os
+from datetime import timedelta, datetime
 
 
 @shared_task
@@ -178,4 +183,84 @@ def check_giles_uploads():
         _e += 1
     logger.debug('enqueued %i uploads to send' % _e)
 
+<<<<<<< HEAD
     q = Q(last_checked__gte=timezone.now() - timedelta(seconds=30)) | Q(last_checked=None)#.filter(q)
+=======
+    q = Q(last_checked__gte=timezone.now() - timedelta(seconds=300)) | Q(last_checked=None)#.filter(q)
+
+
+@task(name='jars.tasks.create_snapshot_async', bind=True)
+def create_snapshot_async(self, dataset_id, snapshot_id, export_structure, job=None):
+    if job:
+        job.result_id = self.request.id
+        job.save()
+
+    logging.debug('tasks.create_snapshot_async with dataset %i and snapshot %i' % (dataset_id, snapshot_id))
+    dataset = Dataset.objects.get(pk=dataset_id)
+    snapshot = DatasetSnapshot.objects.get(pk=snapshot_id)
+
+    if dataset.dataset_type == Dataset.EXPLICIT:
+        queryset = dataset.resources.all()
+    else:
+        params = QueryDict(dataset.filter_parameters)
+
+        queryset = authorization.apply_filter(ResourceAuthorization.VIEW,
+                                     dataset.created_by,
+                                     ResourceContainer.active.all())
+        queryset = ResourceContainerFilter(params, queryset=queryset).qs
+
+    # Only include records that the __current__ user has permission to view.
+    queryset = authorization.apply_filter(ResourceAuthorization.VIEW,
+                                          snapshot.created_by, queryset)
+
+    snapshot.state = DatasetSnapshot.IN_PROGRESS
+    snapshot.save()
+
+    methods = {
+        'flat': aggregate.export_zip,
+        'collection': aggregate.export_with_collection_structure,
+        'parts': aggregate.export_with_resource_structure,
+    }
+
+    with transaction.atomic():
+        now = timezone.now().strftime('%Y-%m-%d-%H-%m-%s')
+        fname = 'dataset-%s-%s.zip' % (slugify(dataset.name), now)
+        target_path = os.path.join(settings.MEDIA_ROOT, 'upload', fname)
+        methods[export_structure]((obj.primary for obj in queryset if obj.primary), target_path, content_type=snapshot.content_type.split(','))
+
+        container = ResourceContainer.objects.create(created_by=snapshot.created_by)
+        resource = Resource.objects.create(
+            name = 'Snapshot for dataset %s, %s' % (dataset.name, now),
+            created_by = snapshot.created_by,
+            container = container,
+            entity_type = Type.objects.get_or_create(uri='http://dbpedia.org/ontology/File')[0],
+        )
+        container.primary = resource
+        container.save()
+        content = Resource.objects.create(
+            name = 'Snapshot for dataset %s, %s' % (dataset.name, now),
+            content_resource = True,
+            entity_type = Type.objects.get_or_create(uri='http://dbpedia.org/ontology/File')[0],
+            created_by = snapshot.created_by,
+            container = container,
+            content_type = 'application/zip'
+        )
+        ContentRelation.objects.create(
+            for_resource = resource,
+            content_resource = content,
+            content_type = 'application/zip',
+            created_by = snapshot.created_by,
+            container = container
+        )
+        logging.debug('tasks.create_snapshot_async: export to %s' % (target_path))
+        with open(target_path, 'r') as f:
+            archive = File(f)
+            content.file = archive
+            content.save()
+        logging.debug('tasks.create_snapshot_async: export complete')
+        snapshot.resource = resource
+        snapshot.state = DatasetSnapshot.DONE
+        snapshot.save()
+    job.result = jsonpickle.encode({'view': 'resource', 'id': resource.id})
+    job.save()
+>>>>>>> 87af01ddf53ab1e57affc3ece4dca44525be4009

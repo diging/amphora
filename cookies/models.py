@@ -710,7 +710,7 @@ class Dataset(models.Model):
     name = models.CharField(max_length=1000)
     description = models.TextField()
 
-    resources = models.ManyToManyField('Resource', related_name='datasets')
+    resources = models.ManyToManyField('ResourceContainer', related_name='datasets')
     filter_parameters = models.TextField()
 
     EXPLICIT = 'EX'
@@ -720,3 +720,24 @@ class Dataset(models.Model):
         (FILTER, 'Dynamic'),
     )
     dataset_type = models.CharField(max_length=2, choices=TYPES)
+
+
+class DatasetSnapshot(models.Model):
+    created_by = models.ForeignKey(User, related_name='snapshots')
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    dataset = models.ForeignKey(Dataset, related_name='snapshots')
+    content_type = models.CharField(max_length=255, blank=True, null=True)
+    resource = models.OneToOneField(Resource, related_name='snapshot', blank=True, null=True)
+
+    PENDING = 'PE'
+    IN_PROGRESS = 'IP'
+    DONE = 'DO'
+    ERROR = 'ER'
+    STATES = (
+        (PENDING, 'Pending'),
+        (IN_PROGRESS, 'In progress'),
+        (DONE, 'Done'),
+        (ERROR, 'Error')
+    )
+    state = models.CharField(max_length=2, choices=STATES, default=PENDING)

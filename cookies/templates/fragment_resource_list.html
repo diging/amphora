@@ -1,4 +1,5 @@
 {% load staticfiles %}
+{% load pagination_tags %}
 {% load authorization %}
 
 <form class="form" action="{% url "bulk-action-resource" %}" method="POST">
@@ -20,14 +21,14 @@
                  href="{% url "create-resource" %}">
                  <span class="glyphicon glyphicon-plus"></span> Upload
              </a>
-             <a class="btn btn-xs">
-                 <span class="glyphicon glyphicon-hdd"></span> Create Dataset
-             </a>
-             <a class="btn btn-xs">
-                 <span class="glyphicon glyphicon-download-alt"></span> Download
-             </a>
           {% endif %}
       {% endif %}
+          {% if filter_parameters and user.is_authenticated %}
+          <a class="btn btn-xs"
+             href="{% url "create-dataset" %}?filter_parameters={{ filter_parameters }}">
+              <span class="glyphicon glyphicon-hdd"></span> Create Dataset
+          </a>
+          {% endif %}
       </div>
 
         {% if user.is_authenticated %}
@@ -53,6 +54,12 @@
         </div>
         {% endif %}
 
+  </div>
+  <div class="text-center clearfix">
+      {% if resource_count %}
+      <span class="pull-right text-muted">{{ resource_count }} total resources</span>
+      {% endif %}
+      {% paginate %}
   </div>
   <div class="collection_resources">
     <ul class="list-group">
@@ -90,5 +97,8 @@
     </ul>
 
 
+    </div>
+    <div class="text-center">
+        {% paginate %}
     </div>
 </form>
