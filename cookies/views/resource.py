@@ -85,6 +85,7 @@ def resource_list(request):
     #  should use a real search backend.
     #
     # TODO: implement a real search backend.
+    filter_parameters = request.GET.urlencode()
     filtered_resources = ResourceContainerFilter(request.GET, queryset=resources)
     tags = filtered_resources.qs.order_by('primary__tags__tag__id')\
             .values_list('primary__tags__tag__id', 'primary__tags__tag__name')\
@@ -93,7 +94,8 @@ def resource_list(request):
     context = {
         'filtered_objects': filtered_resources,
         'tags': filter(lambda tag: tag[0] is not None, tags),
-        'q': request.GET.get('name')
+        'q': request.GET.get('name'),
+        'filter_parameters': filter_parameters
     }
     return render(request, 'resources.html', context)
 
