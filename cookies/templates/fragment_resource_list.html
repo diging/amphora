@@ -5,27 +5,30 @@
   {% csrf_token %}
   {% if collection %}<input type="hidden" name="next" value="{{ collection.get_absolute_url }}" />{% endif %}
   <div style="margin-bottom: 10px;" class="clearfix">
-
+      <div class="pull-right btn-group">
       {% if collection %}
-      {% is_authorized "AD" user collection as can_add_resource %}
-          {% if can_add_resource %}
-          <div class="pull-right btn-group">
+          {% is_authorized "AD" user collection as can_add_resource %}
+              {% if can_add_resource %}
               <a class="btn btn-xs"
                   href="{% url "create-resource" %}?collection={{ collection.id }}">
                   <span class="glyphicon glyphicon-plus"></span> Upload
               </a>
-          </div>
-          {% endif %}
+              {% endif %}
       {% else %}
           {% if user.is_authenticated %}
-          <div class="pull-right btn-group">
              <a class="btn btn-xs"
                  href="{% url "create-resource" %}">
                  <span class="glyphicon glyphicon-plus"></span> Upload
              </a>
-          </div>
+             <a class="btn btn-xs">
+                 <span class="glyphicon glyphicon-hdd"></span> Create Dataset
+             </a>
+             <a class="btn btn-xs">
+                 <span class="glyphicon glyphicon-download-alt"></span> Download
+             </a>
           {% endif %}
       {% endif %}
+      </div>
 
         {% if user.is_authenticated %}
         <div class="btn-group">

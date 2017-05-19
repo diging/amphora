@@ -381,3 +381,10 @@ VALUE_FORMS = dict([
     ('Resource', MetadatumResourceForm),
     ('Type', MetadatumTypeForm),
 ])
+
+
+
+class DatasetForm(forms.ModelForm):
+    class Mata:
+        model = Dataset
+        fields = ('name', 'description', 'dataset_type')

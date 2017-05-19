@@ -701,3 +701,22 @@ class ResourceAuthorization(models.Model):
         (DENY, 'Deny'),
     )
     policy = models.CharField(choices=POLICIES, max_length=2)
+
+
+class Dataset(models.Model):
+    created_by = models.ForeignKey(User, related_name='datasets')
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    name = models.CharField(max_length=1000)
+    description = models.TextField()
+
+    resources = models.ManyToManyField('Resource', related_name='datasets')
+    filter_parameters = models.TextField()
+
+    EXPLICIT = 'EX'
+    FILTER = 'FI'
+    TYPES = (
+        (EXPLICIT, 'Explicit'),
+        (FILTER, 'Dynamic'),
+    )
+    dataset_type = models.CharField(max_length=2, choices=TYPES)
