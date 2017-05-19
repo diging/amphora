@@ -5,7 +5,7 @@ from django.db.models import QuerySet
 from django.db import transaction
 from django.utils import timezone
 
-import importlib, mimetypes, copy, os, logging
+import importlib, mimetypes, copy, os, logging, requests
 from cookies.models import *
 from uuid import uuid4
 from cookies import metadata
