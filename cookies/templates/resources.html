@@ -14,10 +14,7 @@
 {% endblock %}
 
 {% block content %}
-{% autopaginate filtered_objects.qs 10 as resources %}
-<div class="text-center">
-    {% paginate %}
-</div>
+{% autopaginate filtered_objects.qs 40 as resources %}
 
 <form class="form" action="." method="GET">
 {% with filtered_objects.form.name as field %}
@@ -67,7 +64,7 @@
                             <div class="alert alert-warning">{{ error }}</div>
                             {% endfor %}
                             <div class="form-group">
-                                <label>{{ field.label }}</label>
+                                <label>Content</label>
                                 {{ field|addcss:"form-control" }}
                             </div>
                             {% endwith %}
@@ -77,7 +74,7 @@
                             <div class="alert alert-warning">{{ error }}</div>
                             {% endfor %}
                             <div class="form-group">
-                                <label>{{ field.label }}</label>
+                                <label>Resource type</label>
                                 {{ field|addcss:"form-control" }}
                             </div>
                             {% endwith %}
@@ -125,9 +122,7 @@
     </div>
 </div>
 
-<div class="text-center">
-    {% paginate %}
-</div>
+
 
 
 {% endblock %}

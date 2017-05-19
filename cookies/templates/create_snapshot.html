@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load addcss %}
+{% load preview %}
+{% load staticfiles}
+{% load humanize %}
+
+{% load breadcrumbs %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Datasets' 'list-datasets' %}
+    {% breadcrumb_url dataset.name 'dataset' dataset.id %}
+    {% breadcrumb_url 'Snapshot' 'snapshot-dataset' dataset.id %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="h1">{{ dataset.name }}</div>
+    <p class="text-info">
+        {{ dataset.description }}
+    </p>
+    <div class="h2">Create a new dataset snapshot</div>
+    <p class="text-info">
+        Generate a downloadable archive from this dataset.
+    </p>
+
+</div>
+<div class="container-fluid">
+    <form class="form" action="{% if next %}?next={{ next }}{% else %}.{% endif %}" method="POST">
+       {% csrf_token %}
+       {% for error in form.non_field_errors %}
+       <div class="alert alert-warning">{{ error }}</div>
+       {% endfor %}
+
+       {% with form.content_type as field %}
+       <div class="form-group">
+          {% for error in field.errors %}
+          <div class="alert alert-warning">{{ error }}</div>
+          {% endfor %}
+          <label>{{ field.label }}</label>
+          {{ field|addcss:"form-control" }}
+          <p class="text-muted">{{ field.help_text }}</p>
+       </div>
+       {% endwith %}
+
+        {% with form.export_structure as field %}
+        <div class="form-group">
+            {% for error in field.errors %}
+            <div class="alert alert-warning">{{ error }}</div>
+            {% endfor %}
+            <label>{{ field.label }}</label>
+            {{ field|addcss:"form-control" }}
+            <p class="text-muted">{{ field.help_text }}</p>
+        </div>
+        {% endwith %}
+
+       <div class="text-right">
+          <input class="btn btn-success" type="submit" value="Create">
+       </div>
+    </form>
+</div>
+{% endblock %}

@@ -77,7 +77,7 @@ class ResourceContainerFilter(django_filters.FilterSet):
     name = django_filters.CharFilter(method='lookup_name_in_parts')
     content = django_filters.CharFilter(name='primary__indexable_content',
                                         lookup_expr='icontains')
-
+    part_of = django_filters.ModelChoiceFilter(name='part_of', queryset=Collection.objects.all())
     entity_type = django_filters.ModelChoiceFilter(
         name='primary__entity_type',
         queryset=Type.objects.annotate(num_instances=Count('resource'))\
@@ -112,7 +112,7 @@ class ResourceContainerFilter(django_filters.FilterSet):
 
     class Meta:
         model = Resource
-        fields = ['name', 'entity_type', 'content', 'created_by']
+        fields = ['name', 'entity_type', 'content', 'created_by', 'part_of']
         # order_by = (
         #     ('primary__name', 'Name (ascending)'),
         #     ('-primary__name', 'Name (descending)'),

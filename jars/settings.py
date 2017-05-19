@@ -52,6 +52,7 @@ INSTALLED_APPS = (
     'rest_framework',
     'rest_framework.authtoken',
      'social_django',
+     'django.contrib.humanize',
 )
 
 MIDDLEWARE_CLASSES = (

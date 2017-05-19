@@ -10,9 +10,8 @@
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'index' %}">{% trans 'Home' %}</a>
-    {% breadcrumb_url 'Resources' 'resources' %}
-    {% breadcrumb_url 'Create' 'create-resource' %}
-    {% breadcrumb_url 'Zotero' 'create-resource-bulk' %}
+    {% breadcrumb_url 'Asynchronous Jobs' 'jobs' %}
+    {% breadcrumb_url async_result.id 'job-status' async_result.id %}
 </div>
 {% endblock %}
 
@@ -27,7 +26,7 @@
 </p>
 {% else %}
 <p class="text-info">
-    Your upload is currently being processed. Depending on the size of your upload, this
+    Your job is currently being processed. Depending on the size of your job, this
     may take a little while. Please check back.
 </p>
 <div class="progress">
