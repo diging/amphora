@@ -73,7 +73,7 @@ def access_token_generator(user, fallback):
 
 
 class WebRemote(object):
-    def get(uri, raw=False):
+    def get(self, uri, raw=False):
         response = requests.get(uri)
         if raw:
             return response
