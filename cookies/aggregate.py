@@ -20,6 +20,7 @@ For performance sake, we should take full advantage of the content cache.
 from django.db.models import Q
 from django.conf import settings
 from django.core.cache import caches
+from django.utils import timezone
 from itertools import chain
 from cookies.accession import get_remote
 import smart_open, zipfile, logging, cStringIO
@@ -30,6 +31,7 @@ cache = caches['remote_content']
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOGLEVEL)
+
 
 
 def get_content(content_resource):
@@ -159,14 +161,9 @@ def export(queryset, target_path, fname=lambda r: '%i.txt' % r.id, **kwargs):
 
 
 def manifest(log):
-    from django.utils import timezone
-    content = "Bulk export from Amphora"
-    content += "\n\n"
-    content += "Process Log\n----------"
-    content += '\n'.join(log)
-    content += "\n\n"
-    content += "Finished at at %s" % timezone.now().strftime('%Y-%m-%d at %H:%m:%s')
-    return content
+    return "Bulk export from Amphora\n\n" + \
+           "Process Log\n----------{}\n\n".format('\n'.join(log)) + \
+           "Finished at at %s" % timezone.now().strftime('%Y-%m-%d at %H:%m:%s')
 
 
 def export_zip(queryset, target_path, fname=lambda r: '%i.txt' % r.id, **kwargs):
@@ -223,13 +220,14 @@ def export_with_collection_structure(queryset, target_path, **kwargs):
         return name
     return export_zip(queryset, target_path, fname=recursive_filename, **kwargs)
 
+
 def export_with_resource_structure(queryset, target_path, **kwargs):
     """
     Convenience method for exporting a ZIP archive of records that preserves
     resource structure. Resource relations are used to build file paths within
     the archive.
     """
-    import os, urlparse
+    import os, urlparse, mimetypes
     def recursive_filename(resource):
         def get_parent_resource(collection):
             if resource is None:
@@ -240,9 +238,19 @@ def export_with_resource_structure(queryset, target_path, **kwargs):
             return str(resource.id)
 
         if resource.is_external:
-            filename = urlparse.urlparse(resource.location).path.split('/')[-1]
+            if resource.name:
+                filename = resource.name
+            else:
+                filename = urlparse.urlparse(resource.location).path.split('/')[-1]
         else:
             filename = os.path.split(resource.file.path)[-1]
+
+        # Try to append a file extension, one is not already present.
+        filename, ext = os.path.splitext(filename)
+        if not ext:
+            ext = mimetypes.guess_extension(resource.content_type)
+            if ext:
+                filename += '.' + ext
         name = get_parent_resource(resource) + '/' + filename
         if name.startswith('/'):
             name = name[1:]

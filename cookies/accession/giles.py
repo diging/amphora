@@ -53,11 +53,23 @@ class GilesRemote(object):
 
         return urlparse.urlunparse(tuple(parts))
 
-    def get(self, target):
+    def get(self, target, raw=False):
         """
         """
         headers = self.build_auth_headers()
         response = requests.get(self.sign_uri(target), headers=headers)
         if response.status_code != 200:
             raise IOError('Giles responded with %i: %s' % (response.status_code, response.content))
+        if raw:
+            return response
         return response.content
+
+    # def info(self, document_id):
+    #     target = '%s/documents/%s' % (self.giles_endpoint, document_id)
+    #     data = self.get(target, raw=True).json()
+    #     return {
+    #         'filename': data['uploadedFile']['filename'],
+    #         'created': data['uploaded'],
+    #         'content-type': data['uploadedFile']['content-type'],
+    #         'size': data['uploadedFile']['size']
+    #     }
