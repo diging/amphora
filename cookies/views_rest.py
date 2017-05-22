@@ -267,7 +267,10 @@ class CollectionViewSet(viewsets.ModelViewSet):
         return authorization.apply_filter(CollectionAuthorization.VIEW, self.request.user, qs)
 
     def retrieve(self, request, pk=None):
-        queryset = self.get_queryset()
+        if pk is None:
+            queryset = self.get_queryset()
+        else:
+            queryset = Collection.objects.filter(content_resource=False, hidden=False)    #
         collection = get_object_or_404(queryset, pk=pk)
         if not authorization.check_authorization(CollectionAuthorization.VIEW, request.user, collection):
             return HttpResponseForbidden('Nope')
