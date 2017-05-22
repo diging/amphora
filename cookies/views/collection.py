@@ -114,7 +114,9 @@ def collection(request, obj_id):
 
     # CollectionFilter(request.GET, queryset=qset_collections)
     collections = Collection.objects.filter(part_of=collection, hidden=False)
-    filter_parameters = urlquote_plus(QueryDict('part_of=%i' % collection.id).urlencode())
+    params = QueryDict(request.GET.urlencode(), mutable=True)
+    params['part_of'] = collection.id
+    filter_parameters = urlquote_plus(params.urlencode())
     context = {
         'filtered_objects': resources,
         # 'filtered_objects': filtered_objects,
