@@ -77,7 +77,7 @@ class WebRemote(object):
         response = requests.get(uri)
         if raw:
             return response
-        return content
+        return response.content
 
 
 def get_remote(external_source, user):

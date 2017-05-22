@@ -70,11 +70,6 @@
 
 
 
-<div class="text-center">
-    {% paginate %}
-</div>
-
-
 <form class="form" action="." method="GET">
 {% with filtered_objects.form.name as field %}
 {% for error in field.errors %}
@@ -182,9 +177,6 @@
 </div>
 
 
-<div class="text-center">
-    {% paginate %}
-</div>
 
 
 {% if collection.relations_from.count > 0 %}
