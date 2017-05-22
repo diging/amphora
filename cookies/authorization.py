@@ -93,7 +93,7 @@ def denied(auth, user, obj):
         policy=auth_model.DENY).count() > 0
 
 
-def anonyomous_is_denied(auth, user, obj):
+def anonymous_is_denied(auth, user, obj):
     auth_model = _get_auth_model(obj)
     return auth_model.objects.filter(
         action=auth,
