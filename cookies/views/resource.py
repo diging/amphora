@@ -15,11 +15,19 @@ from cookies import giles, operations
 from cookies import authorization as auth
 from cookies.accession import get_remote
 
-import hmac, base64, time, urllib, datetime, mimetypes, copy
+import hmac, base64, time, urllib, datetime, mimetypes, copy, urlparse
 
 
 def _get_resource_by_id(request, resource_id, *args):
     return get_object_or_404(Resource, pk=resource_id)
+
+
+def _add_parameter(uri, key, value):
+    parts = list(tuple(urlparse.urlparse(uri)))
+    q = {k: v[0] for k, v in urlparse.parse_qs(parts[4]).iteritems()}
+    q.update({key: value})
+    parts[4] = urllib.urlencode(q)
+    return urlparse.urlunparse(tuple(parts))
 
 
 @auth.authorization_required(ResourceAuthorization.VIEW, _get_resource_by_id)
@@ -646,12 +654,12 @@ def resource_content(request, resource_id):
             return HttpResponse('Hmmm....something went wrong.')
     elif resource.location:
         cache = caches['remote_content']
-        content = cache.get(resource.location)
+        content = None#cache.get(resource.location)
         if not content:
             remote = get_remote(resource.external_source, resource.created_by)
             target = resource.location
             if resource.external_source == Resource.GILES:
-                target += '?dw=300'
+                target = _add_parameter(target, 'dw', 300)
                 return HttpResponseRedirect(remote.sign_uri(target))
             content = remote.get(target)
             cache.set(resource.location, content, None)
