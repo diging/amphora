@@ -251,6 +251,8 @@ def export_with_resource_structure(queryset, target_path, **kwargs):
             ext = mimetypes.guess_extension(resource.content_type)
             if ext:
                 filename += '.' + ext
+        filename = filename.replace(':', '-').replace('/', '_').replace('..', '.')
+
         name = get_parent_resource(resource) + '/' + filename
         if name.startswith('/'):
             name = name[1:]
