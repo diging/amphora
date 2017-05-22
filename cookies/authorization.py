@@ -130,7 +130,7 @@ def check_authorization(auth, user, obj):
         obj = obj.container
 
     if isinstance(user, AnonymousUser):
-        _allow = anonyomous_is_allowed(auth, user, obj)
+        _allow = anonymous_is_allowed(auth, user, obj)
         _deny = anonymous_is_denied(auth, user, obj)
     else:
         _allow = allowed(auth, user, obj)
