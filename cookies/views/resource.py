@@ -654,15 +654,20 @@ def resource_content(request, resource_id):
             return HttpResponse('Hmmm....something went wrong.')
     elif resource.location:
         cache = caches['remote_content']
-        content = None#cache.get(resource.location)
+
+        remote = get_remote(resource.external_source, resource.created_by)
+        target = resource.location
+        if resource.external_source == Resource.GILES:
+            target = _add_parameter(target, 'dw', 300)
+            return HttpResponseRedirect(remote.sign_uri(target))
+        elif resource.external_source == Resources.WEB:
+            return HttpResponseRedirect(remote.get(target))
+
+        content = cache.get(resource.location)
         if not content:
-            remote = get_remote(resource.external_source, resource.created_by)
-            target = resource.location
-            if resource.external_source == Resource.GILES:
-                target = _add_parameter(target, 'dw', 300)
-                return HttpResponseRedirect(remote.sign_uri(target))
             content = remote.get(target)
-            cache.set(resource.location, content, None)
+            if content:
+                cache.set(resource.location, content, None)
         return HttpResponse(content, content_type=resource.content_type)
         # return HttpResponseRedirect(target)
     return HttpResponse('Nope')    # TODO: say something more informative!
