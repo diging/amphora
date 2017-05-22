@@ -23,7 +23,8 @@ from django.core.cache import caches
 from django.utils import timezone
 from itertools import chain
 from cookies.accession import get_remote
-import smart_open, zipfile, logging, cStringIO
+import smart_open, zipfile, logging, cStringIO, mimetypes
+import os, urlparse, mimetypes
 import unicodecsv as csv
 
 cache = caches['remote_content']
@@ -32,6 +33,23 @@ logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOGLEVEL)
 
+
+def get_filename(resource):
+    if resource.is_external:
+        if resource.name:
+            filename = resource.name
+        else:
+            filename = urlparse.urlparse(resource.location).path.split('/')[-1]
+    else:
+        filename = os.path.split(resource.file.path)[-1]
+
+    # Try to append a file extension, one is not already present.
+    filename, ext = os.path.splitext(filename)
+    if not ext:
+        ext = mimetypes.guess_extension(resource.content_type)
+        if ext:
+            filename += '.' + ext
+    return filename.replace(':', '-').replace('/', '_').replace('..', '.')
 
 
 def get_content(content_resource):
@@ -141,7 +159,7 @@ def aggregate_content(queryset, proc=lambda content, rsrc: content, **kwargs):
     return (proc(get_content(resource), resource) for resource in aggregator)
 
 
-def export(queryset, target_path, fname=lambda r: '%i.txt' % r.id, **kwargs):
+def export(queryset, target_path, fname=get_filename, **kwargs):
     """
     Stream content to files (or something).
 
@@ -166,7 +184,7 @@ def manifest(log):
            "Finished at at %s" % timezone.now().strftime('%Y-%m-%d at %H:%m:%s')
 
 
-def export_zip(queryset, target_path, fname=lambda r: '%i.txt' % r.id, **kwargs):
+def export_zip(queryset, target_path, fname=get_filename, **kwargs):
     """
     Stream content into a zip archive at ``target_path``.
     """
@@ -227,7 +245,7 @@ def export_with_resource_structure(queryset, target_path, **kwargs):
     resource structure. Resource relations are used to build file paths within
     the archive.
     """
-    import os, urlparse, mimetypes
+
     def recursive_filename(resource):
         def get_parent_resource(collection):
             if resource is None:
@@ -237,21 +255,7 @@ def export_with_resource_structure(queryset, target_path, **kwargs):
                 return get_parent_resource(part_of.target) + '/' + str(resource.id)
             return str(resource.id)
 
-        if resource.is_external:
-            if resource.name:
-                filename = resource.name
-            else:
-                filename = urlparse.urlparse(resource.location).path.split('/')[-1]
-        else:
-            filename = os.path.split(resource.file.path)[-1]
-
-        # Try to append a file extension, one is not already present.
-        filename, ext = os.path.splitext(filename)
-        if not ext:
-            ext = mimetypes.guess_extension(resource.content_type)
-            if ext:
-                filename += '.' + ext
-        filename = filename.replace(':', '-').replace('/', '_').replace('..', '.')
+        filename = get_filename(resource)
 
         name = get_parent_resource(resource) + '/' + filename
         if name.startswith('/'):
