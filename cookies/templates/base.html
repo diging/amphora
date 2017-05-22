@@ -132,13 +132,6 @@
                 data-toggle="tooltip"
                 data-title="Entities">
             </a>
-            {% if user.is_active %}
-            <a href="{% url "jobs" %}"
-                class="btn btn-md glyphicon glyphicon-tasks"
-                data-toggle="tooltip"
-                data-title="Tasks">
-            </a>
-            {% endif %}
             <a href="{% url "list-datasets" %}"
                 class="btn btn-md glyphicon glyphicon-hdd"
                 data-toggle="tooltip"
