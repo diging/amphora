@@ -660,7 +660,7 @@ def resource_content(request, resource_id):
         if resource.external_source == Resource.GILES:
             target = _add_parameter(target, 'dw', 300)
             return HttpResponseRedirect(remote.sign_uri(target))
-        elif resource.external_source == Resources.WEB:
+        elif resource.external_source == Resource.WEB:
             return HttpResponseRedirect(remote.get(target))
 
         content = cache.get(resource.location)
