@@ -64,12 +64,12 @@ class GilesRemote(object):
             return response
         return response.content
 
-    def info(self, document_id):
-        target = '%s/documents/%s' % (self.giles_endpoint, document_id)
-        data = self.get(target, raw=True).json()
-        return {
-            'filename': data['uploadedFile']['filename'],
-            'created': data['uploaded'],
-            'content-type': data['uploadedFile']['content-type'],
-            'size': data['uploadedFile']['size']
-        }
+    # def info(self, document_id):
+    #     target = '%s/documents/%s' % (self.giles_endpoint, document_id)
+    #     data = self.get(target, raw=True).json()
+    #     return {
+    #         'filename': data['uploadedFile']['filename'],
+    #         'created': data['uploaded'],
+    #         'content-type': data['uploadedFile']['content-type'],
+    #         'size': data['uploadedFile']['size']
+    #     }

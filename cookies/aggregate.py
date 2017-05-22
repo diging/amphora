@@ -238,12 +238,15 @@ def export_with_resource_structure(queryset, target_path, **kwargs):
             return str(resource.id)
 
         if resource.is_external:
-            filename = urlparse.urlparse(resource.location).path.split('/')[-1]
+            if resource.name:
+                filename = resource.name
+            else:
+                filename = urlparse.urlparse(resource.location).path.split('/')[-1]
         else:
             filename = os.path.split(resource.file.path)[-1]
 
         # Try to append a file extension, one is not already present.
-        filename, ext = os.path.splitext(name)
+        filename, ext = os.path.splitext(filename)
         if not ext:
             ext = mimetypes.guess_extension(resource.content_type)
             if ext:
