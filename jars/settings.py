@@ -182,7 +182,7 @@ IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
 GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
 GILES_TOKEN_EXPIRATION = os.environ.get('GILES_TOKEN_EXPIRATION', 120)    # min.
-MAX_GILES_UPLOADS = 50
+MAX_GILES_UPLOADS = 200
 
 # Metadata globals.
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
