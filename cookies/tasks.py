@@ -183,9 +183,7 @@ def check_giles_uploads():
         _e += 1
     logger.debug('enqueued %i uploads to send' % _e)
 
-<<<<<<< HEAD
-    q = Q(last_checked__gte=timezone.now() - timedelta(seconds=30)) | Q(last_checked=None)#.filter(q)
-=======
+
     q = Q(last_checked__gte=timezone.now() - timedelta(seconds=300)) | Q(last_checked=None)#.filter(q)
 
 
@@ -263,4 +261,3 @@ def create_snapshot_async(self, dataset_id, snapshot_id, export_structure, job=N
         snapshot.save()
     job.result = jsonpickle.encode({'view': 'resource', 'id': resource.id})
     job.save()
->>>>>>> 87af01ddf53ab1e57affc3ece4dca44525be4009
