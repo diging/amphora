@@ -83,44 +83,38 @@ def aggregate_content_resources(queryset, content_type=None,
     generator that yields associated :class:`cookies.models.ContentResource`
     instances.
     """
+    from cookies.models import Resource
     logger.debug('aggregate_content_resources:: with content type %s' % str(content_type))
     # TODO: Ok, this was a nice little excercise with generators. But since we
     #  already have content encapsulated with their uber-parent's container,
     #  can we leverage that relation to cut down on database calls? This may not
     #  matter so long as the rate-limiting factor is content-retrieval.
     queryset = iter(queryset)
-
     current = None
     current_parts = None
     current_content = None
     q = Q(predicate__uri=part_uri)
+    content_q = Q(content_resource=True)
     if content_type is not None and '__all__' not in content_type:
         if not type(content_type) is list:
             content_type = [content_type]
 
-        content_q = Q(content_type=content_type[0])
-        content_q |= Q(content_resource__content_type=content_type[0])
-        if len(content_type) > 1:
-            for ctype in content_type[1:]:
-                content_q |= Q(content_type=ctype)
-                content_q |= Q(content_resource__content_type=ctype)
+        for ctype in content_type:
+            content_q |= Q(content_type=ctype)
+            content_q |= Q(content_resource__content_type=ctype)
 
     def get_parts(resource):
-        return chain((rel.source for rel in resource.relations_to.filter(q)),
-                     *[get_parts(rel.source) for rel in resource.relations_to.filter(q)])
-
-    def get_content(resource):
-        qs = resource.content.all()
-        if content_type is not None and '__all__' not in content_type:
-            qs = qs.filter(content_q)
-        return (rel.content_resource for rel in qs)
+        return (o for rel in resource.relations_to.filter(q).order_by('sort_order')
+                    for o in chain((crel.content_resource for crel
+                                    in rel.source.content.filter(content_q)),
+                                   get_parts(rel.source)))
 
     while True:
         if current is None:
             try:
                 current = queryset.next()
-                current_parts = chain([current], get_parts(current))
-                current_content = chain(*[get_content(part) for part in current_parts])
+                current_content = get_parts(current)
+
             except StopIteration:
                 break
         try:

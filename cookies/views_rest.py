@@ -20,12 +20,20 @@ from cookies.http import HttpResponseUnacceptable, IgnoreClientContentNegotiatio
 
 import magic
 import re
+from collections import OrderedDict
 
+from cookies import authorization, tasks, giles
+from cookies.accession import get_remote
+from cookies.aggregate import aggregate_content_resources
 from cookies.models import *
 from concepts.models import *
 from cookies.exceptions import *
-from cookies import authorization, tasks, giles
-from cookies.accession import get_remote
+
+
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.db.models import F, Count
+
 
 logger = settings.LOGGER
 
@@ -42,30 +50,60 @@ class MultiSerializerViewSet(viewsets.ModelViewSet):
 class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
     content_location = serializers.SerializerMethodField()
     content_for = serializers.SerializerMethodField()
-    next = serializers.SerializerMethodField()
+    next = serializers.SerializerMethodField()    # Whoops.
     previous = serializers.SerializerMethodField()
 
     def get_next(self, obj):
-        try:    # TODO: make this less terrible :p
+        try:
             resource = obj.parent.first().for_resource.next_page
-
             return {
                 'resource': resource.id,
                 'content': resource.content.filter(is_deleted=False, content_type=obj.content_type).first().content_resource.id
             }
         except AttributeError:
+            pass
+
+        part_of = obj.parent.first().for_resource.relations_from_resource.filter(predicate__uri='http://purl.org/dc/terms/isPartOf').first()
+        if not part_of:
             return {}
+        idx = part_of.sort_order
+        parent = part_of.target
+
+        next_part = parent.relations_to_resource.filter(predicate__uri='http://purl.org/dc/terms/isPartOf').annotate(offset=F('sort_order') - idx).annotate(N_content=Count('source_resource__content')).filter(offset__gt=0, N_content__gt=0).order_by('offset').first()
+
+        if next_part:
+            return {
+                'resource': next_part.source.id,
+                'content': next_part.source.content.filter(content_type=obj.content_type).first().content_resource.id,
+            }
+
+        return {}
 
     def get_previous(self, obj):
-        try:    # TODO: make this less terrible :p
+        try:
             resource = obj.parent.first().for_resource.previous_page
-
             return {
                 'resource': resource.id,
                 'content': resource.content.filter(is_deleted=False, content_type=obj.content_type).first().content_resource.id
             }
         except AttributeError:
+            pass
+
+        part_of = obj.parent.first().for_resource.relations_from_resource.filter(predicate__uri='http://purl.org/dc/terms/isPartOf').first()
+        if not part_of:
             return {}
+        idx = part_of.sort_order
+        parent = part_of.target
+
+        prev_part = parent.relations_to_resource.filter(predicate__uri='http://purl.org/dc/terms/isPartOf').annotate(offset=F('sort_order') - idx).annotate(N_content=Count('source_resource__content')).filter(offset__lt=0, N_content__gt=0).order_by('offset').last()
+        if prev_part:
+            return {
+                'resource': prev_part.source.id,
+                'content': prev_part.source.content.filter(content_type=obj.content_type).first().content_resource.id,
+            }
+
+        return {}
+
 
     def get_content_for(self, obj):
         try:
@@ -81,14 +119,16 @@ class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
         url = request.build_absolute_uri(obj.content_location)
         if authorization.check_authorization(ResourceAuthorization.VIEW, request.user, obj):
             remote = get_remote(obj.external_source, request.user)
-            url = remote.sign_uri(obj.location)
-
+            if obj.external_source == Resource.GILES:
+                url = remote.sign_uri(obj.location)
+            else:
+                url = request.build_absolute_uri(reverse('resource-content', args=(obj.id,)))
         return url
 
     class Meta:
         model = Resource
         fields = ('url', 'id', 'uri', 'name', 'public', 'content_location',
-                  'is_external', 'external_source', 'is_local', 'is_remote',
+                  'is_external', 'external_source',
                   'content_type', 'content_for', 'next', 'previous')
 
 
@@ -127,6 +167,14 @@ class FieldSerializer(serializers.HyperlinkedModelSerializer):
         fields = ('id', 'name', 'schema', 'uri', 'description')
 
 
+class FieldSerializerLight(serializers.HyperlinkedModelSerializer):
+    schema = SchemaSerializer()
+
+    class Meta:
+        model = Field
+        fields = ('id', 'name', 'schema', 'uri')
+
+
 class TargetResourceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Resource
@@ -152,7 +200,7 @@ class PartResourceDetailSerializer(serializers.HyperlinkedModelSerializer):
 
 class PartSerializer(serializers.HyperlinkedModelSerializer):
     source = PartResourceDetailSerializer()
-    predicate = FieldSerializer()
+    predicate = FieldSerializerLight()
 
     class Meta:
         model = Relation
@@ -178,17 +226,35 @@ class ResourceDetailSerializer(serializers.HyperlinkedModelSerializer):
     content = ContentRelationSerializer(many=True)
     relations_from = RelationSerializer(many=True)
     parts = PartSerializer(many=True)
+    aggregate_content = serializers.SerializerMethodField()
 
+    def get_aggregate_content(self, obj):
+        """
+        Pulls together all content associated with a resource.
+        """
+
+        context = {'request': self.context['request']}
+        return [
+            {
+                'content_type': content_type,
+                'resources': map(lambda o: ContentResourceSerializer(o, context=context).data,
+                                 aggregate_content_resources([obj], content_type=content_type))
+            } for content_type in obj.container.content_relations.values_list('content_type', flat=True).distinct('content_type')
+        ]
 
     class Meta:
         model = Resource
         fields = ('url', 'id', 'uri', 'name', 'public', 'content',
                   'parts', 'relations_from',  'file', 'content_types',
-                  'state',)
+                  'state', 'aggregate_content')
 
 
 class ResourceListSerializer(serializers.HyperlinkedModelSerializer):
     content = ContentRelationSerializer(many=True)
+    content_types = serializers.SerializerMethodField()
+
+    def get_content_types(self, obj):
+        return obj.content_types
 
     class Meta:
         model = Resource
@@ -208,12 +274,18 @@ class CollectionSerializer(serializers.HyperlinkedModelSerializer):
 
 class CollectionDetailSerializer(serializers.HyperlinkedModelSerializer):
     resources = serializers.SerializerMethodField()
+    subcollections = CollectionSerializer(many=True)
 
     def get_resources(self, obj):
-        from collections import OrderedDict
+        from cookies.filters import ResourceContainerFilter
+        request = self.context['request']
+        containers = ResourceContainerFilter(request.GET, queryset=obj.resourcecontainer_set.all()).qs
+
         paginator = pagination.LimitOffsetPagination()
-        page = paginator.paginate_queryset(obj.resources.all(), self.context['request'])
-        serializer = ResourceListSerializer(page, many=True, read_only=True, context={'request': self.context['request']})
+        page = paginator.paginate_queryset(containers, self.context['request'])
+        context = {'request': request}
+        serializer = ResourceListSerializer((obj.primary for obj in page), many=True, read_only=True,
+                                            context=context)
         return OrderedDict([
             ('count', paginator.count),
             ('next', paginator.get_next_link()),
@@ -226,7 +298,7 @@ class CollectionDetailSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Collection
-        fields = ('url', 'id', 'name', 'resources', 'public')
+        fields = ('url', 'id', 'name', 'resources', 'public', 'subcollections')
 
 
 class ContentViewSet(viewsets.ModelViewSet):
@@ -326,6 +398,7 @@ class ResourceViewSet(MultiSerializerViewSet):
     }
     permission_classes = (ResourcePermission,)
 
+    @method_decorator(cache_page(120, cache='rest_cache'))
     def retrieve(self, request, pk=None):
         return super(ResourceViewSet, self).retrieve(request, pk=pk)
 

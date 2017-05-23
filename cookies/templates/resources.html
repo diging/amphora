@@ -78,6 +78,16 @@
                                 {{ field|addcss:"form-control" }}
                             </div>
                             {% endwith %}
+
+                            {% with filtered_objects.form.content_type as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>Content type</label>
+                                {{ field|addcss:"form-control" }}
+                            </div>
+                            {% endwith %}
                         </div>
                         <div class="col-xs-6">
                             {% with filtered_objects.form.created_by as field %}

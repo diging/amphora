@@ -8,6 +8,37 @@ from itertools import groupby
 from oauthlib import oauth1
 
 
+numeral_map = zip(
+    (1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1),
+    ('M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I')
+)
+
+
+def roman_to_int(n):
+    """
+    Thanks to Tim Valenta: http://code.activestate.com/recipes/81611-roman-numerals/#c4
+    """
+    n = unicode(n).upper()
+    i = result = 0
+    for integer, numeral in numeral_map:
+        while n[i:i + len(numeral)] == numeral:
+            result += integer
+            i += len(numeral)
+    return result
+
+
+def try_int(val):
+    try:
+        return int(val)
+    except ValueError:
+        pass
+    try:
+        return -1000 + roman_to_int(val)
+    except ValueError:
+        pass
+    return -1001
+
+
 class IngestError(IOError):
     pass
 
@@ -164,11 +195,6 @@ class HathiTrustRemoteIngest(HathiTrustRemote):
         Returns
         -------
         """
-        def try_int(val):
-            try:
-                return int(val)
-            except ValueError:
-                return -1
 
         pgmap = raw.get('htd:pgmap', [])
         seqmap = raw.get('htd:seqmap', [])
@@ -180,36 +206,29 @@ class HathiTrustRemoteIngest(HathiTrustRemote):
                 pgnum: [d['content'] for d in group]
                 for pgnum, group in groupby(sorted(page_data, key=_key), key=_key)
             }
-            return {
+            data = {
                 'http://purl.org/dc/terms/accessRights': [raw.get('htd:access_use_statement'), raw.get('htd:access_use')],
                 'http://purl.org/dc/terms/modified': [raw.get('updated')],
                 'http://purl.org/dc/terms/extent': ['%s pages' % raw.get('htd:numpages')],
                 'parts': [
                     {
-                        'name': ['%s page %s' % (identifier, pagenum)],
-                        'parts': [
-                            {
-                                'name': ['%s page %s (part %s)' % (identifier, pagenum, partnum)],
-                                'uri': [self.content_base + '/volume/pagemeta/%s/%s?v=2&format=json' % (identifier, partnum)],
-                                'file': [{
-                                    'location': [self.content_base + '/volume/pageocr/%s/%s?v=2' % (identifier, partnum)],
-                                    'content_type': 'text/plain',
-                                    'external_source': 'HT',
-                                }],
-                                'content_type': 'text/plain',
-                                'entity_type': ['http://purl.org/dc/dcmitype/Text'],
-                                'sort_order': try_int(partnum)
-                            }
-                        for partnum in page_resources[pagenum]],
+                        'name': ['%s page %s (part %s)' % (identifier, pagenum, partnum)],
+                        'uri': [self.content_base + '/volume/pagemeta/%s/%s?v=2&format=json' % (identifier, partnum)],
+                        'file': [{
+                            'location': [self.content_base + '/volume/pageocr/%s/%s?v=2' % (identifier, partnum)],
+                            'content_type': 'text/plain',
+                            'external_source': 'HT',
+                        }],
+                        'content_type': 'text/plain',
                         'entity_type': ['http://purl.org/net/biblio#Part'],
-                        'sort_order': try_int(pagenum)
+                        'sort_order': float('%i.%s' % (try_int(pagenum), str(try_int(partnum)).zfill(4))),
                     }
-                for pagenum in page_numbers]
+                for pagenum in page_numbers for partnum in page_resources[pagenum]]
             }
         else:
             n_pages = int(raw.get('htd:numpages'))
 
-            return {
+            data = {
                 'http://purl.org/dc/terms/accessRights': [raw.get('htd:access_use_statement'), raw.get('htd:access_use')],
                 'http://purl.org/dc/terms/modified': [raw.get('updated')],
                 'http://purl.org/dc/terms/extent': ['%s pages' % raw.get('htd:numpages')],
@@ -228,9 +247,7 @@ class HathiTrustRemoteIngest(HathiTrustRemote):
                     }
                 for pagenum in xrange(1, n_pages + 1)]
             }
-
-
-
+        return data
 
     def get_record(self, identifier):
         record = self.process_metadata(identifier, self.get_metadata(identifier))
