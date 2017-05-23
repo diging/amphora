@@ -161,7 +161,7 @@ class ResourceBase(Entity):
         via :class:`.Relation` entries.
         """
         __isPartOf__, _ = Field.objects.get_or_create(uri=settings.IS_PART_OF)
-        return self.relations_to.filter(predicate=__isPartOf__)
+        return self.relations_to.filter(predicate=__isPartOf__).order_by('sort_order')
 
     class Meta:
         abstract = True
@@ -199,24 +199,11 @@ class Resource(ResourceBase):
         if self.content_resource:
             if self.file:
                 return self.file.url
-            return self.location
+            return reverse('resource-content', args=(self.id,))
 
     @property
     def content_types(self):
-        if self.content_resource:
-            return self.content_type
-
-        direct = [(cr.content_type, cr.content_resource.content_type)
-                    for cr in self.content.all()
-                   if cr.content_resource.content_type or cr.content_type]
-        if direct:
-            d0, d1 = map(list, zip(*direct))
-            direct = d0 + d1
-        parts = []
-        for r in self.relations_to.all():
-             if r.source.content_type:
-                parts += r.source.content_types
-        return set([ct for ct in direct + parts if ct is not None])
+        return self.container.content_relations.values_list('content_type', flat=True).distinct('content_type')
 
     @property
     def content_view(self):
@@ -250,6 +237,18 @@ class Resource(ResourceBase):
 
     def __unicode__(self):
         return self.name.encode('utf-8')
+
+
+    relations_from_resource = GenericRelation('Relation',
+                                     content_type_field='source_type',
+                                     object_id_field='source_instance_id',
+                                     related_query_name='source_resource')
+
+    relations_to_resource = GenericRelation('Relation',
+                                   content_type_field='target_type',
+                                   object_id_field='target_instance_id',
+                                   related_query_name='target_resource')
+
 
 
 class Tag(models.Model):
@@ -313,6 +312,10 @@ class Collection(ResourceBase):
 
     def __unicode__(self):
         return self.name
+
+    @property
+    def subcollections(self):
+        return self.collection_set.all()
 
     @property
     def children(self):
@@ -492,10 +495,15 @@ class Relation(Entity):
 
     data_source = models.CharField(max_length=1000, blank=True, null=True)
 
-    sort_order = models.IntegerField(default=0)
+    sort_order = models.FloatField(default=0)
 
     class Meta:
         verbose_name = 'metadata relation'
+
+        index_together = [
+            ['source_type', 'source_instance_id'],
+            ['target_type', 'target_instance_id'],
+        ]
 
         # Unless otherwise specified, relations will be displayed in order of
         #  their creation (oldest first).

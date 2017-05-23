@@ -84,12 +84,20 @@ class ResourceContainerFilter(django_filters.FilterSet):
                              .filter(num_instances__gt=0)
     )
 
+    content_type = django_filters.MultipleChoiceFilter(choices=[(val, val) for val in ContentRelation.objects.values_list('content_type', flat=True).distinct('content_type')], method='filter_content_type')
+
     tag = django_filters.CharFilter(method='filter_tag')
 
     def filter_tag(self, queryset, value):
         if not value:
             return queryset
         return queryset.filter(primary__tags__tag__id=value)
+
+    def filter_content_type(self, queryset, name, value):
+        print value
+        if not value:
+            return queryset
+        return queryset.filter(Q(content_relations__content_type__in=value)).distinct('id')
 
     def lookup_name_in_parts(self, queryset, name, value):
         q = Q()
@@ -113,6 +121,7 @@ class ResourceContainerFilter(django_filters.FilterSet):
     class Meta:
         model = Resource
         fields = ['name', 'entity_type', 'content', 'created_by', 'part_of']
+        strict = 'STRICTNESS.IGNORE'
         # order_by = (
         #     ('primary__name', 'Name (ascending)'),
         #     ('-primary__name', 'Name (descending)'),

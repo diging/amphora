@@ -60,6 +60,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'jars.auth.GithubTokenBackendMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -154,6 +155,7 @@ AUTHENTICATION_BACKENDS = (
     'jars.backends.AllowAllUsersModelBackend', # default
     'guardian.backends.ObjectPermissionBackend',
     'social_core.backends.github.GithubOAuth2',
+    'jars.auth.GithubAuthenticationBackend',
 )
 ANONYMOUS_USER_ID = -1
 
@@ -235,4 +237,11 @@ CACHES = {
         'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
         'LOCATION': 'content_cache',
     },
+    'rest_cache': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'rest_cache',
+    }
 }
+
+
+SESSION_COOKIE_NAME = 'amphora'
