@@ -118,10 +118,11 @@ class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
 
         url = request.build_absolute_uri(obj.content_location)
         if authorization.check_authorization(ResourceAuthorization.VIEW, request.user, obj):
-            remote = get_remote(obj.external_source, request.user)
             if obj.external_source == Resource.GILES:
+                remote = get_remote(obj.external_source, obj.created_by)
                 url = remote.sign_uri(obj.location)
             else:
+                remote = get_remote(obj.external_source, request.user)
                 url = request.build_absolute_uri(reverse('resource-content', args=(obj.id,)))
         return url
 
