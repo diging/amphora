@@ -6,6 +6,7 @@ env:
     - DJANGO_SETTINGS_MODULE=jars.settings
     - BACKEND='postgres'
     - LOGLEVEL='ERROR'
+    - DATABASE_URL='postgres://jars@localhost:5432/jars_tests'
 before_script:
   - createuser -d -U postgres jars;
   - psql -c 'alter role jars createdb;' -U postgres
