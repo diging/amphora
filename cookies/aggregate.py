@@ -27,6 +27,8 @@ import smart_open, zipfile, logging, cStringIO, mimetypes
 import os, urlparse, mimetypes
 import unicodecsv as csv
 
+from cookies.models import Resource
+
 cache = caches['remote_content']
 
 logging.basicConfig()
@@ -74,6 +76,11 @@ def get_content(content_resource):
         with open(content_resource.file.path) as f:
             return f.read()
     return
+
+
+def aggregate_content_resources_fast(container, content_type=None, part_uri='http://purl.org/dc/terms/isPartOf'):
+    return Resource.objects.filter(content_resource=True, container=container)#.order_by('parent__for_resource__relations_from_resource__sort_order')
+
 
 
 def aggregate_content_resources(queryset, content_type=None,

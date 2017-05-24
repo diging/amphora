@@ -24,7 +24,7 @@ from collections import OrderedDict
 
 from cookies import authorization, tasks, giles
 from cookies.accession import get_remote
-from cookies.aggregate import aggregate_content_resources
+from cookies.aggregate import aggregate_content_resources, aggregate_content_resources_fast
 from cookies.models import *
 from concepts.models import *
 from cookies.exceptions import *
@@ -45,6 +45,22 @@ class MultiSerializerViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         return self.serializers.get(self.action, self.serializers['default'])
+
+
+class ContentResourceSerializerLight(serializers.HyperlinkedModelSerializer):
+    content_for = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Resource
+        fields = ('url', 'id', 'uri', 'name', 'public',
+                  'is_external', 'external_source',
+                  'content_type', 'content_for')
+
+    def get_content_for(self, obj):
+        try:
+            return obj.parent.first().for_resource.id
+        except AttributeError:
+            return u""
 
 
 class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
@@ -104,7 +120,6 @@ class ContentResourceSerializer(serializers.HyperlinkedModelSerializer):
 
         return {}
 
-
     def get_content_for(self, obj):
         try:
             return obj.parent.first().for_resource.id
@@ -140,7 +155,7 @@ class ContentRelationListSerializer(serializers.ListSerializer):
 
 
 class ContentRelationSerializer(serializers.HyperlinkedModelSerializer):
-    content_resource = ContentResourceSerializer()
+    content_resource = ContentResourceSerializerLight()
 
     class Meta:
         model = ContentRelation
@@ -233,15 +248,15 @@ class ResourceDetailSerializer(serializers.HyperlinkedModelSerializer):
         """
         Pulls together all content associated with a resource.
         """
-
         context = {'request': self.context['request']}
-        return [
+        data = [
             {
                 'content_type': content_type,
-                'resources': map(lambda o: ContentResourceSerializer(o, context=context).data,
-                                 aggregate_content_resources([obj], content_type=content_type))
+                'resources': map(lambda o: ContentResourceSerializerLight(o, context=context).data,
+                                 aggregate_content_resources_fast(obj.container, content_type=content_type))
             } for content_type in obj.container.content_relations.values_list('content_type', flat=True).distinct('content_type')
         ]
+        return data
 
     class Meta:
         model = Resource
