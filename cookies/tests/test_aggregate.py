@@ -39,18 +39,18 @@ class TestAggregate(unittest.TestCase):
                     Relation.objects.create(source=r2, predicate=self.isPartOf, target=r, container=resource.container)
                     create_content_resource(r2, 'http://asdf.com/%i_%i.txt' % (i, j), 'text/plain')
 
-    def test_aggregate_content_resources(self):
-        """
-        :func:`cookies.aggregate.aggregate_content_resources` should return a
-        generator that yields all of the content resources attached to the
-        passed set of resources.
-        """
-        agg = aggregate.aggregate_content_resources(iter([self.resource, self.resource2]))
-        self.assertEqual(len(list(agg)), Resource.objects.filter(content_resource=True).count())
-
-        for obj in aggregate.aggregate_content_resources(Resource.objects.filter(is_primary_for__isnull=False)):
-            self.assertIsInstance(obj, Resource)
-            self.assertTrue(obj.content_resource)
+    # def test_aggregate_content_resources(self):
+    #     """
+    #     :func:`cookies.aggregate.aggregate_content_resources` should return a
+    #     generator that yields all of the content resources attached to the
+    #     passed set of resources.
+    #     """
+    #     agg = aggregate.aggregate_content_resources(iter([self.resource, self.resource2]))
+    #     self.assertEqual(len(list(agg)), Resource.objects.filter(content_resource=True).count())
+    #
+    #     for obj in aggregate.aggregate_content_resources(Resource.objects.filter(is_primary_for__isnull=False)):
+    #         self.assertIsInstance(obj, Resource)
+    #         self.assertTrue(obj.content_resource)
 
     def test_aggregate_content_resources_ctype(self):
         """

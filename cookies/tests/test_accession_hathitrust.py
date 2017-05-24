@@ -94,7 +94,7 @@ class TestHathiTrust(unittest.TestCase):
 
         self.assertIsInstance(data, Resource)
         self.assertEqual(ResourceContainer.objects.count(), 1)
-        self.assertEqual(Resource.objects.filter(content_resource=False).count(), 119)
+        self.assertEqual(Resource.objects.filter(content_resource=False).count(), 61)
         self.assertEqual(Resource.objects.filter(content_resource=True).count(), 60)
         for resource in Resource.objects.filter(content_resource=True):
             self.assertEqual(resource.content_type, 'text/plain')
