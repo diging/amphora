@@ -79,7 +79,7 @@ def get_content(content_resource):
 
 
 def aggregate_content_resources_fast(container, content_type=None, part_uri='http://purl.org/dc/terms/isPartOf'):
-    return Resource.objects.filter(content_resource=True, container=container)#.order_by('parent__for_resource__relations_from_resource__sort_order')
+    return Resource.objects.filter(content_resource=True, container=container).order_by('parent__for_resource__relations_from_resource__sort_order')
 
 
 

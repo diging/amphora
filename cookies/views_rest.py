@@ -414,7 +414,7 @@ class ResourceViewSet(MultiSerializerViewSet):
     }
     permission_classes = (ResourcePermission,)
 
-    @method_decorator(cache_page(120, cache='rest_cache'))
+    # @method_decorator(cache_page(120, cache='rest_cache'))
     def retrieve(self, request, pk=None):
         return super(ResourceViewSet, self).retrieve(request, pk=pk)
 
