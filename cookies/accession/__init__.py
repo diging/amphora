@@ -19,12 +19,6 @@ logger.setLevel(settings.LOGLEVEL)
 from itertools import repeat, imap
 
 
-__part__ = Field.objects.get_or_create(uri='http://purl.org/dc/terms/isPartOf')[0]
-__text__ = Type.objects.get_or_create(uri='http://purl.org/dc/dcmitype/Text')[0]
-__image__ = Type.objects.get_or_create(uri='http://purl.org/dc/dcmitype/Image')[0]
-__document__ = Type.objects.get_or_create(uri='http://xmlns.com/foaf/0.1/Document')[0]
-
-
 from functools import partial
 
 
@@ -395,7 +389,6 @@ class IngestManager(object):
         resource_data, relation_data, file_data = self.separate_field_and_relation_data(datum)
         sort_order = relation_data.pop('sort_order', 0)
         part = self.process(resource_data, relation_data, file_data, container=resource.container)
-
         __part__ = Field.objects.get_or_create(uri='http://purl.org/dc/terms/isPartOf')[0]
         Relation.objects.create(source=part,
                                 predicate=__part__,
