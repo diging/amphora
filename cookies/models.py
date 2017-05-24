@@ -235,10 +235,6 @@ class Resource(ResourceBase):
             return Resource.OK
         return Resource.PROCESSING
 
-    def __unicode__(self):
-        return self.name.decode('utf-8')
-
-
     relations_from_resource = GenericRelation('Relation',
                                      content_type_field='source_type',
                                      object_id_field='source_instance_id',
