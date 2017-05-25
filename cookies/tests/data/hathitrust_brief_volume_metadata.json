@@ -1,0 +1,48 @@
+{
+   "records":{
+      "000008485":{
+         "recordURL":"https:\/\/catalog.hathitrust.org\/Record\/000008485",
+         "titles":[
+            "Indians of the Northwest Coast \/"
+         ],
+         "isbns":[
+            "9780385024433",
+            "9780385024433"
+         ],
+         "issns":[
+
+         ],
+         "oclcs":[
+            "617498"
+         ],
+         "lccns":[
+
+         ],
+         "publishDates":[
+            "1963"
+         ]
+      }
+   },
+   "items":[
+      {
+         "orig":"University of Michigan",
+         "fromRecord":"000008485",
+         "htid":"mdp.39015000051246",
+         "itemURL":"https:\/\/hdl.handle.net\/2027\/mdp.39015000051246",
+         "rightsCode":"pd",
+         "lastUpdate":"20170213",
+         "enumcron":false,
+         "usRightsString":"Full view"
+      },
+      {
+         "orig":"University of Wisconsin - Madison",
+         "fromRecord":"000008485",
+         "htid":"wu.89069276731",
+         "itemURL":"https:\/\/hdl.handle.net\/2027\/wu.89069276731",
+         "rightsCode":"pd",
+         "lastUpdate":"20140430",
+         "enumcron":false,
+         "usRightsString":"Full view"
+      }
+   ]
+}

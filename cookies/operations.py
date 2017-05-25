@@ -43,7 +43,7 @@ def add_creation_metadata(resource, user):
     })
 
 
-def _transfer_all_relations(from_instance, to_instance_id, content_type):
+def _transfer_all_relations(from_instance, to_instance, content_type):
     """
     Transfers relations from one model instance to another.
 
@@ -52,16 +52,19 @@ def _transfer_all_relations(from_instance, to_instance_id, content_type):
     from_instance : object
         An instance of any model, usually a :class:`.Resource` or
         :class:`.ConceptEntity`\.
-    to_instance_id : int
-        PK id of the model instance that will inherit relations.
+    to_instance :
     content_type : :class:`.ContentType`
         :class:`.ContentType` for the model of the instance that will inherit
         relations.
     """
+
+
+
     from_instance.relations_from.update(source_type=content_type,
-                                        source_instance_id=to_instance_id)
+                                        source_instance_id=to_instance.id)
+
     from_instance.relations_to.update(target_type=content_type,
-                                      target_instance_id=to_instance_id)
+                                      target_instance_id=to_instance.id)
 
 
 def prune_relations(resource, user=None):
@@ -147,6 +150,9 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
         ``entities``, or if more than one unique :class:`.Concept` is
         implicated.
     """
+
+
+
     conceptentity_type = ContentType.objects.get_for_model(ConceptEntity)
     if isinstance(entities, QuerySet):
         _len = lambda qs: qs.count()
@@ -156,7 +162,7 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
         _first = lambda qs: qs.first()
     elif isinstance(entities, list):
         _len = lambda qs: len(qs)
-        _uri = lambda qs: [getattr(o.concept, 'uri', None) for o in qs]
+        _uri = lambda qs: [concept.uri for obj in qs for concept in obj.concept.all()]#[getattr(o.concept, 'uri', None) for o in qs]
         _get_master = lambda qs, pk: [e for e in entities if e.id == pk].pop()
         _get_rep = lambda qs: [e for e in entities if e.represents.count() > 0].pop()
         _first = lambda qs: qs[0]
@@ -165,11 +171,11 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
     if _len(entities) < 2:
         raise RuntimeError("Need more than one ConceptEntity instance to merge")
 
-    _concepts = list(set([v for v in _uri(entities) if v]))
-    if len(_concepts) > 1:
-        raise RuntimeError("Cannot merge two ConceptEntity instances with"
-                           " conflicting external concepts")
-    _uri = _concepts[0] if _concepts else None
+    # _concepts = list(set([v for v in _uri(entities) if v]))
+    # if len(_concepts) > 1:
+    #     raise RuntimeError("Cannot merge two ConceptEntity instances with"
+    #                        " conflicting external concepts")
+    # _uri = _concepts[0] if _concepts else None
 
     master = None
     if master_id:    # If a master is specified, use it...
@@ -190,8 +196,9 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
         except AssertionError:    # If a slice has already been taken.
             master = entities[0]
 
-    if _uri is not None:
-        master.concept.add(Concept.objects.get(uri=_uri))
+    concepts = filter(lambda pk: pk is not None, entities.values_list('concept__id', flat=True))
+    if concepts:
+        master.concept.add(*Concept.objects.filter(pk__in=concepts))
         master.save()
 
     identity = Identity.objects.create(
@@ -201,6 +208,8 @@ def merge_conceptentities(entities, master_id=None, delete=True, user=None):
     identity.entities.add(*entities)
     map(lambda e: e.identities.update(representative=master), entities)
     return master
+
+
 
 
 def merge_resources(resources, master_id=None, delete=True, user=None):
@@ -245,11 +254,14 @@ def merge_resources(resources, master_id=None, delete=True, user=None):
         master = resources.first()
 
     to_merge = resources.filter(~Q(pk=master.id))
+
     for resource in to_merge:
-        _transfer_all_relations(resource, master.id, resource_type)
+        _transfer_all_relations(resource, master, resource_type)
         resource.content.all().update(for_resource=master)
-        for collection in resource.part_of.all():
-            master.part_of.add(collection)
+        for rel in ['resource_set', 'conceptentity_set', 'relation_set', 'content_relations', 'value_set']:
+            getattr(resource.container, rel).update(container_id=master.container.id)
+        # for collection in resource.part_of.all():
+        #     master.part_of.add(collection)
 
     prune_relations(master, user)
 

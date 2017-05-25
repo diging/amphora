@@ -15,7 +15,7 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-md-7">
+    <div class="col-md-{% if preview_content %}7{% else %}12{% endif %}">
         <div class="resource_summary">
             <div class="h3 resource_name">
                 {{ resource.name }}
@@ -78,6 +78,7 @@
                 {% endfor %}
                 {% endif %}
             </dl>
+
         </div>
 
         <h3>Metadata</h2>
@@ -101,9 +102,20 @@
             </dl>
         </div>
     </div>
+    {% if preview_content %}
     <div class="col-md-5">
         {{ resource|preview:request }}
     </div>
+    {% endif %}
+</div>
+
+<div class="container">
+    <dt>Parts</dt>
+    {% for relation in part_relations %}
+    <dd>
+        <a href="{{ relation.source.get_absolute_url }}">{{ relation.source.name }}</a>
+    </dd>
+    {% endfor %}
 </div>
 
 

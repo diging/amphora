@@ -6,6 +6,13 @@
 {% load breadcrumbs %}
 {% load authorization %}
 
+{% block extrahead %}
+<script src="{% static "cookies/js/vue.min.js" %}"></script>
+<script src="{% static "cookies/js/tiny-cookie.min.js" %}"></script>
+<script src="https://cdn.jsdelivr.net/vue.resource/1.2.1/vue-resource.min.js"></script>
+{% endblock %}
+
+
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'index' %}">{% trans 'Home' %}</a>
@@ -35,35 +42,17 @@
 
             </div>
             <dl class="dl-horizontal">
+                <dt>Collection</dt>
+                <dd><a href="{{ entity.container.part_of.get_absolute_url }}">{{ entity.container.part_of.name }}</a></dd>
+                <dt>Part of</dt>
+                <dd><a href="{{ entity.container.primary.get_absolute_url }}">{{ entity.container.primary.name }}</a></dd>
                 <dt>Created</dt>
                 <dd>{{ entity.created }}</dd>
                 {% if entity.created_by %}
                 <dt>Created by</dt>
                 <dd>{{ entity.created_by }}</dd>
                 {% endif %}
-                <dt class="resource_uri">
-                    Amphora URI
-                </dt>
-                <dd style="max-width: 50%; overflow-x: scroll;">{{ entity.uri }}</dd>
-                <dt class="resource_uri">Conceptpower URI</dt>
-                {% with entity.concept as concepts %}
-                <dd>
-                    {% if concepts.count > 0 %}
-                    {% for concept in concepts.all %}
-                    <i class="fa fa-anchor" aria-hidden="true"></i> {% if concept.label %}{{ concept.label }}{% else %}{{ concept.uri }}{% endif %}
-                    {% if can_edit %}
-                    <a href="{% url "entity-change-concept" entity.id %}">
-                        <i class="glyphicon glyphicon-pencil"></i>
-                    </a>
-                    {% endif %}
-                    {% endfor %}
-                    {% else %}
-                    {% if can_edit %}
-                    <a href="{% url "entity-change-concept" entity.id %}"><i class="fa fa-plus" aria-hidden="true"></i> Link or create record</a>
-                    {% endif %}
-                    {% endif %}
-                </dd>
-                {% endwith %}
+
                 <dt class="resource_entity_type">Type</dt>
                 <dd>{{ entity.entity_type }}</dd>
                 {% if represented_by %}
@@ -72,87 +61,173 @@
                 {% endif %}
             </dl>
 
-            {% if represents %}
+            <div class="h4">External Records
+                {% if can_edit %}
+                <a class="btn btn-sm" href="{% url "entity-change-concept" entity.id %}">
+                    <span class="glyphicon glyphicon-plus"></span>
+                </a>
+                {% endif %}
+            </div>
+            <p class="text-muted text-small">
+                Linking entities to external records (e.g. in a controlled vocabulary or authority service)
+                can help Amphora leverage linked data to enhance metadata.
+            </p>
+
+            {% with entity.concept as concepts %}
             <div class="panel">
-                <div class="h4 panel-heading">Represents</div>
-                {% for rep in represents %}
-                    {% if rep.0 != entity.id %}
-                    <a href="{% url "entity-details" rep.0 %}" class="list-group-item">
-                        {{ rep.1 }} in <span class="text-muted">{{ rep.2 }}</span>
-                    </a>
+                {% if concepts.count > 0 %}
+                    {% for concept in concepts.all %}
+                    <div class="list-group-item list-group-item-compact">
+                        <i class="fa fa-anchor" aria-hidden="true"></i> {% if concept.label %}{{ concept.label }}{% endif %} <a href="{{concept.uri}}">{{ concept.uri }}</a>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    {% if can_edit %}
+                    <a href="{% url "entity-change-concept" entity.id %}"><i class="fa fa-plus" aria-hidden="true"></i> Link or create record</a>
                     {% endif %}
-                {% endfor %}
+                {% endif %}
+            </div>
+            {% endwith %}
+
+            {% if represents %}
+
+            <div class="panel">
+                <div class="panel-heading">
+                    <div class="panel-title">
+                        <div class="h4">
+                            <a data-toggle="collapse" class="collapse-toggle collapsed" href="#merged-entity-list">Merged Entities</a>
+                        </div>
+                    </div>
+                    <p class="text-muted text-small">
+                        These are other entities that have been merged into this entity.
+                        Any relations associated with those entities have also been included
+                        in the details on this page.
+                    </p>
+                </div>
+                <div class="list-group panel-collapse collapse" id="merged-entity-list">
+                    {% for rep in represents %}
+                        {% if rep.0 != entity.id %}
+                        <a href="{% url "entity-details" rep.0 %}" class="list-group-item list-group-item-compact">
+                            {{ rep.1 }} in <span class="text-muted">{{ rep.2 }}</span>
+                        </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
             </div>
             {% endif %}
 
-            {% if relations_from|length > 0 %}
-            <div class="resource_relations panel">
-                {% for predicate, relations in relations_from %}
-                <div class="h4 panel-heading">{{ predicate }}</div>
-                {% for relation in relations %}
-                    <li class="target list-group-item list-group-item-compact"
-                        id="target_{{ relation.target.id }}"
-                        uri="{{ relation.target.uri }}">
-                        {% with relation.target.get_absolute_url as resource_url %}
-                        {% if resource_url %}<a href="{{resource_url}}">{% endif %}{{ relation.target.name|truncatechars:100 }}{% if resource_url %}</a>{% endif %}
-                        <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.target.entity_type.schema }}">{{ relation.target.entity_type.name }}</span>
-                        {% endwith %}
-                        <span class="text-muted">from {{ relation.container.primary.name }}</span>
-                    </li>
-                    {% endfor %}
-                </dl>
-                {% endfor %}
-            </div>
-            {% endif %}
-            {% if relations_to|length > 0 %}
-            <div class="resource_relations panel">
-                {% for predicate, relations in relations_to %}
-                <div class="h4 panel-heading">{{ predicate }}
-                    <a class="btn btn-xs glyphicon glyphicon-list" href="{% url "resources" %}?predicate={{ predicate.id }}&target={{ entity.id }}&target_type={{ entity_type.id }}"></a>
-                </div>
-                {% for relation in relations %}
-                    <li class="source list-group-item list-group-item-compact"
-                        id="source_{{ relation.source.id }}"
-                        uri="{{ relation.source.uri }}">
-                        {% with relation.source.get_absolute_url as resource_url %}
-                        {% if resource_url %}<a href="{{resource_url}}">{% endif %}{{ relation.source.name|truncatechars:100 }}{% if resource_url %}</a>{% endif %}
-                        <span class="label label-default" data-toggle="tooltip" data-title="{{ relation.source.entity_type.schema }}">{{ relation.source.entity_type.name }}</span>
-                        <div>
-                          {% for i in relation.source.relations_from.all %}
-                            <ul>
-                              {% if i.predicate.name == 'Date' %}
-                                <strong>{{ i.predicate.name }}</strong>: {{ i.target.name }}
-                              {% endif %}
-                              {% if i.predicate.name == 'Abstract' %}
-                                <strong>{{ i.predicate.name }}</strong>: {{ i.target.name }}
-                              {% endif %}
-                            </ul>
-                          {% endfor %}
+            
+            <div class="h4">Relations about (from) this entity</div>
+            <p class="text-muted text-small">
+                These relations represent everything that we know about this entity.
+                Note that relations from merged entities (see above) are also included
+                in the summaries below.
+            </p>
+
+                {% if can_edit %}<div id="add-new-predicate"></div>
+                {% verbatim %}
+                <script>
+                    var predicateCreator = new Vue({
+                        el: '#add-new-predicate',
+                        template: `
+                        <div class="form-inline" v-on:keyup.esc="cancel()">
+                            <input class="form-control input-sm" v-if="creating" type="text" v-model="q" placeholder="What kind of relation?" v-on:input="search" />
+                            <a v-if="!creating" class="btn btn-sm btn-xxs" v-on:click="startCreating">
+                                <span class="glyphicon glyphicon-plus"></span> New
+                            </a>
+                            <a v-else class="btn btn-sm btn-xxs" v-on:click="cancel">
+                                <span class="glyphicon glyphicon-remove"></span> Cancel
+                            </a>
+                            <div v-if="predicates" class="list-group" style="position: absolute; z-index: 500;">
+                                <a class="list-group-item list-group-item-compact"
+                                    v-for="predicate in predicates"
+                                    v-bind:href="getPredicateURL(predicate)">
+                                    {{ predicate.schema.name }}: {{ predicate.name }}
+                                    <span class="text-muted text-small">{{ predicate.description }}</span>
+                                </a>
+                            </div>
                         </div>
-                        {% endwith %}
-                    </li>
-                    {% endfor %}
-                </dl>
+                        `,
+                        data: function() {
+                            return {
+                                predicate_id: null,
+                                predicates: [],
+                                creating: false,
+                                q: ""
+                            }
+                        },
+                        methods: {
+                            search: function() {
+                                if (this.q.length < 2) return;
+                                var self = this;
+                                // TODO: use a base url
+                                this.$http.get('/amphora/rest/field/?name='+this.q).then(function(response) {
+                                    self.predicates = response.body.results;
+                                });
+                            },
+                            cancel: function() {
+                                this.creating = false;
+                                this.q = null;
+                                this.predicates = [];
+                            },
+                            startCreating: function() { this.creating = true; },
+                            getPredicateURL: function(predicate) {
+                                return "/amphora/entity/{% endverbatim %}{{ entity.id }}{% verbatim %}/relations/" + predicate.id + "/edit/";
+                            }
+                        }
+                    })
+                </script>
+                {% endverbatim %}
+                {% endif %}
+
+            <div class="resource_relations">
+                {% for predicate, relations in relations_from %}
+                <div class="panel">
+                    <div class="panel-heading"><span class="h4">{{ predicate }}</span>
+                        <div class="pull-right btn-group">
+                            {% if can_edit %}
+                            <a class="btn btn-xs glyphicon glyphicon-pencil"
+                                href="{% url "entity-edit-relation-as-table" entity.id predicate.id %}"></a>
+                            {% endif %}
+                        </div>
+                        <div class="text-muted text-small">
+                            {{ predicate.description }}
+                        </div>
+                    </div>
+
+                    {% for target_name, relation_count in relations %}
+                        <li class="target list-group-item list-group-item-compact">
+                            {{ target_name }} <span class="badge">{{ relation_count }} </span>
+                        </li>
+                        {% endfor %}
+                    </dl>
+                </div>
                 {% endfor %}
             </div>
-            {% endif %}
+
+
         </div>
         <div class="col-sm-6 col-md-4">
 
             {% if similar_entities|length > 0 %}
-            <div class="panel panel-default">
+            <div class="panel">
                 <div class="panel-heading clearfix">
-                    <span class="h4">Similar entities</span>
+                    <div class="panel-title">
+                        <span class="h4">
+                            <a data-toggle="collapse" class="collapse-toggle collapsed" href="#similar-list">Similar entities</a>
+                        </span>
+                    </div>
+
+
+                </div>
+                <div class="list-group panel-collapse collapse" id="similar-list">
                     {% if can_edit %}
-                    <div class="pull-right">
+                    <div class="list-group-item list-group-item-compact text-right">
                         <a class="btn btn-success btn-xs" href="{% url "entity-merge" %}?entity={{ entity.id }}&{% for ent in similar_entities %}entity={{ent.id}}&{% endfor %}">Merge all</a>
                     </div>
                     {% endif %}
-
-                </div>
-                <div class="list-group"  style="max-height: 600px; overflow-y: scroll;">
                     {% for ent in similar_entities %}
-                    <li class="list-group-item">
+                    <li class="list-group-item list-group-item-compact">
                         <span class="btn-group">
                             {% if can_edit %}
                             <a href="{% url "entity-merge" %}?entity={{entity.id}}&entity={{ent.id}}"
@@ -162,24 +237,54 @@
                                 <i class="fa fa-compress" aria-hidden="true"></i>
                             </a>
                             {% endif %}
-                            {% if entity.concept.id %}
-                            <a class="btn btn-xs"
-                                data-toggle="tooltip"
-                                data-title="View linked concept">
-                                <i class="fa fa-anchor" aria-hidden="true"></i>
-                            </a>
-                            {% endif %}
+
 
                         </span>
                         <a href="{{ ent.get_absolute_url }}">{{ ent.name.title }}</a>
                         <span class="text-muted">a {{ ent.entity_type.schema }}/{{ ent.entity_type.name }}</span>
-                        <span class="pull-right">{{ ent.relations_from.count }}/{{ ent.relations_to.count }}</span>
+                        <span class="pull-right">
+                            {% if ent.concept.count > 0 %}
+                            <span class="btn btn-xs"
+                                data-toggle="tooltip"
+                                data-title="View linked concept">
+                                <i class="fa fa-anchor" aria-hidden="true"></i>
+                            </span>
+                            {% endif %}
+                            <span class="badge">{{ ent.relations_from.count }}</span><span class="badge">{{ ent.relations_to.count }}</span>
+
+                        </span>
                     </li>
                     {% endfor %}
                 </div>
             </div>
             {% endif %}
 
+            {% if relations_to|length > 0 %}
+            <div class="h4">Relations to this entity</div>
+            <p class="text-muted text-small">
+                This entity is the target of the following relations. These relations can
+                be edited from their respective source resources.
+            </p>
+            <div class="resource_relations panel">
+                {% for predicate, relation_count, relations in relations_to %}
+                <div class="h5 panel-heading">
+                    {{ predicate.predicate__name }} <small>Showing {{ relations.count }} of {{ relation_count }}</small>
+                    <a class="btn btn-xs glyphicon glyphicon-list" href="{% url "resources" %}?predicate={{ predicate.predicate_id }}&target={{ entity.id }}&target_type={{ entity_type.id }}"></a>
+                </div>
+                {% for relation in relations %}
+                    <li class="source list-group-item list-group-item-compact"
+                        id="source_{{ relation.source.id }}"
+                        uri="{{ relation.source.uri }}">
+                        {% with relation.source.get_absolute_url as resource_url %}
+                        {% if resource_url %}<a href="{{resource_url}}">{% endif %}{{ relation.source.name|truncatechars:100 }}{% if resource_url %}</a>{% endif %}
+                        <span class="label label-default pull-right" data-toggle="tooltip" data-title="{{ relation.source.entity_type.schema }}">{{ relation.source.entity_type.name }}</span>
+                        {% endwith %}
+                    </li>
+                    {% endfor %}
+                </dl>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>

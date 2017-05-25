@@ -18,6 +18,7 @@ router.register(r'relation', views_rest.RelationViewSet)
 router.register(r'field', views_rest.FieldViewSet)
 router.register(r'concept', views_rest.ConceptViewSet)
 router.register(r'content', views_rest.ContentViewSet)
+router.register(r'schema', views_rest.SchemaViewSet)
 
 
 urlpatterns = patterns('',
@@ -53,6 +54,13 @@ urlpatterns = patterns('',
     url(r'^collection/([0-9]+)/authorizations/create/$', views.collection.collection_authorization_create, name="collection-authorization-create"),
     url(r'^collection/([0-9]+)/authorizations/remove/([0-9]+)/$', views.collection.collection_authorization_remove, name="collection-authorization-remove"),
 
+    url(r'^dataset/create/$', views.resource.create_dataset, name="create-dataset"),
+    url(r'^dataset/$', views.resource.list_datasets, name="list-datasets"),
+    url(r'^dataset/([0-9]+)/$', views.resource.dataset, name="dataset"),
+    url(r'^dataset/([0-9]+)/snapshot/$', views.resource.create_snapshot, name="snapshot-dataset"),
+
+    url(r'^dashboard/$', views.dashboard, name="dashboard"),
+    url(r'^inactive/$', views.inactive, name="inactive"),
 
     url(r'^collection/$', views.collection.collection_list, name="collections"),
     url(r'^collection/create/$', views.collection.create_collection, name="create-collection"),
@@ -62,13 +70,17 @@ urlpatterns = patterns('',
 
     url(r'^entity/$', views.conceptentity.entity_list, name='entity-list'),
     url(r'^entity/merge/$', views.conceptentity.entity_merge, name='entity-merge'),
+    url(r'^entity/bulk/$', views.conceptentity.bulk_action_entity, name='bulk-action-entity'),
     url(r'^entity/([0-9]+)/$', views.conceptentity.entity_details, name='entity-details'),
     url(r'^entity/([0-9]+)/change/$', views.conceptentity.entity_change, name='entity-change'),
     url(r'^entity/([0-9]+)/change/concept/$', views.conceptentity.entity_change_concept, name='entity-change-concept'),
     url(r'^entity/([0-9]+)/change/concept/add/$', views.conceptentity.entity_add_concept, name='entity-add-concept'),
     url(r'^entity/([0-9]+)/change/concept/remove/$', views.conceptentity.entity_remove_concept, name='entity-remove-concept'),
     url(r'^entity/([0-9]+)/prune/$', views.conceptentity.entity_prune, name="entity-prune"),
+    url(r'^entity/([0-9]+)/relations/([0-9]+)/edit/$', views.conceptentity.entity_edit_relation_as_table, name="entity-edit-relation-as-table"),
 
+    url(r'^giles/log/$', views.giles.log, name="giles-log"),
+    url(r'^giles/log/([0-9A-Za-z]+)/$', views.giles.log_item, name="giles-log-item"),
     url(r'^giles/test/$', views.giles.test_giles, name='giles-test'),
     url(r'^giles/test/configuration/$', views.giles.test_giles_configuration, name='giles-test-configuration'),
     url(r'^giles/test/up/$', views.giles.test_giles_is_up, name='giles-test-is-up'),

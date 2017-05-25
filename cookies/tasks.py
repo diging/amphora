@@ -1,6 +1,13 @@
 from __future__ import absolute_import
 
 from django.conf import settings
+from django.core.files import File
+from django.db import transaction
+from django.utils import timezone
+from django.utils.text import slugify
+
+from cookies import aggregate
+
 
 from celery import shared_task, task
 
@@ -9,10 +16,14 @@ from cookies.models import *
 from concepts import authorities
 from cookies.accession import IngesterFactory
 from cookies.exceptions import *
-from django.core.files import File
-logger = settings.LOGGER
 
-import jsonpickle, json, datetime
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel(settings.LOGLEVEL)
+
+import jsonpickle, json, os
+from datetime import timedelta, datetime
 
 
 @shared_task
@@ -64,6 +75,7 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
             'name': collection_name,
             'created_by': creator,
         })
+        operations.add_creation_metadata(collection, creator)
         if form_data.get('public'):
             #  Create an authoirzation for AnonymousUser.
             CollectionAuthorization.objects.create(granted_by=creator,
@@ -73,7 +85,6 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
                                                    action=CollectionAuthorization.VIEW)
             public_policy = True
 
-    operations.add_creation_metadata(collection, creator)
 
     # User can indicate a default Type to assign to each new Resource.
     default_type = form_data.pop('default_type', None)
@@ -91,16 +102,20 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
     ingester.set_resource_defaults(entity_type=default_type,
                                    collection=collection,
                                    created_by=creator, **form_data)
+    ingester.set_collection(collection)
 
     N = len(ingester)
+    resource_auths = []
     for resource in ingester:
         resource.container.part_of = collection
         if form_data.get('public') and not public_policy:
-            ResourceAuthorization.objects.create(granted_by=creator,
-                                                 granted_to=None,
-                                                 for_resource=resource,
-                                                 policy=ResourceAuthorization.ALLOW,
-                                                 action=ResourceAuthorization.VIEW)
+            resource_auths.append(
+                ResourceAuthorization(granted_by=creator,
+                                      granted_to=None,
+                                      for_resource=resource.container,
+                                      policy=ResourceAuthorization.ALLOW,
+                                      action=ResourceAuthorization.VIEW)
+            )
         resource.container.save()
         # collection.resources.add(resource)
         operations.add_creation_metadata(resource, creator)
@@ -108,21 +123,22 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
         if job:
             job.progress += 1./N
             job.save()
+    ResourceAuthorization.objects.bulk_create(resource_auths)
     job.result = jsonpickle.encode({'view': 'collection', 'id': collection.id})
     job.save()
 
     return {'view': 'collection', 'id': collection.id}
 
 
-@shared_task
+@shared_task(rate_limit="15/m")
 def send_to_giles(upload_pk, created_by):
-    print '::: sending Giles upload %s :::' % upload_pk
+    logger.debug('send upload %i for user %s' % (upload_pk, created_by))
     giles.send_giles_upload(upload_pk, created_by)
 
 
-@shared_task
+@shared_task(rate_limit="2/s")
 def check_giles_upload(upload_id, username):
-    print '::async:: check_giles_upload', upload_id, username
+    logger.debug('check_giles_upload %s for user %s' % (upload_id, username))
     return giles.process_upload(upload_id, username)
 
 
@@ -137,50 +153,111 @@ def check_giles_uploads():
     Periodic task that reviews currently outstanding Giles uploads, and checks
     their status.
     """
-    from datetime import datetime, timedelta
-    from django.utils import timezone
 
-    for upload in GilesUpload.objects.filter(state=GilesUpload.PENDING):
-        print '::: adding %s to Giles upload queue :::' % upload.id
+    # for upload_id, username in qs.order_by('updated').values_list('upload_id', 'created_by__username')[:500]:
+    qs = GilesUpload.objects.filter(state=GilesUpload.SENT)
+    _u = 0
+    for upload in qs.order_by('updated')[:100]:
+        upload.state = GilesUpload.ASSIGNED
+        upload.save()
+        check_giles_upload.delay(upload.upload_id, upload.created_by.username)
+        _u += 1
+    logger.debug('assigned %i uploads to check' % _u)
+
+    outstanding = GilesUpload.objects.filter(state__in=GilesUpload.OUTSTANDING)
+    pending = GilesUpload.objects.filter(state=GilesUpload.PENDING)
+
+    # We limit the number of simultaneous requests to Giles.
+    remaining = settings.MAX_GILES_UPLOADS - outstanding.count()
+    logger.debug("there are %i GilesUploads pending and %i outstanding, with %i"
+                 " remaining to be enqueued" %\
+                 (pending.count(), outstanding.count(), remaining))
+    if remaining <= 0 or pending.count() == 0:
+        return
+
+    _e = 0
+    for upload in pending[:remaining]:
         send_to_giles.delay(upload.id, upload.created_by)
         upload.state = GilesUpload.ENQUEUED
         upload.save()
-
-    for upload_id, username in GilesUpload.objects.filter(state=GilesUpload.SENT).filter(Q(last_checked__gte=timezone.now() - timedelta(seconds=120)) | Q(last_checked=None)).values_list('upload_id', 'created_by__username'):
-        print '::: checking upload status for %s :::' % upload_id
-        check_giles_upload.delay(upload_id, username)
+        _e += 1
+    logger.debug('enqueued %i uploads to send' % _e)
 
 
+    q = Q(last_checked__gte=timezone.now() - timedelta(seconds=300)) | Q(last_checked=None)#.filter(q)
 
-# @shared_task
-# def send_giles_uploads():
-#     """
-#     Check for outstanding :class:`.GilesUpload`\s, and send as able.
-#     """
-#     logger.debug('Checking for outstanding GilesUploads')
-#     query = Q(resolved=False) & ~Q(sent=None) & Q(fail=False)
-#     outstanding = GilesUpload.objects.filter(query)
-#     pending = GilesUpload.objects.filter(resolved=False, sent=None, fail=False)
-#
-#     # We limit the number of simultaneous requests to Giles.
-#     remaining = settings.MAX_GILES_UPLOADS - outstanding.count()
-#     if remaining <= 0 or pending.count() == 0:
-#         return
-#
-#     logger.debug('Found GilesUpload, processing...')
-#
-#     to_upload = min(remaining, pending.count())
-#     if to_upload <= 0:
-#         return
-#
-#     for upload in pending[:to_upload]:
-#         content_resource = upload.content_resource
-#         creator = content_resource.created_by
-#         resource = content_resource.parent.first().for_resource
-#
-#         anonymous, _ = User.objects.get_or_create(username='AnonymousUser')
-#         public = authorization.check_authorization('view', anonymous,
-#                                                    content_resource)
-#         result = send_to_giles(content_resource.file.name, creator,
-#                                resource=resource, public=public,
-#                                gilesupload_id=upload.id)
+
+@task(name='jars.tasks.create_snapshot_async', bind=True)
+def create_snapshot_async(self, dataset_id, snapshot_id, export_structure, job=None):
+    if job:
+        job.result_id = self.request.id
+        job.save()
+
+    logging.debug('tasks.create_snapshot_async with dataset %i and snapshot %i' % (dataset_id, snapshot_id))
+    dataset = Dataset.objects.get(pk=dataset_id)
+    snapshot = DatasetSnapshot.objects.get(pk=snapshot_id)
+
+    if dataset.dataset_type == Dataset.EXPLICIT:
+        queryset = dataset.resources.all()
+    else:
+        params = QueryDict(dataset.filter_parameters)
+
+        queryset = authorization.apply_filter(ResourceAuthorization.VIEW,
+                                     dataset.created_by,
+                                     ResourceContainer.active.all())
+        queryset = ResourceContainerFilter(params, queryset=queryset).qs
+
+    # Only include records that the __current__ user has permission to view.
+    queryset = authorization.apply_filter(ResourceAuthorization.VIEW,
+                                          snapshot.created_by, queryset)
+
+    snapshot.state = DatasetSnapshot.IN_PROGRESS
+    snapshot.save()
+
+    methods = {
+        'flat': aggregate.export_zip,
+        'collection': aggregate.export_with_collection_structure,
+        'parts': aggregate.export_with_resource_structure,
+    }
+
+    with transaction.atomic():
+        now = timezone.now().strftime('%Y-%m-%d-%H-%m-%s')
+        fname = 'dataset-%s-%s.zip' % (slugify(dataset.name), now)
+        target_path = os.path.join(settings.MEDIA_ROOT, 'upload', fname)
+        methods[export_structure]((obj.primary for obj in queryset if obj.primary), target_path, content_type=snapshot.content_type.split(','))
+
+        container = ResourceContainer.objects.create(created_by=snapshot.created_by)
+        resource = Resource.objects.create(
+            name = 'Snapshot for dataset %s, %s' % (dataset.name, now),
+            created_by = snapshot.created_by,
+            container = container,
+            entity_type = Type.objects.get_or_create(uri='http://dbpedia.org/ontology/File')[0],
+        )
+        container.primary = resource
+        container.save()
+        content = Resource.objects.create(
+            name = 'Snapshot for dataset %s, %s' % (dataset.name, now),
+            content_resource = True,
+            entity_type = Type.objects.get_or_create(uri='http://dbpedia.org/ontology/File')[0],
+            created_by = snapshot.created_by,
+            container = container,
+            content_type = 'application/zip'
+        )
+        ContentRelation.objects.create(
+            for_resource = resource,
+            content_resource = content,
+            content_type = 'application/zip',
+            created_by = snapshot.created_by,
+            container = container
+        )
+        logging.debug('tasks.create_snapshot_async: export to %s' % (target_path))
+        with open(target_path, 'r') as f:
+            archive = File(f)
+            content.file = archive
+            content.save()
+        logging.debug('tasks.create_snapshot_async: export complete')
+        snapshot.resource = resource
+        snapshot.state = DatasetSnapshot.DONE
+        snapshot.save()
+    job.result = jsonpickle.encode({'view': 'resource', 'id': resource.id})
+    job.save()

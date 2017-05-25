@@ -59,6 +59,49 @@ def is_public(obj):
     return getattr(obj, 'public', False)
 
 
+def _get_auth_model(obj):
+    if isinstance(obj, ResourceContainer):
+        return ResourceAuthorization
+    elif isinstance(obj, Collection):
+        return CollectionAuthorization
+
+
+def allowed(auth, user, obj):
+    auth_model = _get_auth_model(obj)
+    return auth_model.objects.filter(
+        action=auth,
+        granted_to=user,
+        for_resource=obj,
+        policy=auth_model.ALLOW).count() > 0
+
+
+def anonymous_is_allowed(auth, user, obj):
+    auth_model = _get_auth_model(obj)
+    return auth_model.objects.filter(
+        action=auth,
+        granted_to__isnull=True,
+        for_resource=obj,
+        policy=auth_model.ALLOW).count() > 0
+
+
+def denied(auth, user, obj):
+    auth_model = _get_auth_model(obj)
+    return auth_model.objects.filter(
+        action=auth,
+        granted_to=user,
+        for_resource=obj,
+        policy=auth_model.DENY).count() > 0
+
+
+def anonymous_is_denied(auth, user, obj):
+    auth_model = _get_auth_model(obj)
+    return auth_model.objects.filter(
+        action=auth,
+        granted_to__isnull=True,
+        for_resource=obj,
+        policy=auth_model.DENY).count() > 0
+
+
 def check_authorization(auth, user, obj):
     """
     Check whether ``user`` is authorized to perform ``auth`` on ``obj``.
@@ -80,29 +123,22 @@ def check_authorization(auth, user, obj):
         return is_owner(user, obj)
     if user.is_superuser:
         return True
+    if is_owner(user, obj):
+        return True
 
-    if isinstance(obj, Collection):
-        if isinstance(user, AnonymousUser):
-            _allow = CollectionAuthorization.objects.filter(action=auth, granted_to__isnull=True, for_resource=obj, policy=CollectionAuthorization.ALLOW).count() > 0
-            _deny = CollectionAuthorization.objects.filter(action=auth, granted_to__isnull=True, for_resource=obj, policy=CollectionAuthorization.DENY).count() > 0
-        else:
-            _allow = CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=CollectionAuthorization.ALLOW).count() > 0
-            _deny = CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=CollectionAuthorization.DENY).count() > 0
+    if not isinstance(obj, ResourceContainer) and not isinstance(obj, Collection):
+        obj = obj.container
+
+    if isinstance(user, AnonymousUser):
+        _allow = anonymous_is_allowed(auth, user, obj)
+        _deny = anonymous_is_denied(auth, user, obj)
     else:
-        if not isinstance(obj, ResourceContainer):
-            obj = obj.container
+        _allow = allowed(auth, user, obj)
+        _deny = denied(auth, user, obj)
 
-        if isinstance(user, AnonymousUser):
-            _allow = (ResourceAuthorization.objects.filter(action=auth, granted_to__isnull=True, for_resource=obj, policy=ResourceAuthorization.ALLOW).count() > 0\
-                      or CollectionAuthorization.objects.filter(action=auth, granted_to__isnull=True, for_resource=obj.part_of, policy=CollectionAuthorization.ALLOW, heritable=True).count() > 0)\
-                      and not CollectionAuthorization.objects.filter(action=auth, granted_to__isnull=True, for_resource=obj.part_of, policy=CollectionAuthorization.DENY, heritable=True).count() > 0
-            _deny = ResourceAuthorization.objects.filter(action=auth, granted_to__isnull=True, for_resource=obj, policy=ResourceAuthorization.DENY).count() > 0
-        else:
-            _allow = (ResourceAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=ResourceAuthorization.ALLOW).count() > 0\
-                      or CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj.part_of, policy=CollectionAuthorization.ALLOW, heritable=True).count() > 0)\
-                      and not CollectionAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj.part_of, policy=CollectionAuthorization.DENY, heritable=True).count() > 0
-            _deny = ResourceAuthorization.objects.filter(action=auth, granted_to=user, for_resource=obj, policy=ResourceAuthorization.DENY).count() > 0
-    return (_allow and not _deny) or is_owner(user, obj)
+    if obj.part_of is not None:
+        _allow = _allow or check_authorization(auth, user, obj.part_of)
+    return _allow and not _deny
 
 
 def auth_model_for_obj(klass):
@@ -153,7 +189,6 @@ def authorization_required(perm, fn=None, login_url=None, raise_exception=False)
     :class:`.User`\.
     """
     def decorator(view_func):
-
         @wraps(view_func, assigned=available_attrs(view_func))
         def _wrapped_view(request, *args, **kwargs):
             obj = fn(request, *args, **kwargs) if callable(fn) else fn

@@ -32,7 +32,10 @@ class TypeModelChoiceField(forms.ModelChoiceField):
     """
 
     def label_from_instance(self, obj):
-         return u'%s: %s' % (obj.schema.name, obj.name)
+        if obj.schema is not None:
+            return u'%s: %s' % (obj.schema.name, obj.name)
+        else:
+            return obj.name
 
 
 class ContenteditableInput(forms.TextInput):
@@ -378,3 +381,39 @@ VALUE_FORMS = dict([
     ('Resource', MetadatumResourceForm),
     ('Type', MetadatumTypeForm),
 ])
+
+
+
+class DatasetForm(forms.ModelForm):
+    filter_parameters = forms.CharField(widget=forms.HiddenInput())
+
+    description = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}),
+                                  help_text="Please describe the purpose and"
+                                            " content of the dataset"
+                                            " (optional).")
+
+    dataset_type = forms.ChoiceField(choices=Dataset.TYPES,
+        help_text="An explicit dataset stores references to the resources"
+                  " that are currently selected. A dynamic dataset only stores"
+                  " a reference to the parameters that you used to select the"
+                  " resources. So if resources that respond to those parameters"
+                  " are added or removed in the future, the content of the"
+                  " dataset will change.")
+
+    class Meta:
+        model = Dataset
+        fields = ('name', 'description', 'dataset_type', 'filter_parameters')
+
+
+class SnapshotForm(forms.Form):
+    content_type = forms.MultipleChoiceField(choices=[])
+    export_structure = forms.ChoiceField(choices=[
+        ('flat', 'Flat'),
+        ('collection', 'Preserve collection structure'),
+        ('parts', 'Preserve resource hierarchy')
+    ])
+
+    def __init__(self, *args, **kwargs):
+        super(SnapshotForm, self).__init__(*args, **kwargs)
+        content_types = Resource.objects.values_list('content_type', flat=True).distinct('content_type')
+        self.fields['content_type'].choices = [('__all__', 'All')] + [(val, val) for val in content_types if val is not None]

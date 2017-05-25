@@ -14,10 +14,7 @@
 {% endblock %}
 
 {% block content %}
-{% autopaginate filtered_objects.qs 10 as resources %}
-<div class="text-center">
-    {% paginate %}
-</div>
+{% autopaginate filtered_objects.qs 40 as resources %}
 
 <form class="form" action="." method="GET">
 {% with filtered_objects.form.name as field %}
@@ -38,10 +35,8 @@
         });
         </script>
     </div>
-
-
-
 {% endwith %}
+
 <div class="panel-group">
     <div class="panel panel-default">
         <div class="panel-heading">
@@ -69,7 +64,7 @@
                             <div class="alert alert-warning">{{ error }}</div>
                             {% endfor %}
                             <div class="form-group">
-                                <label>{{ field.label }}</label>
+                                <label>Content</label>
                                 {{ field|addcss:"form-control" }}
                             </div>
                             {% endwith %}
@@ -79,7 +74,17 @@
                             <div class="alert alert-warning">{{ error }}</div>
                             {% endfor %}
                             <div class="form-group">
-                                <label>{{ field.label }}</label>
+                                <label>Resource type</label>
+                                {{ field|addcss:"form-control" }}
+                            </div>
+                            {% endwith %}
+
+                            {% with filtered_objects.form.content_type as field %}
+                            {% for error in field.errors %}
+                            <div class="alert alert-warning">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-group">
+                                <label>Content type</label>
                                 {{ field|addcss:"form-control" }}
                             </div>
                             {% endwith %}
@@ -127,9 +132,7 @@
     </div>
 </div>
 
-<div class="text-center">
-    {% paginate %}
-</div>
+
 
 
 {% endblock %}

@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load breadcrumbs %}
+{% load addcss %}
+
+{% block extrahead %}
+<script src="{% static "cookies/js/vue.min.js" %}"></script>
+<script src="{% static "cookies/js/tiny-cookie.min.js" %}"></script>
+<script src="https://cdn.jsdelivr.net/vue.resource/1.2.1/vue-resource.min.js"></script>
+{% endblock %}
+
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Entities' 'entity-list' %}
+    {% breadcrumb_url entity.name 'entity-details' entity.id %}
+    {% breadcrumb_url 'Edit' 'entity-change' entity.id %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="h3">Edit <span class="text-warning">{{ predicate.schema.name }}: {{ predicate.name }}</span> relations for <span class="text-warning">{{ entity.name }}</a></div>
+<p>
+    {{ predicate.description }} <span class="text-muted">More information: <a href="{{ predicate.uri }}">{{ predicate.uri }}</a></span>
+</p>
+<p class="text-info">
+    Use the table below to add or edit relation information about this entity.
+    Each row in the table represents a separate <span class="text-warning">{{ predicate.schema.name }}: {{ predicate.name }}</span> relation. Use the <strong>source</strong>
+    column to indicate how you came to know this fact about the entity.
+</p>
+
+<div class="text-right">
+    <span class="text-warning">Unsaved changes will be lost!</span>
+    <a class="btn btn-success" href="{% if next %}{{ next }}{% else %}{% url "entity-details" entity.id %}{% endif %}">Done</a>
+</div>
+<div id="relation-editor"></div>
+
+<script>
+
+Vue.http.headers.common['X-CSRFTOKEN'] = Cookie.get('csrftoken');
+
+
+var EventBus = new Vue();
+
+
+var RelationRow = {
+    props: ['relation'],
+    data: function() {
+        return {
+            selected: false,
+            value: null,
+            data_source: "",
+            changed: false,
+            id: null,
+            deleted: false
+        }
+    },
+    mounted: function() {
+        this.value = this.relation.value;
+        this.data_source = this.relation.data_source;
+        this.id = this.relation.id;
+
+        EventBus.$on('save', this.save);
+    },
+    template: `<tr v-if="!this.deleted">
+        <td>
+            <input class="form-control input-sm" type="text" v-model="value" v-on:input="toggleChange" />
+        </td>
+        <td>
+            <input class="form-control input-sm" type="text" v-model="data_source" maxlength="1000" v-on:input="toggleChange" />
+        </td>
+        <td>
+            <div class="text-right">
+                <a v-bind:class="{
+                            btn: true,
+                            'btn-sm': true,
+                            'btn-success': isChanged(),
+                            'btn-default': !isChanged()
+                        }"
+                        v-bind:disabled="!isChanged()"
+                        v-on:click="save">
+                    <span class="glyphicon glyphicon-floppy-save"></span>
+                </a>
+                <a v-bind:class="{
+                            btn: true,
+                            'btn-sm': true,
+                            'btn-danger': canDelete(),
+                            'btn-default': !canDelete()
+                        }"
+                        v-bind:disabled="!canDelete()"
+                        v-on:click="deleteThis">
+                    <span class="glyphicon glyphicon-remove"></span>
+                </a>
+            </div>
+        </td>
+    </tr>`,
+    methods: {
+        isChanged: function() {
+            return this.changed;
+        },
+        toggleChange: function() {
+            this.changed = (this.value != this.relation.value || this.data_source != this.relation.data_source);
+        },
+        save: function() {
+            if (!this.isChanged()) return;
+
+            var self = this;
+            this.$http.post('?format=json', {
+                'id': this.relation.id,
+                'model': this.relation.model,
+                'type': this.relation.type,
+                'value': this.value,
+                'data_source': this.data_source
+            }, {emulateJSON: true}).then(function(response) {
+                console.log("saved", response.body);
+                self.id = response.body.id;
+                this.changed = false;
+                self.$emit('saved', response.body);
+            });
+        },
+        canDelete: function() { return true; },
+        deleteThis: function() {
+            this.deleted = true;
+            if (this.id) {
+                var self = this;
+                this.$http.post('?format=json', {id: this.id, action: 'delete'}, {emulateJSON: true}).then(function(response) {
+                    self.$emit('deleted', self.id);
+                });
+            }
+
+        }
+    }
+}
+
+var RelationEditor = new Vue({
+    el: "#relation-editor",
+    components: {
+        'relation-row': RelationRow
+    },
+    data: function() {
+        return {
+            relations: []
+        }
+    },
+    template: `
+    <div>
+        <table class="table table-compact table-responsive">
+            <thead>
+                <tr>
+                    <th class="col-lg-7 col-sm-6 col-xs-5">Value</th>
+                    <th class="col-sm-4 col-xs-4">Source</th>
+                    <th class="col-lg-1 col-sm-2 col-xs-3"></th>
+            </thead>
+            <tbody>
+                <relation-row
+                    v-for="relation in relations"
+                    v-bind:relation=relation
+                    v-on:saved="updateRelation">
+                </relation-row>
+                <tr>
+                    <td colspan="2"></td>
+                    <td class="text-right">
+                        <a class="btn btn-sm btn-primary"
+                            v-on:click="newRelation"><span class="glyphicon glyphicon-plus"></span></a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>`,
+    mounted: function() {
+        this.updateRelations();
+    },
+    methods: {
+        updateRelations: function() {
+            var self = this;
+            this.$http.get('?format=json').then(function(response) {
+                console.log(response);
+                self.relations = response.body.relations;
+            });
+        },
+        updateRelation: function(data) {
+            console.log(data);
+            this.relations.forEach(function(relation) {
+                if (relation.id == data.id) {
+                    relation.data_source = data.data_source;
+                    relation.value = data.value;
+                    relation.model = data.model;
+                    relation.type = data.type;
+                }
+            })
+        },
+        newRelation: function() {
+            this.relations.push({
+                id: null,
+                value: null,
+                model: "Value",
+                type: "unicode",
+                data_source: null
+            })
+        }
+    }
+});
+
+</script>
+
+{% endblock %}

@@ -1,18 +1,3 @@
-"""
-Django settings for jars project.
-
-Sensitive or configurable settings should be set in your environment.
-
-DO NOT write secrets in this file, or store them anywhere else in the project
-repository.
-
-Environment defaults can also be set by writing a module called
-``jars_config.py`` in ``/etc/jars`` (or wherever you specify with CONFIG_PATH);
-this module should contain a dict-like object called ``env_settings``, the
-contents of which will be passed to :func:`os.environ.setdefault()`\. This can
-be a useful way to manage secrets if the configuration file is secure.
-"""
-
 import os, socket, sys, requests, dj_database_url
 from urlparse import urlparse
 from datetime import timedelta
@@ -67,6 +52,7 @@ INSTALLED_APPS = (
     'rest_framework',
     'rest_framework.authtoken',
      'social_django',
+     'django.contrib.humanize',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -74,6 +60,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'jars.auth.GithubTokenBackendMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -103,6 +90,8 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 10,
+    'DEFAULT_FILTER_BACKENDS': ('django_filters.rest_framework.DjangoFilterBackend',)
+
 }
 CORS_ORIGIN_ALLOW_ALL = True
 
@@ -144,30 +133,29 @@ STATIC_ROOT = os.environ.get('STATIC_ROOT', '')
 MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '')
 MEDIA_URL = BASE_URL + 'media/'
 
+EXPORT_ROOT = os.environ.get('EXPORT_ROOT', os.path.join(MEDIA_ROOT, 'export'))
+
 
 # Celery: async tasks.
 CELERY_IMPORTS = ('cookies.tasks',)
 CELERY_DEFAULT_RATE_LIMIT = "100/m"
 CELERYBEAT_SCHEDULE = {
-    # 'send_giles_uploads': {
-    #     'task': 'cookies.tasks.send_giles_uploads',
-    #     'schedule': timedelta(seconds=30)
-    # },
     'check_giles_uploads': {
         'task': 'cookies.tasks.check_giles_uploads',
-        'schedule': timedelta(seconds=20)
+        'schedule': timedelta(seconds=30)
     }
 }
 
 # File handling.
 FILE_UPLOAD_HANDLERS = ["cookies.uploadhandler.PersistentTemporaryFileUploadHandler",]
-FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'uploads')
+FILE_UPLOAD_TEMP_DIR = os.path.join(MEDIA_ROOT, 'upload')
 
 # Authentication.
 AUTHENTICATION_BACKENDS = (
-    'django.contrib.auth.backends.ModelBackend', # default
+    'jars.backends.AllowAllUsersModelBackend', # default
     'guardian.backends.ObjectPermissionBackend',
     'social_core.backends.github.GithubOAuth2',
+    'jars.auth.GithubAuthenticationBackend',
 )
 ANONYMOUS_USER_ID = -1
 
@@ -175,6 +163,7 @@ SOCIAL_AUTH_GITHUB_KEY = os.environ.get('SOCIAL_AUTH_GITHUB_KEY', None)
 SOCIAL_AUTH_GITHUB_SECRET = os.environ.get('SOCIAL_AUTH_GITHUB_SECRET', None)
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = BASE_URL
 SOCIAL_AUTH_GITHUB_SCOPE = ['user']
+SOCIAL_AUTH_INACTIVE_USER_URL = BASE_URL + 'inactive/'
 
 if not TEST and not DEVELOP:    # MySQL has a hard time with life.
     SOCIAL_AUTH_UID_LENGTH = 122
@@ -182,24 +171,24 @@ if not TEST and not DEVELOP:    # MySQL has a hard time with life.
     SOCIAL_AUTH_ASSOCIATION_SERVER_URL_LENGTH = 135
     SOCIAL_AUTH_ASSOCIATION_HANDLE_LENGTH = 125
 
-LOGIN_URL = BASE_URL + 'login/github/'
-LOGIN_REDIRECT_URL = 'index'
+LOGIN_URL = BASE_URL
+LOGIN_REDIRECT_URL = BASE_URL + 'dashboard/'
 
 # Giles and HTTP.
 GILES = os.environ.get('GILES', 'https://diging-dev.asu.edu/giles-review')
 if GILES.endswith('/'):
     GILES = GILES[:-1]
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
-GET = requests.get
-POST = requests.post
 GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
 GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
-MAX_GILES_UPLOADS = 20
+GILES_TOKEN_EXPIRATION = os.environ.get('GILES_TOKEN_EXPIRATION', 120)    # min.
+MAX_GILES_UPLOADS = 200
 
 # Metadata globals.
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
 PROVENANCE = 'http://purl.org/dc/terms/provenance'
+IS_PART_OF = 'http://purl.org/dc/terms/isPartOf'
 
 URI_NAMESPACE = os.environ.get('NAMESPACE', 'http://diging.asu.edu/amphora')
 
@@ -228,3 +217,31 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 #  Giles.
 DELETE_LOCAL_FILES = True
 APPEND_SLASH = True    # Rewrite URLs that lack a slash.
+USE_THOUSAND_SEPARATOR = False
+
+
+HATHITRUST_CLIENT_KEY = os.environ.get('HATHITRUST_CLIENT_KEY')
+HATHITRUST_CLIENT_SECRET = os.environ.get('HATHITRUST_CLIENT_SECRET')
+HATHITRUST_CONTENT_BASE = 'https://babel.hathitrust.org/cgi/htd'
+HATHITRUST_METADATA_BASE = 'https://catalog.hathitrust.org/api/volumes/brief/htid'
+
+
+
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'content_cache',
+    },
+    'remote_content': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'content_cache',
+    },
+    'rest_cache': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'rest_cache',
+    }
+}
+
+
+SESSION_COOKIE_NAME = 'amphora'

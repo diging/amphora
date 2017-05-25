@@ -11,7 +11,6 @@ from cookies.filters import *
 from cookies.forms import *
 from cookies import entities, metadata, operations
 from cookies import authorization as auth
-
 from itertools import groupby
 
 
@@ -23,20 +22,45 @@ def _get_entity_by_id(request, entity_id, *args):
 def entity_details(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
     template = 'entity_details.html'
-    similar_entities = entities.suggest_similar(entity, qs=auth.apply_filter(ResourceAuthorization.VIEW, request.user, ConceptEntity.objects.all()))
+    if entity.identities.count() == 0:
+        qs = ConceptEntity.objects.all()
+        qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user, qs)
+        similar_entities = entities.suggest_similar(entity, qs=qs)
+    else:
+        similar_entities = []
 
     entity_ctype = ContentType.objects.get_for_model(ConceptEntity)
 
-    relations_from = Relation.objects.filter(Q(source_type=entity_ctype, source_instance_id=entity_id) | Q(source_type=entity_ctype, source_instance_id__in=list(entity.represents.values_list('entities__id', flat=True)))).order_by('predicate')
-    relations_from = auth.apply_filter(ResourceAuthorization.VIEW, request.user, relations_from)
-    relations_from = [(predicate, [rel for rel in relations]) for predicate, relations in groupby(relations_from, key=lambda r: r.predicate)]
+    # Aggregate all relations for this entity and any subordinate entities.
+    #  A subordinate entity is one that belongs to an Identity instance for
+    #  which this (current) entity is the representative.
+    subordinate = list(entity.represents.values_list('entities__id', flat=True))
+    query = Q(source_type=entity_ctype, source_instance_id=entity_id)\
+            | Q(source_type=entity_ctype, source_instance_id__in=subordinate)
+    relations_from = Relation.objects.filter(query).order_by('predicate')
+    relations_from = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
+                                       relations_from)
+    # TODO: seems like we could use aggregation/annotation here.
+    _by_target = lambda r: r.target.name
+    relations_from = [(predicate, [(target_name, len([rel for rel in rels]))
+                                   for target_name, rels
+                                   in groupby(sorted(relations, key=_by_target),
+                                              key=_by_target)])
+                      for predicate, relations
+                      in groupby(relations_from, key=lambda r: r.predicate)]
 
-    relations_to = Relation.objects.filter(Q(target_type=entity_ctype, target_instance_id=entity_id) | Q(target_type=entity_ctype, target_instance_id__in=list(entity.represents.values_list('entities__id', flat=True)))).order_by('predicate')
-    relations_to = auth.apply_filter(ResourceAuthorization.VIEW, request.user, relations_to)
-    relations_to = [(predicate, [rel for rel in relations]) for predicate, relations in groupby(relations_to, key=lambda r: r.predicate)]
+    relations_to_qs = Relation.objects.filter(Q(target_type=entity_ctype, target_instance_id=entity_id) | Q(target_type=entity_ctype, target_instance_id__in=list(entity.represents.values_list('entities__id', flat=True)))).order_by('predicate')
+    relations_to_qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user, relations_to_qs)
+    predicates = relations_to_qs.order_by().distinct('predicate_id').values('predicate_id', 'predicate__uri', 'predicate__name')
+    relations_to = []
+    for predicate in predicates:
+        qs = relations_to_qs.filter(predicate_id=predicate['predicate_id'])
+        relations_to.append((predicate, qs.count(), qs[:5]))
 
-    represents = entity.represents.values_list('entities__id', 'entities__name', 'entities__container__primary__name').distinct()
-    represented_by = entity.identities.filter(~Q(representative=entity)).values_list('representative_id', 'representative__name').distinct()
+    # relations_to = [(predicate, [rel for rel in relations]) for predicate, relations in groupby(relations_to, key=lambda r: r.predicate)]
+
+    represents = entity.represents.values_list('entities__id', 'entities__name', 'entities__container__primary__name').distinct('entities__id')
+    represented_by = entity.identities.filter(~Q(representative=entity)).values_list('representative_id', 'representative__name').distinct('representative_id')
 
     context = {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
@@ -56,10 +80,12 @@ def entity_list(request):
     List view for :class:`.ConceptEntity`\.
     """
     qs = ConceptEntity.active.all()
-    qs = qs.filter(Q(identities__isnull=True) | Q(represents__isnull=False))
+    qs = qs.filter(Q(identities__id__isnull=True)
+                   | Q(represents__isnull=False)).distinct('id')
     qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user, qs)
 
-    filtered_objects = ConceptEntityFilter(request.GET, queryset=qs)
+    filtered_objects = ConceptEntityFilter(request.GET, queryset=qs,
+                                           request=request)
 
     context = {
         'user_can_edit': request.user.is_staff,    # TODO: change this!
@@ -68,7 +94,10 @@ def entity_list(request):
     return render(request, 'entity_list.html', context)
 
 
+from urllib import urlencode
+
 # Authorization is handled internally.
+@login_required
 def entity_merge(request):
     """
     User can merge selected entities.
@@ -87,14 +116,102 @@ def entity_merge(request):
 
     if request.GET.get('confirm', False) == 'true':
         master_id = request.GET.get('master', None)
-        master = operations.merge_conceptentities(qs, master_id, user=request.user)
-        return HttpResponseRedirect(reverse('entity-details', args=(master.id,)))
+        if master_id is not None:
+            master = operations.merge_conceptentities(qs, master_id, user=request.user)
+            return HttpResponseRedirect(reverse('entity-details', args=(master.id,)))
 
     context = {
         'entities': qs,
     }
     template = 'entity_merge.html'
     return render(request, template, context)
+
+
+@auth.authorization_required(ResourceAuthorization.EDIT, _get_entity_by_id)
+def entity_edit_relation_as_table(request, entity_id, predicate_id):
+    """
+    Provides a tabular Vue2-driven interface for editing relations from a
+    :class:`.ConceptEntity` instance.
+    """
+    next_page = request.GET.get('next')
+    entity = _get_entity_by_id(request, entity_id)
+    predicate = get_object_or_404(Field, pk=predicate_id)
+    entity_ctype = ContentType.objects.get_for_model(ConceptEntity)
+    subordinate = list(entity.represents.values_list('entities__id', flat=True))
+    query = Q(predicate=predicate) & Q(hidden=False) & Q(source_type=entity_ctype)
+    query &= (Q(source_instance_id=entity_id)
+                | Q(source_instance_id__in=subordinate))
+    relations = Relation.objects.filter(query)
+
+    request_format = request.GET.get('format')
+    if request_format == 'json':
+        if request.method == 'GET':
+            data = {'relations': []}
+            for relation in relations:
+                if isinstance(relation.target, Value):
+                    data['relations'].append({
+                        'id': relation.id,
+                        'value': relation.target.name,
+                        'type': relation.target._type,
+                        'model': 'Value',
+                        'data_source': relation.data_source
+                    })
+            return JsonResponse(data)
+
+
+        elif request.method == 'POST':
+            relation_id = request.POST.get('id')
+            action = request.POST.get('action', 'update')
+            target_model = request.POST.get('model')
+            target_value = request.POST.get('value')
+            target_type = request.POST.get('type')
+            relation_data_source = request.POST.get('data_source')
+
+
+            if relation_id:    # Update
+                relation_instance = Relation.objects.get(pk=relation_id)
+                assert relation_instance.predicate == predicate
+                if action == 'delete':
+                    relation_instance.delete()
+                    return JsonResponse({})
+            else:    # Create
+                relation_instance = Relation(source=entity, predicate=predicate, container=entity.container)   # Unsaved!
+
+            if target_model == 'Value':
+                if relation_id:    # We can re-use the Value instance.
+                    target_instance = relation_instance.target
+                else:
+                    target_instance = Value.objects.create()
+                if target_type in ['unicode', 'str', 'int', 'float']:
+                    target_instance.name = eval(target_type)(target_value)
+                elif target_type == 'datetime':
+                    target_instance.name = iso8601.parse_date(target_value)
+                elif target_type == 'date':
+                    target_instance.name = iso8601.parse_date(target_value).date
+                target_instance.save()
+            elif target_model == 'Resource':
+                target_instance = Resource.objects.get(pk=int(target_value))
+            elif target_model == 'Entity':
+                target_instance = ConceptEntity.objects.get(pk=int(target_value))
+
+            relation_instance.target = target_instance
+            relation_instance.data_source = relation_data_source
+            relation_instance.save()
+            return JsonResponse({
+                'id': relation_instance.id,
+                'value': relation_instance.target.name,
+                'type': relation_instance.target._type,
+                'model': target_model,
+                'data_source': relation_instance.data_source
+            })
+
+    context = {
+        'entity': entity,
+        'predicate': predicate,
+        'relations': relations,
+        'next': next_page
+    }
+    return render(request, 'entity_edit_relation_as_table.html', context)
 
 
 @auth.authorization_required(ResourceAuthorization.EDIT, _get_entity_by_id)
@@ -190,3 +307,20 @@ def entity_prune(request, entity_id):
     entity = _get_entity_by_id(request, entity_id)
     operations.prune_relations(entity, request.user)
     return HttpResponseRedirect(entity.get_absolute_url())
+
+
+
+@login_required
+def bulk_action_entity(request):
+    """
+    """
+    resource_ids = request.POST.getlist('entity', [])
+    action = request.POST.get('action')
+    # TODO: use proper URL parameter encoding.
+    # if action == 'Add tag':
+    #     target = reverse('bulk-add-tag-to-entity') + "?" + '&'.join(["resource=%s" % r_id for r_id in resource_ids])
+    if action == 'Merge':
+        target = reverse('entity-merge') + "?" + '&'.join(["entity=%s" % r_id for r_id in resource_ids])
+    else:
+        target = reverse('entity-list')
+    return HttpResponseRedirect(target)

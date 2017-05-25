@@ -1,5 +1,5 @@
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseRedirect, HttpResponse
+from django.http import HttpResponseRedirect, HttpResponse, QueryDict
 
 from django.shortcuts import render, get_object_or_404
 
@@ -7,7 +7,7 @@ from cookies.models import *
 from cookies.filters import *
 from cookies.forms import *
 from cookies import authorization as auth
-
+from django.utils.http import urlquote_plus
 from itertools import groupby
 
 
@@ -79,8 +79,7 @@ def collection_authorization_create(request, collection_id):
         if form.is_valid():
             form.save()
             return HttpResponseRedirect(reverse('collection-authorizations', args=(collection.id,)))
-        print form.errors
-        print form.cleaned_data
+
     context = {
         'form': form,
         'collection': collection,
@@ -112,14 +111,19 @@ def collection(request, obj_id):
     collection = _get_collection_by_id(request, obj_id)
 
     resources = ResourceContainerFilter(request.GET, queryset=collection.resourcecontainer_set.all())
+
     # CollectionFilter(request.GET, queryset=qset_collections)
-    collections = Collection.objects.filter(part_of=collection)
+    collections = Collection.objects.filter(part_of=collection, hidden=False)
+    params = QueryDict(request.GET.urlencode(), mutable=True)
+    params['part_of'] = collection.id
+    filter_parameters = urlquote_plus(params.urlencode())
     context = {
         'filtered_objects': resources,
         # 'filtered_objects': filtered_objects,
         'collection': collection,
         'request': request,
         'collections': collections,
+        'filter_parameters': filter_parameters
         # 'tags': Tag.objects.filter(resource_tags__resource_id__in=filtered_objects.qs.values_list('id', flat=True)).distinct(),
     }
 

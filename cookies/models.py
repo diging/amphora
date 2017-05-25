@@ -10,31 +10,40 @@ from django.core.urlresolvers import reverse
 from django.conf import settings
 
 
-import iso8601, json, sys, six, logging, rest_framework, jsonpickle
+import iso8601, json, sys, six, logging, rest_framework, jsonpickle, os
 from uuid import uuid4
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
-logger.setLevel('ERROR')
+logger.setLevel(settings.LOGLEVEL)
 
 from django.conf import settings
 import concepts
 
 
-def help_text(text):
-    return u' '.join([chunk.strip() for chunk in text.split('\n')])
-
-
-
 def _resource_file_name(instance, filename):
     """
     Generates a file name for Files added to a :class:`.LocalResource`\.
+
+    E.g. if the content resource has ID 12345 and ``filename == 'file.txt'``,
+    the path (relative to MEDIA_ROOT) will be ``1/2/3/4/5/content/file.txt``.
+
+    Parameters
+    ----------
+    instance : :class:`.Resource`
+    filename : str
+        File name or path to file (only the head will be used).
     """
+    full_ident = list(unicode(instance.id))
+    return u'/'.join(full_ident + ['content', os.path.split(filename)[-1]])
 
-    return '/'.join([str(instance.id), 'content', filename])
 
-
+# TODO: include filtering of hidden records?
 class ActiveManager(models.Manager):
+    """
+    Convenience manager for filtering out "deleted" records. This can be used
+    with any model that inherits from :class:`.Entity`\.
+    """
     def get_queryset(self):
         return super(ActiveManager, self).get_queryset().filter(is_deleted=False)
 
@@ -49,16 +58,13 @@ class Entity(models.Model):
     updated = models.DateTimeField(auto_now=True)
 
     entity_type = models.ForeignKey('Type', blank=True, null=True,
-                                    verbose_name='type',
-                                    help_text="Specifying a type helps to"
-                                    " determine what metadata fields are"
-                                    " appropriate for this resource, and can"
-                                    " help with searching. Note that type-"
-                                    "specific filtering of metadata fields"
-                                    " will only take place after this resource"
-                                    " has been saved.")
+                                    verbose_name='type', help_text="Specifying"
+    " a type helps to determine what metadata fields are appropriate for this"
+    " resource, and can help with searching. Note that type-specific filtering"
+    " of metadata fields will only take place after this resource has been"
+    " saved.")
 
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=2000)
 
     hidden = models.BooleanField(default=False)
     """
@@ -66,18 +72,16 @@ class Entity(models.Model):
     not be accessible directly, even for logged-in users.
     """
 
+    # TODO: remove this field; it is no longer relevant.
     public = models.BooleanField(default=False, help_text="If a resource is not"
-                                 " public it will only be accessible to"
-                                 " logged-in users and will not appear in"
-                                 " public search results. If this option is"
-                                 " selected, you affirm that you have the right"
-                                 " to upload and distribute this resource.")
+    " public it will only be accessible to logged-in users and will not appear"
+    " in public search results. If this option is selected, you affirm that you"
+    " have the right to upload and distribute this resource.")
 
     namespace = models.CharField(max_length=255, blank=True, null=True)
-    uri = models.CharField(max_length=255, verbose_name='URI',
-                           help_text="You may provide your own URI, or allow"
-                           " the system to assign one automatically"
-                           " (recommended).")
+    uri = models.CharField(max_length=255, verbose_name='URI', help_text="You"
+    " may provide your own URI, or allow the system to assign one"
+    " automatically.")
 
     relations_from = GenericRelation('Relation',
                                      content_type_field='source_type',
@@ -96,14 +100,15 @@ class Entity(models.Model):
         abstract = True
 
     def save(self, *args, **kwargs):
-        super(Entity, self).save()
+        super(Entity, self).save(*args, **kwargs)
         # Generate a URI if one has not already been assigned.
         #  TODO: this should call a method to generate a URI, to allow for more
         #        flexibility (e.g. calling a Handle server).
         if not self.uri:
-            self.uri = u'/'.join([settings.URI_NAMESPACE,
-                                  self.__class__.__name__.lower(),
-                                  unicode(self.id)])
+            ns = settings.URI_NAMESPACE
+            if ns.endswith('/'):
+                ns = ns[:-1]
+            self.uri = '/'.join([ns, self.__class__.__name__.lower(), str(self.id)])
         super(Entity, self).save()
 
     def __unicode__(self):
@@ -112,23 +117,27 @@ class Entity(models.Model):
 
 class ResourceBase(Entity):
     """
+    Provides some generic fields for :class:`.Resource` and :class:`.Collection`
+    models.
     """
 
+    # TODO: remove indexable_content and processed, as they are no longer used.
     indexable_content = models.TextField(blank=True, null=True)
     processed = models.BooleanField(default=False)
+
     content_type = models.CharField(max_length=255, blank=True, null=True)
+
+    # If true, we expect (by convention) that either ``file`` or ``location``
+    #  will be set.
     content_resource = models.BooleanField(default=False)
 
     file = models.FileField(upload_to=_resource_file_name, blank=True,
-                            null=True, help_text=help_text(
-        """
-        Drop a file onto this field, or click "Choose File" to select a file on
-        your computer.
-        """))
+                            null=True, max_length=2000)
 
     location = models.URLField(max_length=255, verbose_name='URL', blank=True,
                                null=True)
 
+    # TODO: remove this property.
     @property
     def text_available(self):
         if self.indexable_content:
@@ -147,15 +156,14 @@ class ResourceBase(Entity):
 
     @property
     def parts(self):
-        page_field, _ = Field.objects.get_or_create(uri='http://purl.org/dc/terms/isPartOf')
-        return self.relations_to.filter(predicate=page_field)
+        """
+        Many resources will have several parts (e.g. pages), which are connected
+        via :class:`.Relation` entries.
+        """
+        __isPartOf__, _ = Field.objects.get_or_create(uri=settings.IS_PART_OF)
+        return self.relations_to.filter(predicate=__isPartOf__).order_by('sort_order')
 
     class Meta:
-        permissions = (
-            ('view_resource', 'View resource'),
-            ('change_authorizations', 'Change authorizations'),
-            ('view_authorizations', 'View authorizations'),
-        )
         abstract = True
 
 
@@ -171,9 +179,11 @@ class Resource(ResourceBase):
 
     GILES = 'GL'
     WEB = 'WB'
+    HATHITRUST = 'HT'
     SOURCES = (
         (GILES, 'Giles'),
         (WEB, 'Web'),
+        (HATHITRUST, 'HathiTrust'),
     )
     external_source = models.CharField(max_length=2, choices=SOURCES,
                                        blank=True, null=True)
@@ -181,28 +191,19 @@ class Resource(ResourceBase):
     description = models.TextField(blank=True, null=True)
 
     @property
+    def active_content(self):
+        return self.content.filter(is_deleted=False, hidden=False)
+
+    @property
     def content_location(self):
         if self.content_resource:
             if self.file:
                 return self.file.url
-            return self.location
+            return reverse('resource-content', args=(self.id,))
 
     @property
     def content_types(self):
-        if self.content_resource:
-            return self.content_type
-
-        direct = [(cr.content_type, cr.content_resource.content_type)
-                    for cr in self.content.all()
-                   if cr.content_resource.content_type or cr.content_type]
-        if direct:
-            d0, d1 = map(list, zip(*direct))
-            direct = d0 + d1
-        parts = []
-        for r in self.relations_to.all():
-             if r.source.content_type:
-                parts += r.source.content_types
-        return set([ct for ct in direct + parts if ct is not None])
+        return self.container.content_relations.values_list('content_type', flat=True).distinct('content_type')
 
     @property
     def content_view(self):
@@ -234,8 +235,16 @@ class Resource(ResourceBase):
             return Resource.OK
         return Resource.PROCESSING
 
-    def __unicode__(self):
-        return self.name.encode('utf-8')
+    relations_from_resource = GenericRelation('Relation',
+                                     content_type_field='source_type',
+                                     object_id_field='source_instance_id',
+                                     related_query_name='source_resource')
+
+    relations_to_resource = GenericRelation('Relation',
+                                   content_type_field='target_type',
+                                   object_id_field='target_instance_id',
+                                   related_query_name='target_resource')
+
 
 
 class Tag(models.Model):
@@ -287,17 +296,46 @@ class Collection(ResourceBase):
 
     description = models.TextField(blank=True, null=True)
 
+    def get_number_of_conceptentities(self):
+        """
+        Count all of the :class:`.ConceptEntity` instances associated with
+        resources in this :class:`.Collection`\.
+        """
+        return len(set(self.resourcecontainer_set.values_list('conceptentity__id')))
+
     def get_absolute_url(self):
         return reverse("collection", args=(self.id,))
 
+    def __unicode__(self):
+        return self.name
+
+    @property
+    def subcollections(self):
+        return self.collection_set.all()
+
+    @property
+    def children(self):
+        children_ids = []
+        def _decomp(obj):
+            for item in obj:
+                if isinstance(item, list):
+                    _decomp(item)
+                else:
+                    children_ids.append(item)
+        def _get_children(collection_id):
+            return [collection_id] + map(_get_children, filter(lambda pk: pk is not None, Collection.objects.filter(part_of_id=collection_id).values_list('id', flat=True)))
+        _decomp(_get_children(self))
+        return children_ids
+
     @property
     def size(self):
-        return self.resources.count()
+        return ResourceContainer.objects.filter(part_of_id__in=self.children).count()
 
     @property
     def resources(self):
         return Resource.objects.filter(is_primary_for__part_of_id=self.id,
                                        is_deleted=False)
+
 
 ### Types and Fields ###
 
@@ -334,7 +372,12 @@ class Type(models.Model):
     description = models.TextField(blank=True, null=True)
 
     def __unicode__(self):
-        return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
+        try:
+            return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
+        except Schema.DoesNotExist:
+            return self.name
+
+
 
 
 class Field(models.Model):
@@ -370,7 +413,10 @@ class Field(models.Model):
                                    " any value.")
 
     def __unicode__(self):
-        return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
+        try:
+            return '%s (%s)' % (self.name, getattr(self.schema, '__unicode__', lambda: '')())
+        except Schema.DoesNotExist:
+            return self.name
 
 
 ### Values ###
@@ -438,17 +484,22 @@ class Relation(Entity):
                                   verbose_name='field')
 
     target_type = models.ForeignKey(ContentType, related_name='relations_to',
-                                    on_delete=models.CASCADE, blank=True, null=True)
+                                    on_delete=models.CASCADE, blank=True,
+                                    null=True)
     target_instance_id = models.PositiveIntegerField(blank=True, null=True)
     target = GenericForeignKey('target_type', 'target_instance_id')
 
+    data_source = models.CharField(max_length=1000, blank=True, null=True)
+
+    sort_order = models.FloatField(default=0)
+
     class Meta:
         verbose_name = 'metadata relation'
-        permissions = (
-            ('view_relation', 'View relation'),
-            ('change_authorizations', 'Change authorizations'),
-            ('view_authorizations', 'View authorizations'),
-        )
+
+        index_together = [
+            ['source_type', 'source_instance_id'],
+            ['target_type', 'target_instance_id'],
+        ]
 
         # Unless otherwise specified, relations will be displayed in order of
         #  their creation (oldest first).
@@ -458,9 +509,6 @@ class Relation(Entity):
         self.name = uuid4()
         super(Relation, self).save(*args, **kwargs)
 
-
-
-### Actions and Events ###
 
 
 class ConceptEntity(Entity):
@@ -476,19 +524,23 @@ class ConceptEntity(Entity):
     def get_absolute_url(self):
         return reverse('entity-details', args=(self.id,))
 
-    class Meta:
-        permissions = (
-            ('view_entity', 'View entity'),
-            ('change_authorizations', 'Change authorizations'),
-            ('view_authorizations', 'View authorizations'),
-        )
+    def get_predicates(self):
+        """
+        Get information about all of the predicates for which this
+        :class:`.ConceptEntity` instance has associated :class:`.Relation`\s.
+        """
+        fields = 'predicate_id', 'predicate__name', 'predicate__uri'
+        raw = self.relations_from.order_by().values(*fields).distinct('predicate_id')
+        return [{k.split('_')[-1]: v for k, v in d.iteritems()} for d in raw]
 
 
 class Identity(models.Model):
     created_by = models.ForeignKey(User)
     created = models.DateTimeField(auto_now_add=True)
-    representative = models.ForeignKey('ConceptEntity', related_name='represents')
-    entities = models.ManyToManyField('ConceptEntity', related_name='identities')
+    representative = models.ForeignKey('ConceptEntity',
+                                       related_name='represents')
+    entities = models.ManyToManyField('ConceptEntity',
+                                      related_name='identities')
 
 
 class ConceptType(Type):
@@ -538,7 +590,9 @@ class GilesUpload(models.Model):
     GILES_ERROR = 'GE'
     PROCESS_ERROR = 'PE'
     CALLBACK_ERROR = 'CE'
+    ASSIGNED = 'AS'     # A worker is polling this task.
     ERROR_STATES = (SEND_ERROR, GILES_ERROR, PROCESS_ERROR, CALLBACK_ERROR)
+    OUTSTANDING = (ASSIGNED, ENQUEUED, SENT)
     STATES = (
         (PENDING, 'Pending'),      # Upload is ready to be dispatched.
         (ENQUEUED, 'Enqueued'),    # Dispatcher has created an upload task.
@@ -547,7 +601,8 @@ class GilesUpload(models.Model):
         (SEND_ERROR, 'Send error'),    # Problem sending the file to Giles.
         (GILES_ERROR, 'Giles error'),  # Giles responded oddly after upload.
         (PROCESS_ERROR, 'Process error'),    # We screwed up post-processing.
-        (CALLBACK_ERROR, 'Callback error')   # Something went wrong afterwards.
+        (CALLBACK_ERROR, 'Callback error'),  # Something went wrong afterwards.
+        (ASSIGNED, 'Assigned')
     )
     state  = models.CharField(max_length=2, choices=STATES)
 
@@ -626,7 +681,6 @@ class CollectionAuthorization(models.Model):
     policy = models.CharField(choices=POLICIES, max_length=2)
 
 
-
 class ResourceAuthorization(models.Model):
     granted_by = models.ForeignKey(User, related_name='created_collection_auths')
     granted_to = models.ForeignKey(User, related_name='resource_collection_auths', blank=True, null=True)
@@ -651,3 +705,43 @@ class ResourceAuthorization(models.Model):
         (DENY, 'Deny'),
     )
     policy = models.CharField(choices=POLICIES, max_length=2)
+
+
+class Dataset(models.Model):
+    created_by = models.ForeignKey(User, related_name='datasets')
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    name = models.CharField(max_length=1000)
+    description = models.TextField()
+
+    resources = models.ManyToManyField('ResourceContainer', related_name='datasets')
+    filter_parameters = models.TextField()
+
+    EXPLICIT = 'EX'
+    FILTER = 'FI'
+    TYPES = (
+        (EXPLICIT, 'Explicit'),
+        (FILTER, 'Dynamic'),
+    )
+    dataset_type = models.CharField(max_length=2, choices=TYPES)
+
+
+class DatasetSnapshot(models.Model):
+    created_by = models.ForeignKey(User, related_name='snapshots')
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    dataset = models.ForeignKey(Dataset, related_name='snapshots')
+    content_type = models.CharField(max_length=255, blank=True, null=True)
+    resource = models.OneToOneField(Resource, related_name='snapshot', blank=True, null=True)
+
+    PENDING = 'PE'
+    IN_PROGRESS = 'IP'
+    DONE = 'DO'
+    ERROR = 'ER'
+    STATES = (
+        (PENDING, 'Pending'),
+        (IN_PROGRESS, 'In progress'),
+        (DONE, 'Done'),
+        (ERROR, 'Error')
+    )
+    state = models.CharField(max_length=2, choices=STATES, default=PENDING)

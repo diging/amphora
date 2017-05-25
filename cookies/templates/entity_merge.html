@@ -19,20 +19,37 @@
     undone! Clicking on an entity will open the detail view for that entity
     in a new tab or window.
 </p>
+<p class="text-warning">
+    Please select the "primary" entity for this merge. This entity will inherit
+    everything that we know about the other entities.
+</p>
 <form class="form" action="{% url "entity-merge" %}" method="GET">
     <ul class="list-group">
-        {% for ent in entities %}
+        {% for entity in entities %}
         <li class="list-group-item">
-
-            <a href="{{ ent.get_absolute_url }}" target="_blank">{{ ent.name.title }}</a>
-            <span class="text-muted">a {{ ent.entity_type.schema }}/{{ ent.entity_type.name }}</span>
-            <span class="pull-right">{{ ent.relations_from.count }}/{{ ent.relations_to.count }}</span>
+            <input type="radio" name="master" value="{{ entity.id }}">
+            <div class="pull-right">
+                {% if entity.concept.count > 0 %}<span class="fa fa-anchor" style="margin-right: 5px;"></span>{% endif %}
+                <span class="label label-primary">{{ entity.entity_type.name }}</span>
+            </div>
+            <a href="{{ entity.get_absolute_url }}">{{ entity.name }}</a>
+            <div>
+                <span class="text-muted text-small">
+                    Created by {{ entity.created_by }} on {{ entity.created }} for
+                    <span class="text-warning">{{ entity.container.primary.name|truncatechars:50 }}</span>.
+                </span>
+            </div>
+            <div>
+                {% for predicate in entity.get_predicates %}
+                <span class="label label-success text-small" style="margin-right: 8px;">
+                    {{ predicate.name }}
+                </span>
+                {% endfor %}
+            </div>
+            <input type="hidden" name="entity" value="{{ entity.id }}" />
         </li>
         {% endfor %}
     </ul>
-    {% for ent in entities %}
-    <input type="hidden" name="entity" value="{{ent.id}}" />
-    {% endfor %}
     <input type="hidden" name="confirm" value="true" />
     <input type="submit"
         class="btn btn-success">

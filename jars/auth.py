@@ -1,4 +1,5 @@
 from django.utils.translation import ugettext_lazy as _
+from django.contrib.auth import login, authenticate
 from rest_framework import HTTP_HEADER_ENCODING, exceptions
 
 import requests
@@ -36,18 +37,38 @@ class GithubTokenBackend(BaseAuthentication):
         except UnicodeError:
             msg = _('Invalid token header. Token string should not contain invalid characters.')
             raise exceptions.AuthenticationFailed(msg)
-        return self.authenticate_credentials(token)
+        user = GithubAuthenticationBackend().authenticate(token)
+        if user:
+            return user, None,
+        return
+        # return self.authenticate_credentials(token)
 
-    def authenticate_credentials(self, access_token):
-        """
-        We verify the GitHub access token by attempting to retrieve private
-        user data. If successful, the token is a valid user auth token, and the
-        GitHub user ID will be included in the response.
-        """
+    # def authenticate_credentials(self, access_token):
+    #     """
+    #     We verify the GitHub access token by attempting to retrieve private
+    #     user data. If successful, the token is a valid user auth token, and the
+    #     GitHub user ID will be included in the response.
+    #     """
+    #     path = "{github}/user".format(github=GITHUB)
+    #
+    #     response = requests.get(path, headers={'Authorization': 'token %s' % access_token})
+    #     if response.status_code == 404:   # Not a valid token.
+    #         return
+    #
+    #     data = response.json()
+    #     github_user_id = data.get('id')
+    #     try:
+    #         auth = UserSocialAuth.objects.get(uid=github_user_id, provider='github')
+    #     except UserSocialAuth.DoesNotExist: # No such user.
+    #         return
+    #     return auth.user, None
+
+
+class GithubAuthenticationBackend(object):
+    def authenticate(self, token=None):
         path = "{github}/user".format(github=GITHUB)
 
-        response = requests.get(path, headers={'Authorization': 'token %s' % access_token})
-        print access_token, response.status_code, response.content
+        response = requests.get(path, headers={'Authorization': 'token %s' % token})
         if response.status_code == 404:   # Not a valid token.
             return
 
@@ -57,5 +78,24 @@ class GithubTokenBackend(BaseAuthentication):
             auth = UserSocialAuth.objects.get(uid=github_user_id, provider='github')
         except UserSocialAuth.DoesNotExist: # No such user.
             return
+        return auth.user
 
-        return auth.user, None
+
+class GithubTokenBackendMiddleware(object):
+    def __init__(self, get_response=None):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_request(self, request):
+        if request.user.is_authenticated():
+            return
+        auth = get_authorization_header(request).split()
+        if len(auth) < 2:
+            return
+        token = auth[1].decode()
+        user = authenticate(token=token)
+        if user:
+            login(request, user)
+        return

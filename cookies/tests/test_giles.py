@@ -32,9 +32,13 @@ class MockResponse(object):
 
 
 class MockDataResponse(object):
-    def __init__(self, status_code, data):
+    def __init__(self, status_code, data, content=None):
         self.status_code = status_code
         self.data = data
+        if content:
+            self.content = content
+        else:
+            self.content = json.dumps(data)
 
     def json(self):
         return self.data
@@ -43,6 +47,26 @@ class MockDataResponse(object):
 def mock_get_fileids(url, params={}, headers={}):
     with open('cookies/tests/data/giles_file_response_3.json', 'r') as f:
         return MockFileResponse(200, f.read())
+
+
+class MockResponse401(object):
+    def __init__(self):
+        self.return_value = None
+        self.call_count = 0
+
+    def __call__(self, *args, **kwargs):
+        if self.call_count == 0 and args[0] == '/'.join([settings.GILES, 'rest', 'files', 'upload']):
+            response = MockDataResponse(401, 'Nope', content='Nope')
+        elif self.call_count == 1 and args[0] == '/'.join([settings.GILES, 'rest', 'token']):
+            response = MockResponse(200, 'token_ok.json')
+        elif self.call_count == 2 and args[0] == '/'.join([settings.GILES, 'rest', 'files', 'upload']):
+            response = self.return_value
+        else:
+            response = MockDataResponse(401, 'Nope', content='Nope')
+        self.call_count += 1
+        return response
+
+
 
 
 class TestGetUserAuthorization(unittest.TestCase):
@@ -139,12 +163,18 @@ class CreateGilesUpload(unittest.TestCase):
 
         self.user = User.objects.create(username='Bob')
         GilesToken.objects.create(for_user=self.user, token='asdf1234')
+        self.auth = UserSocialAuth.objects.create(**{
+            'user': self.user,
+            'provider': 'github',
+            'uid': 'asdf1234',
+        })
         self.user.refresh_from_db()
         self.resource = Resource.objects.create(name='bob resource', created_by=self.user)
         self.container = ResourceContainer.objects.create(primary=self.resource, created_by=self.user)
         self.resource.container = self.container
         self.resource.save()
         self.file_path = os.path.join(settings.MEDIA_ROOT, 'test.ack')
+
         with open(self.file_path, 'w') as f:
             test_file = File(f)
             test_file.write('asdf')
@@ -173,7 +203,7 @@ class CreateGilesUpload(unittest.TestCase):
         self.assertEqual(upload.created_by, self.user)
         self.assertEqual(len(jsonpickle.decode(upload.on_complete)), 2)
 
-    @mock.patch('django.conf.settings.POST')
+    @mock.patch('cookies.giles.POST')
     def test_send_to_giles(self, mock_post):
         """
         Sends a file indicated in a :class:`.GilesUpload` to Giles.
@@ -196,9 +226,68 @@ class CreateGilesUpload(unittest.TestCase):
         self.assertIn('data', kwargs)
         self.assertIn('headers', kwargs)
 
+    @mock.patch('cookies.giles.POST')
+    def test_send_to_giles_500(self, mock_post):
+        """
+        If Giles response with a 500 server error, the GilesUpdate state should
+        be set to SEND_ERROR.
+        """
+        message = 'blargh'
+        mock_post.return_value = MockDataResponse(500, message, content=message)
+        pk = giles.create_giles_upload(self.resource.id,
+                                       self.content_relation.id,
+                                       self.user.username)
+        upload = GilesUpload.objects.get(pk=pk)
+        giles.send_giles_upload(pk, self.user.username)
 
-    @mock.patch('django.conf.settings.POST')
-    @mock.patch('django.conf.settings.GET')
+        self.assertEqual(mock_post.call_count, 1)
+        upload.refresh_from_db()
+        self.assertEqual(upload.state, GilesUpload.SEND_ERROR)
+        self.assertIn(message, upload.message)
+
+    @mock.patch('cookies.giles.POST')
+    def test_send_to_giles_503(self, mock_post):
+        """
+        If Giles response with a 503 server error, the GilesUpdate state should
+        be set to SEND_ERROR.
+        """
+        message = 'blargh'
+        mock_post.return_value = MockDataResponse(503, message, content=message)
+        pk = giles.create_giles_upload(self.resource.id,
+                                       self.content_relation.id,
+                                       self.user.username)
+        upload = GilesUpload.objects.get(pk=pk)
+        giles.send_giles_upload(pk, self.user.username)
+
+        self.assertEqual(mock_post.call_count, 1)
+        upload.refresh_from_db()
+        self.assertEqual(upload.state, GilesUpload.SEND_ERROR)
+        self.assertIn(message, upload.message)
+
+    @mock.patch('cookies.giles.POST', new_callable=MockResponse401)
+    def test_send_to_giles_401(self, mock_post):
+        """
+        When we attempt to send a GilesUpload, if a 401 unauthorized is returned
+        we should get a new auth token and try again.
+        """
+        upload_id = "PROGQ3Fm2J"
+        mock_post.return_value = MockDataResponse(200, {
+            "id": upload_id,
+            "checkUrl":"http://giles/giles/rest/files/upload/check/PROGQ3Fm2J"
+        })
+
+        pk = giles.create_giles_upload(self.resource.id,
+                                       self.content_relation.id,
+                                       self.user.username)
+        upload = GilesUpload.objects.get(pk=pk)
+        giles.send_giles_upload(pk, self.user.username)
+
+        self.assertEqual(mock_post.call_count, 3)
+        upload.refresh_from_db()
+        self.assertEqual(upload.state, GilesUpload.SENT)
+
+    @mock.patch('cookies.giles.POST')
+    @mock.patch('cookies.giles.GET')
     def test_check_upload_status(self, mock_get, mock_post):
         mock_get.return_value = MockDataResponse(202, {
             "msg":"Upload in progress. Please check back later.",
@@ -225,8 +314,8 @@ class CreateGilesUpload(unittest.TestCase):
         self.assertIn('Authorization', kwargs['headers'])
 
 
-    @mock.patch('django.conf.settings.POST')
-    @mock.patch('django.conf.settings.GET')
+    @mock.patch('cookies.giles.POST')
+    @mock.patch('cookies.giles.GET')
     def test_process_upload_unknown(self, mock_get, mock_post):
         __text__ = Type.objects.create(uri='http://purl.org/dc/dcmitype/Text')
         __image__ = Type.objects.create(uri='http://purl.org/dc/dcmitype/Image')
@@ -321,8 +410,8 @@ class CreateGilesUpload(unittest.TestCase):
         for cr in upload.resource.content.all():
             self.assertFalse(cr.content_resource.public)
 
-    @mock.patch('django.conf.settings.POST')
-    @mock.patch('django.conf.settings.GET')
+    @mock.patch('cookies.giles.POST')
+    @mock.patch('cookies.giles.GET')
     def test_process_upload_known(self, mock_get, mock_post):
         __text__ = Type.objects.create(uri='http://purl.org/dc/dcmitype/Text')
         __image__ = Type.objects.create(uri='http://purl.org/dc/dcmitype/Image')
@@ -439,6 +528,61 @@ class CreateGilesUpload(unittest.TestCase):
         Type.objects.all().delete()
         Field.objects.all().delete()
 
+
+
+class TestHandleStatusException(unittest.TestCase):
+    """
+    Tests related to the :func:`cookies.giles.handle_status_exception`
+    decorator.
+    """
+    def setUp(self):
+        self.factory = RequestFactory()
+        User.objects.all().delete()
+        self.user = User.objects.create_user(
+            username='test',
+            email='test@test.com',
+            password='nope',
+        )
+        self.auth = UserSocialAuth.objects.create(**{
+            'user': self.user,
+            'provider': 'github',
+            'uid': 'asdf1234',
+        })
+        self.provider_token = 'fdsa5432'
+        self.auth.extra_data['access_token'] = self.provider_token
+        self.auth.save()
+
+    @mock.patch('cookies.giles.POST')
+    def test_handle_status_exception(self, mock_post):
+        """
+        When a decorated function returns a response with status 401, a call to
+        the token endpoint should automatically be made, and the decorated
+        function should be called again.
+        """
+        mock_post.return_value = MockResponse(200, 'token_ok.json')
+
+        jup = MockResponse401()    # Simulates re-auth process.
+        jup.return_value = MockDataResponse(200, 'Yes', content='Yes')
+
+        @giles.handle_status_exception
+        def func(arg):
+            return jup(arg)
+
+        func(self.user.username)
+
+        self.assertEqual(jup.call_count, 2,
+                         "That's a total of two calls to the decorated"
+                         " function.")
+        self.assertEqual(mock_post.call_count, 1,
+                         "And one call to the token endpoint.")
+
+    def tearDown(self):
+        Resource.objects.all().delete()
+        ContentRelation.objects.all().delete()
+        User.objects.all().delete()
+        GilesUpload.objects.all().delete()
+        Type.objects.all().delete()
+        Field.objects.all().delete()
 
 
 

@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load pagination_tags %}
+{% load addcss %}
+{% load breadcrumbs %}
+{% load authorization %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Dashboard' 'dashboard' %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+<style>
+.data-value {
+    font-size: 2em;
+}
+.data-row {
+    font-size: 2em;
+}
+.data-small {
+    font-size: 0.5em;
+}
+.btn-hg {
+    font-size: 1em;
+    color: #333;
+}
+.btn-hg p {
+    margin-bottom: 0px;
+}
+
+.btn-hg:hover {
+    color: #666;
+}
+
+.panel-heading .toggle:after {
+    /* symbol for "opening" panels */
+    font-family: 'Glyphicons Halflings';  /* essential for enabling glyphicon */
+    content: "\e114";    /* adjust as needed, taken from bootstrap.css */
+    float: right;        /* adjust as needed */
+    color: grey;         /* adjust as needed */
+}
+.panel-heading .toggle.collapsed:after {
+    /* symbol for "collapsed" panels */
+    content: "\e080";    /* adjust as needed, taken from bootstrap.css */
+}
+
+.less-padding .list-group-item {
+    padding: 5px;
+    font-size: 0.9em;
+}
+</style>
+
+<div class="container-fluid">
+    <div class="panel-group">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h4 class="panel-title">
+            <a class="toggle" data-toggle="collapse" href="#collapse-data">Giles Upload Statistics</a>
+          </h4>
+        </div>
+        <div id="collapse-data" class="panel-collapse collapse in">
+              <div class="row text-center data-row">
+                  <div class="col-sm-3">
+                      <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ PENDING }}&o=-updated">
+                          <span class="data-value">{{ uploads_pending }}</span>
+                          <p>Pending</p>
+                      </a>
+                  </div>
+                  <div class="col-sm-3">
+                      <div>
+                          <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ ENQUEUED }}&o=-updated">
+                              <span class="data-value">{{ uploads_enqueued }}</span>
+                              <p>Enqueued</p>
+                          </a>
+                      </div>
+                      <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ SEND_ERROR }}&o=-updated">
+                          <p class="data-small">+ <span class="text-danger">{{ uploads_send_error }}</span> sending failed</p>
+                      </a>
+                  </div>
+                  <div class="col-sm-3">
+                      <div>
+                          <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ SENT }}&o=-updated">
+                              <span class="data-value">{{ uploads_sent }}</span>
+                              <p>Sent</p>
+                          </a>
+                      </div>
+                      <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ ASSIGNED }}&o=-updated">
+                          <p class="data-small">+ <span class="text-success">{{ uploads_assigned }}</span> assigned for polling</p>
+                      </a>
+                      <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ GILES_ERROR }}&o=-updated">
+                          <p class="data-small">+ <span class="text-danger">{{ uploads_giles_error }}</span> Giles encountered an error</p>
+                      </a>
+
+
+                  </div>
+                  <div class="col-sm-3">
+                       <div>
+                           <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ DONE }}&o=-updated">
+                              <span class="data-value">{{ uploads_done }}</span>
+                              <p>Done</p>
+                          </a>
+                      </div>
+                      <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ PROCESS_ERROR }}&o=-updated">
+                          <p class="data-small">+ <span class="text-danger">{{ uploads_process_error }}</span> failed to parse response</p>
+                      </a>
+                      <a class="btn btn-hg" href="{% url "giles-log" %}?state={{ CALLBACK_ERROR }}&o=-updated">
+                          <p class="data-small">+ <span class="text-danger">{{ uploads_callback_error }}</span> post-processing error</p>
+                      </a>
+                  </div>
+              </div>
+        </div>
+      </div>
+    </div>
+
+
+
+    <div class="row">
+        <div class="col-sm-12 less-padding">
+            <div class="h4">My Recent Additions
+                <div class="pull-right btn-group">
+                    <a class="btn btn-xs" href="{% url "resources" %}?created_by={{ user.id }}">View all</a>
+                </div>
+            </div>
+            <ul class="list-group">
+              {% for resource in resources %}
+              <a href="{{ resource.primary.get_absolute_url }}" class="list-group-item resource-item" id="resource-{{ resource.id }}">
+
+                  <strong>{{ resource.primary.name }}</strong> <span class="text-muted pull-right">{{ resource.primary.created }}</span>
+                  <div>
+                       <span class="text-muted">{{ resource.primary.entity_type }}</span>
+                      <span class="pull-right btn-group">
+                          {% if resource.primary.has_local_content %}
+                          <span class="btn-xs">
+                              <i class="fa fa-database"></i>
+                          </span>
+                          {% endif %}
+                          {% if resource.primary.has_giles_content %}
+                          <span class="btn-xs">
+                              <img style="height: 10px;" src="{% static "cookies/img/giles_logo.png" %}" />
+                          </span>
+                          {% endif %}
+                      </span>
+                      {% if user.is_authenticated %}<input type="checkbox" style="visibility: hidden;" name="addresources" id="select-{{ resource.id }}" value={{resource.primary.id}}>{% endif %}
+                  </div>
+                  <div class="clearfix">
+                      <span class="text-warning pull-right">{{ resource.belongs_to.name }}</span>
+                  </div>
+
+              </a>
+              {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
