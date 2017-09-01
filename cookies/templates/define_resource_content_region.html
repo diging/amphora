@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load addcss %}
+{% load preview %}
+
+{% load breadcrumbs %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Resources' 'resources' %}
+    {% breadcrumb_url resource.name 'resource' resource.id  %}
+    {% breadcrumb_url 'Content Regions' %}
+    {% breadcrumb_url 'Define' 'define-resource-content-region' resource.id  %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col-md-6">
+        <form class="form" action="{% if next %}?next={{ next }}{% else %}.{% endif %}" method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>{{ form.name.label }}</label>
+                {{ form.name|addcss:"form-control" }}
+                {% for error in form.name.errors %}
+                    <div class="alert alert-warning">{{ error }}</div>
+                {% endfor %}
+                <p class="text-muted">{{ form.name.help_text }}</p>
+            </div>
+
+            {% for group in form.groups %}
+                <div class="form-group">
+                    <label>{{ group.fields.resource.label }}</label>
+                    {{ group.fields.resource|addcss:"form-control" }}
+                    {% for error in group.fields.resource.errors %}
+                        <div class="alert alert-warning">{{ error }}</div>
+                    {% endfor %}
+                    <p class="text-muted">{{ group.fields.resource.help_text }}</p>
+                </div>
+                <div class="form-group">
+                    <label>{{ group.fields.position.label }}</label>
+                    <div class="input-group">
+                        {{ group.fields.position|addcss:"form-control" }}
+                        <span class="input-group-btn">
+                            <button type="button" class="btn btn-secondary btn-link dropdown-toggle"
+                                id="{{ group.fields.resource.auto_id }}_preview_btn"
+                                title="Preview {{group.fields.resource.label}} text and select {{group.fields.position.label}} interactively">Preview &amp; Select</button>
+                        </span>
+                    </div>
+                    <p class="text-muted">{{group.fields.position.help_text}}.</p>
+                    <div id="{{ group.fields.resource.auto_id }}_preview" style="display:none">
+                        <textarea id="{{ group.fields.resource.auto_id }}_textarea" class="form-control" readonly="readonly" rows=7></textarea>
+                        <p class="text-muted">Click to record position.</p>
+                    </div>
+                </div>
+                <script>
+                    $(document).ready(function(){
+                        var display_text = function(){
+                            if(!$("#{{ group.fields.resource.auto_id }}_preview_btn")[0].preview_enabled)
+                                return
+                            var textarea = $("#{{ group.fields.resource.auto_id }}_textarea")[0];
+                            var selection = $("#{{ group.fields.resource.auto_id }}")[0].value;
+                            textarea.value = 'Fetching text...';
+                            $.ajax("{% url "resource-text-content" resource.id %}".replace("{{ resource.id }}", selection)).done(function(data){
+                                textarea.value = data;
+                            });
+                        }
+                        var select_text = function(textarea){
+                            {% if group.name == 'start' %}
+                                textarea.selectionEnd = textarea.textLength;
+                                $("#{{ group.fields.position.auto_id }}")[0].value = textarea.selectionStart;
+                            {% else %}
+                                textarea.selectionStart = 0;
+                                $("#{{ group.fields.position.auto_id }}")[0].value = textarea.selectionEnd;
+                            {% endif %}
+                        }
+                        $("#{{ group.fields.resource.auto_id }}").change(display_text);
+                        $("#{{ group.fields.resource.auto_id }}_preview_btn").click(function(){
+                            if(this.preview_enabled)
+                                return
+                            $("#{{ group.fields.resource.auto_id }}_preview")[0].style.display = '';
+                            this.preview_enabled = true;
+                            display_text();
+                        })
+                        $("#{{ group.fields.resource.auto_id }}_textarea").mouseup(function(){select_text(this);});
+                        $("#{{ group.fields.resource.auto_id }}_textarea").keyup(function(){select_text(this);});
+                    })
+                </script>
+            {% endfor %}
+
+            <script>
+                $(document).ready(function(){
+                    $("form").submit(function(){
+                        // No need to send preview text back to the server.
+                        $("textarea").attr("disabled", true);
+                        return true;
+                    });
+                })
+            </script>
+            <input class="btn btn-success" type="submit" value="Save">
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

@@ -231,6 +231,56 @@ class UserResourceURLForm(forms.Form):
                    + u' path to the resource here.'
     })
 
+class UserDefineContentRegionForm(forms.Form):
+    """
+    Form to define an content region from a resource
+    """
+    def __init__(self, *args, **kwargs):
+        self.part_relations = kwargs.pop('part_relations', None)
+        super(UserDefineContentRegionForm, self).__init__(*args, **kwargs)
+
+        self.groups = [
+            {
+                'name': 'start',
+                'fields': {},
+            },
+            {
+                'name': 'end',
+                'fields': {},
+            }
+        ]
+        self.fields['name'] = forms.CharField(**{
+            'label': 'Name',
+            'help_text': 'Give your resource a unique name'
+        })
+
+        self.fields['content_region_start_resource'] = forms.ChoiceField(**{
+            'label': 'Start Resource',
+            'help_text': 'Specify content region\'s starting resource',
+            'choices': [(relation.source.id, relation.source.name) for relation in self.part_relations],
+        })
+        self.groups[0]['fields']['resource'] = self['content_region_start_resource']
+
+        self.fields['content_region_start_position'] = forms.IntegerField(**{
+            'label': 'Start Position',
+            'help_text': 'Specify content region\'s starting position',
+            'min_value': 0,
+        })
+        self.groups[0]['fields']['position'] = self['content_region_start_position']
+
+        self.fields['content_region_end_resource'] = forms.ChoiceField(**{
+            'label': 'End Resource',
+            'help_text': 'Specify content region\'s ending resource',
+            'choices': [(relation.source.id, relation.source.name) for relation in self.part_relations],
+        })
+        self.groups[1]['fields']['resource'] = self['content_region_end_resource']
+
+        self.fields['content_region_end_position'] = forms.IntegerField(**{
+            'label': 'End Position',
+            'help_text': 'Specify content region\'s ending position',
+            'min_value': 0,
+        })
+        self.groups[1]['fields']['position'] = self['content_region_end_position']
 
 class ChooseCollectionForm(forms.Form):
     collection = CustomModelChoiceField(**{

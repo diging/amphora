@@ -6,7 +6,7 @@ register = template.Library()
 
 from django.utils.safestring import mark_safe
 
-from cookies.models import Field, Resource
+from cookies.models import Field, Resource, ContentRegion
 from cookies import giles
 
 
@@ -97,7 +97,8 @@ def preview(resource, request):
     page_field = Field.objects.get_or_create(uri='http://purl.org/dc/terms/isPartOf')[0]
     user = resource.created_by
     content_relations = resource.content.filter(is_deleted=False)
-    page_relations = resource.relations_to.filter(predicate=page_field, is_deleted=False)
+    page_relations = resource.relations_to.filter(predicate=page_field, is_deleted=False).all()
+    page_relations = [p for p in page_relations if not isinstance(p.source, ContentRegion)]
 
     if resource.content_resource:   # This resource is the content resource.
         if resource.content_type in images:
@@ -170,7 +171,7 @@ def preview(resource, request):
                 }))
 
         if page_relations > 0:    # There are several pages in this resource.
-            for i, relation in enumerate(page_relations.all()):
+            for i, relation in enumerate(page_relations):
                 content_resource = relation.source.content.first().content_resource
 
                 preview_elem = page_link_template.format(href=reverse('resource', args=(relation.source.id,)))

@@ -246,6 +246,14 @@ class Resource(ResourceBase):
                                    related_query_name='target_resource')
 
 
+class ContentRegion(Entity):
+    objects = models.Manager()
+    active = ActiveManager()
+    start_position = models.IntegerField()
+    start_resource = models.ForeignKey('Resource', related_name='resource_start')
+    end_position = models.IntegerField()
+    end_resource = models.ForeignKey('Resource', related_name='resource_end')
+
 
 class Tag(models.Model):
     """

@@ -4,7 +4,7 @@ from django.core.cache import caches
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import render, get_object_or_404
-from django.db.models import Q
+from django.db.models import Q, Max
 from django.utils.http import urlquote_plus
 
 from cookies.models import *
@@ -15,7 +15,7 @@ from cookies import giles, operations
 from cookies import authorization as auth
 from cookies.accession import get_remote
 
-import hmac, base64, time, urllib, datetime, mimetypes, copy, urlparse
+import hmac, base64, time, urllib, datetime, mimetypes, copy, urlparse, requests
 
 
 def _get_resource_by_id(request, resource_id, *args):
@@ -41,6 +41,15 @@ def resource(request, obj_id):
     # Get a fresh Giles auth token, if needed.
     # giles.get_user_auth_token(resource.created_by, fresh=True)
     preview = request.GET.get('preview')
+    all_part_relations = resource.relations_to.filter(predicate=__isPartOf__).order_by('sort_order')
+    content_region_relations = []
+    part_relations = []
+    for r in all_part_relations:
+        if isinstance(r.source, ContentRegion):
+            content_region_relations.append(r)
+        else:
+            part_relations.append(r)
+
     context = {
         'resource':resource,
         'request': request,
@@ -48,7 +57,8 @@ def resource(request, obj_id):
         'part_of': resource.container.part_of,
         'relations_from': resource.relations_from.filter(is_deleted=False),
         'content_relations': resource.content.filter(is_deleted=False),
-        'part_relations': resource.relations_to.filter(predicate=__isPartOf__).order_by('sort_order')
+        'part_relations': part_relations,
+        'content_region_relations': content_region_relations,
     }
     if request.GET.get('format', None) == 'json':
         return JsonResponse(ResourceDetailSerializer(context=context).to_representation(resource))
@@ -535,6 +545,64 @@ def edit_resource_details(request, resource_id):
     return render(request, template, context)
 
 
+@auth.authorization_required(ResourceAuthorization.EDIT, _get_resource_by_id)
+def define_resource_content_region(request, resource_id):
+    """
+    Display the resource with the given id
+    """
+    __isPartOf__ = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
+    resource = _get_resource_by_id(request, resource_id)
+    part_relations = resource.relations_to.filter(predicate=__isPartOf__).order_by('sort_order').all()
+    part_relations = [p for p in part_relations if not isinstance(p.source, ContentRegion)]
+
+    context = {
+        'resource': resource,
+        'request': request,
+    }
+    on_valid = request.GET.get('next', None)
+    if on_valid:
+        context.update({'next': on_valid})
+
+    if request.method == 'GET':
+        form = UserDefineContentRegionForm(part_relations=part_relations)
+
+    elif request.method == 'POST':
+        form = UserDefineContentRegionForm(request.POST, part_relations=part_relations)
+        if form.is_valid():
+            name = form.cleaned_data.get('name')
+            content_region_start_resource = form.cleaned_data.get('content_region_start_resource')
+            content_region_start_position = form.cleaned_data.get('content_region_start_position')
+            content_region_end_resource = form.cleaned_data.get('content_region_end_resource')
+            content_region_end_position = form.cleaned_data.get('content_region_end_position')
+            __document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
+            content_region = ContentRegion.objects.create(**{
+                'name': name,
+                'created_by_id': request.user.id,
+                'container': resource.container,
+                'start_position': content_region_start_position,
+                'start_resource': _get_resource_by_id(request, content_region_start_resource),
+                'end_position': content_region_end_position,
+                'end_resource': _get_resource_by_id(request, content_region_end_resource),
+            })
+            content_region.save()
+            __part__ = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
+            max_nr = resource.relations_to.filter(predicate=__isPartOf__).aggregate(Max('sort_order'))
+            Relation.objects.create(**{
+                'source': content_region,
+                'target': resource,
+                'predicate': __part__,
+                'container': resource.container,
+                'sort_order': int(max_nr['sort_order__max'])+1,
+            })
+
+            if on_valid:
+                return HttpResponseRedirect(on_valid)
+
+    context.update({'form': form})
+
+    return render(request, 'define_resource_content_region.html', context)
+
+
 def resource_merge(request):
     """
     Curator can merge resources.
@@ -672,6 +740,51 @@ def resource_content(request, resource_id):
         # return HttpResponseRedirect(target)
     return HttpResponse('Nope')    # TODO: say something more informative!
 
+
+@auth.authorization_required(ResourceAuthorization.VIEW, _get_resource_by_id)
+def resource_text_content(request, resource_id):
+    """
+    Serve up the raw text content associated with a :class:`.Resource`\.
+
+    This is not the most efficient way to serve files, but we need some kind of
+    security layer here for non-public content.
+    """
+
+    parent_resource = _get_resource_by_id(request, resource_id)
+    content_relations = parent_resource.content.filter(is_deleted=False, content_type='text/plain')
+    if not content_relations:
+        return HttpResponse('No text content found for resource \'%s\'.' % parent_resource.name)
+
+    content_relation = content_relations[0]
+    resource = content_relation.content_resource
+
+    content_type = resource.content_type
+    if resource.file:
+        try:
+            with open(resource.file.path, 'rb') as f:
+                return HttpResponse(f.read(), content_type=content_type)
+        except IOError:
+            return HttpResponse('Couldn\'t read text content for resource \'%s\'.' % parent_resource.name)
+    elif resource.location:
+        cache = caches['remote_content']
+
+        remote = get_remote(resource.external_source, resource.created_by)
+        target = resource.location
+        if resource.external_source == Resource.GILES:
+            target = _add_parameter(target, 'dw', 300)
+            data = requests.get(remote.sign_uri(target))
+            return HttpResponse(data)
+        elif resource.external_source == Resource.WEB:
+            data = requests.get(remote.get(target))
+            return HttpResponse(data)
+
+        content = cache.get(resource.location)
+        if not content:
+            content = remote.get(target)
+            if content:
+                cache.set(resource.location, content, None)
+        return HttpResponse(content, content_type=resource.content_type)
+    return HttpResponse('Couldn\'t read text content for resource \'%s\'.' % parent_resource.name)
 
 
 @auth.authorization_required(ResourceAuthorization.EDIT, _get_resource_by_id)
