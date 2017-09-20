@@ -62,11 +62,29 @@
                             var textarea = $("#{{ group.fields.resource.auto_id }}_textarea")[0];
                             var selection = $("#{{ group.fields.resource.auto_id }}")[0].value;
                             textarea.value = 'Fetching text...';
-                            $.ajax("{% url "resource-text-content" resource.id %}".replace("{{ resource.id }}", selection)).done(function(data){
+                            $.ajax({
+                                url: "{% url "resource-content" resource.id %}".replace("{{ resource.id }}", selection),
+                                crossDomain: true,
+                                data: {
+                                    'content_type': 'text/plain',
+                                    'content_index': 0,
+                                }
+                            })
+                            .done(function(data){
                                 textarea.value = data;
+                                textarea.parentElement.classList.remove('has-error');
+                                textarea.error = false;
+                            })
+                            .fail(function(data){
+                                textarea.error = true;
+                                textarea.value = 'ERROR fetching content';
+                                textarea.parentElement.classList.add('has-error');
                             });
                         }
                         var select_text = function(textarea){
+                            if(textarea.error){
+                                return;
+                            }
                             {% if group.name == 'start' %}
                                 textarea.selectionEnd = textarea.textLength;
                                 $("#{{ group.fields.position.auto_id }}")[0].value = textarea.selectionStart;
@@ -98,7 +116,9 @@
                     });
                 })
             </script>
+
             <input class="btn btn-success" type="submit" value="Save">
+            <a class="btn btn-default" href="{% url "resource" resource.id %}" name="cancel">Cancel</a>
 
         </form>
     </div>

@@ -29,7 +29,6 @@ urlpatterns = patterns('',
 
     url(r'^resource/([0-9]+)/$', views.resource.resource, name="resource"),
     url(r'^resource/([0-9]+)/content/$', views.resource.resource_content, name="resource-content"),
-    url(r'^resource/([0-9]+)/text_content/$', views.resource.resource_text_content, name="resource-text-content"),
     url(r'^resource/get/$', views.resource.resource_by_uri, name="resource_by_uri"),
     url(r'^resource/$', views.resource.resource_list, name="resources"),
     url(r'^resource/create/$', views.resource.create_resource, name="create-resource"),

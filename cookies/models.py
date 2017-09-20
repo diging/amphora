@@ -250,9 +250,11 @@ class ContentRegion(Entity):
     objects = models.Manager()
     active = ActiveManager()
     start_position = models.IntegerField()
-    start_resource = models.ForeignKey('Resource', related_name='resource_start')
+    start_resource = models.ForeignKey('Resource', related_name='resource_start',
+                                       on_delete=models.CASCADE)
     end_position = models.IntegerField()
-    end_resource = models.ForeignKey('Resource', related_name='resource_end')
+    end_resource = models.ForeignKey('Resource', related_name='resource_end',
+                                     on_delete=models.CASCADE)
 
 
 class Tag(models.Model):

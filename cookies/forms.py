@@ -251,7 +251,7 @@ class UserDefineContentRegionForm(forms.Form):
         ]
         self.fields['name'] = forms.CharField(**{
             'label': 'Name',
-            'help_text': 'Give your resource a unique name'
+            'help_text': 'Give the content region a unique name'
         })
 
         self.fields['content_region_start_resource'] = forms.ChoiceField(**{
