@@ -435,10 +435,24 @@ class ResourceViewSet(MultiSerializerViewSet):
         if query:
             qs = qs.filter(name__icontains=query)
 
+        related = self.request.query_params.get('related', None)
+
+        if related:
+            entities = ConceptEntity.objects.filter(concept__uri=related)\
+                .values_list('id', flat=True)
+
+            entity_ctype = ContentType.objects.get_for_model(ConceptEntity)
+            q = Q(relations_from__target_type=entity_ctype,
+                  relations_from__target_instance_id__in=entities)
+            q |= Q(relations_to__source_type=entity_ctype,
+                   relations_to__source_instance_id__in=entities)
+            qs = qs.filter(q)
+
         content_type = self.request.query_params.get('content_type')
         if content_type:
             qs = qs.filter(Q(content__content_resource__content_type=content_type))
         return qs
+
 
 
 # TODO: refactor or scrap this.

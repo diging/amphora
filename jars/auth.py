@@ -1,5 +1,6 @@
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import login, authenticate
+from django.core.cache import caches
 from rest_framework import HTTP_HEADER_ENCODING, exceptions
 
 import requests
@@ -41,38 +42,22 @@ class GithubTokenBackend(BaseAuthentication):
         if user:
             return user, None,
         return
-        # return self.authenticate_credentials(token)
-
-    # def authenticate_credentials(self, access_token):
-    #     """
-    #     We verify the GitHub access token by attempting to retrieve private
-    #     user data. If successful, the token is a valid user auth token, and the
-    #     GitHub user ID will be included in the response.
-    #     """
-    #     path = "{github}/user".format(github=GITHUB)
-    #
-    #     response = requests.get(path, headers={'Authorization': 'token %s' % access_token})
-    #     if response.status_code == 404:   # Not a valid token.
-    #         return
-    #
-    #     data = response.json()
-    #     github_user_id = data.get('id')
-    #     try:
-    #         auth = UserSocialAuth.objects.get(uid=github_user_id, provider='github')
-    #     except UserSocialAuth.DoesNotExist: # No such user.
-    #         return
-    #     return auth.user, None
 
 
 class GithubAuthenticationBackend(object):
     def authenticate(self, token=None):
         path = "{github}/user".format(github=GITHUB)
 
-        response = requests.get(path, headers={'Authorization': 'token %s' % token})
-        if response.status_code == 404:   # Not a valid token.
-            return
+        # There is no reason to re-authorize with Github every single time.
+        cache = caches['default']
+        data = cache.get('github_auth_%s' % token, None)
+        if data is None:
+            response = requests.get(path, headers={'Authorization': 'token %s' % token})
+            if response.status_code == 404:   # Not a valid token.
+                return
 
-        data = response.json()
+            data = response.json()
+            cache.set('github_auth_%s' % token, data, 3600)
         github_user_id = data.get('id')
         try:
             auth = UserSocialAuth.objects.get(uid=github_user_id, provider='github')
