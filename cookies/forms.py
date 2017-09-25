@@ -236,7 +236,7 @@ class UserDefineContentRegionForm(forms.Form):
     Form to define an content region from a resource
     """
     def __init__(self, *args, **kwargs):
-        self.part_relations = kwargs.pop('part_relations', None)
+        self.resource_choices = kwargs.pop('resource_choices', None)
         super(UserDefineContentRegionForm, self).__init__(*args, **kwargs)
 
         self.groups = [
@@ -257,7 +257,7 @@ class UserDefineContentRegionForm(forms.Form):
         self.fields['content_region_start_resource'] = forms.ChoiceField(**{
             'label': 'Start Resource',
             'help_text': 'Specify content region\'s starting resource',
-            'choices': [(relation.source.id, relation.source.name) for relation in self.part_relations],
+            'choices': self.resource_choices,
         })
         self.groups[0]['fields']['resource'] = self['content_region_start_resource']
 
@@ -271,7 +271,7 @@ class UserDefineContentRegionForm(forms.Form):
         self.fields['content_region_end_resource'] = forms.ChoiceField(**{
             'label': 'End Resource',
             'help_text': 'Specify content region\'s ending resource',
-            'choices': [(relation.source.id, relation.source.name) for relation in self.part_relations],
+            'choices': self.resource_choices,
         })
         self.groups[1]['fields']['resource'] = self['content_region_end_resource']
 

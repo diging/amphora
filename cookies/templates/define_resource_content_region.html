@@ -17,7 +17,7 @@
 {% block content %}
 
 <div class="row">
-    <div class="col-md-6">
+    <div class="col-12 col-md-8">
         <form class="form" action="{% if next %}?next={{ next }}{% else %}.{% endif %}" method="POST">
             {% csrf_token %}
             <div class="form-group">

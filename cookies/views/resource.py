@@ -549,6 +549,8 @@ def define_resource_content_region(request, resource_id):
     __isPartOf__ = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
     resource = _get_resource_by_id(request, resource_id)
     part_relations = resource.relations_to.filter(predicate=__isPartOf__).order_by('sort_order')
+    resource_choices = [(relation.source.id, relation.source.name) for relation in part_relations]
+    resource_choices.insert(0, (resource.id, resource.name))
 
     context = {
         'resource': resource,
@@ -559,10 +561,10 @@ def define_resource_content_region(request, resource_id):
         context.update({'next': on_valid})
 
     if request.method == 'GET':
-        form = UserDefineContentRegionForm(part_relations=part_relations)
+        form = UserDefineContentRegionForm(resource_choices=resource_choices)
 
     elif request.method == 'POST':
-        form = UserDefineContentRegionForm(request.POST, part_relations=part_relations)
+        form = UserDefineContentRegionForm(request.POST, resource_choices=resource_choices)
         if form.is_valid():
             name = form.cleaned_data.get('name')
             content_region_start_resource = form.cleaned_data.get('content_region_start_resource')
