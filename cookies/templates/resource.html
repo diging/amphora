@@ -114,7 +114,7 @@
         <dt>Content Regions</dt>
         {% for relation in content_region_relations %}
         <dd>
-            <a>{{ relation.source.name }}</a> ({{ relation.source.start_resource.name }}:{{ relation.source.start_position }} &mdash; {{ relation.source.end_resource.name }}:{{ relation.source.end_position }})
+            {{ relation.source.name }} <i>({{ relation.source.start_resource.name }}:{{ relation.source.start_position }} &mdash; {{ relation.source.end_resource.name }}:{{ relation.source.end_position }})</i>
         </dd>
         {% endfor %}
         {% if can_edit_resource %}
