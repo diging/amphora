@@ -6,6 +6,7 @@ from django.http import HttpResponseRedirect, HttpResponse, JsonResponse, QueryD
 from django.http import HttpResponseBadRequest
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Q, Max
+from django.db import transaction
 from django.utils.http import urlquote_plus
 
 from cookies.models import *
@@ -198,7 +199,8 @@ def create_resource_file(request):
 
         form = UserResourceFileForm(request.POST, request.FILES)
         if form.is_valid():
-            content = _create_resource_file(request, request.FILES['upload_file'])
+            with transaction.atomic():
+                content = _create_resource_file(request, request.FILES['upload_file'])
             return HttpResponseRedirect(reverse('create-resource-details',
                                                 args=(content.id,)))
 
@@ -268,7 +270,8 @@ def create_resource_details(request, content_id):
         form = UserResourceForm(request.POST)
         if form.is_valid():
             resource_data = copy.copy(form.cleaned_data)
-            resource = _create_resource_details(request, content_resource, resource_data)
+            with transaction.atomic():
+                resource = _create_resource_details(request, content_resource, resource_data)
             return HttpResponseRedirect(reverse('resource', args=(resource.id,)))
 
     context.update({

@@ -3,6 +3,7 @@ from django.conf.urls import url, include
 from django.contrib.auth.models import User
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from rest_framework import routers, serializers, viewsets, reverse, renderers, mixins
 from rest_framework.views import APIView
 from rest_framework.parsers import JSONParser, FileUploadParser, MultiPartParser, FormParser
@@ -509,9 +510,9 @@ class ResourceViewSet(MultiSerializerViewSet):
         resource_data = serializer.validated_data
         uploaded_file = resource_data.pop('upload_file')
 
-        content_resource = _create_resource_file(request, uploaded_file)
-        resource = _create_resource_details(request, content_resource, resource_data)
-
+        with transaction.atomic():
+            content_resource = _create_resource_file(request, uploaded_file)
+            resource = _create_resource_details(request, content_resource, resource_data)
         return Response({'id': resource.id})
 
 
