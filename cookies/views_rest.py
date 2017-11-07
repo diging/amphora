@@ -3,9 +3,10 @@ from django.conf.urls import url, include
 from django.contrib.auth.models import User
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from rest_framework import routers, serializers, viewsets, reverse, renderers, mixins
 from rest_framework.views import APIView
-from rest_framework.parsers import JSONParser, FileUploadParser, MultiPartParser
+from rest_framework.parsers import JSONParser, FileUploadParser, MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.decorators import detail_route, list_route, api_view, parser_classes
 from rest_framework.permissions import IsAuthenticated, BasePermission
@@ -15,6 +16,7 @@ import django_filters
 
 from guardian.shortcuts import get_objects_for_user
 from django.db.models import Q
+from django.core.exceptions import ObjectDoesNotExist
 
 from cookies.http import HttpResponseUnacceptable, IgnoreClientContentNegotiation
 
@@ -22,12 +24,15 @@ import magic
 import re
 from collections import OrderedDict
 
+import cookies.models
 from cookies import authorization, tasks, giles
 from cookies.accession import get_remote
 from cookies.aggregate import aggregate_content_resources, aggregate_content_resources_fast
 from cookies.models import *
 from concepts.models import *
 from cookies.exceptions import *
+from cookies import giles, operations
+from cookies.views.resource import _create_resource_file, _create_resource_details
 
 
 from django.utils.decorators import method_decorator
@@ -403,14 +408,59 @@ class FieldViewSet(viewsets.ModelViewSet):
     filter_class = FieldFilter
 
 
+class TypeField(serializers.Field):
+    def to_internal_value(self, data):
+        splits = map(lambda x: x.strip(), data.split(':'))
+        if len(splits) > 2:
+            raise serializers.ValidationError('Invalid type value format')
+        elif len(splits) == 1:
+            kwargs = {
+                'name': splits[0]
+            }
+        elif len(splits) == 2:
+            kwargs = {
+                'schema__name': splits[0],
+                'name': splits[1],
+            }
+        try:
+            t = cookies.models.Type.objects.get(**kwargs)
+        except ObjectDoesNotExist, e:
+            raise ValidationError('Type value doesn\'t exist')
+        return t
+
+
+class CollectionField(serializers.Field):
+    def to_internal_value(self, data):
+        request = self.context['request']
+        collection = authorization.apply_filter(*(
+            CollectionAuthorization.ADD,
+            request.user,
+            cookies.models.Collection.objects.filter(name=data).order_by('name')
+        ))
+        if len(collection) < 1:
+            raise ValidationError('Collection doesn\'t exist')
+        return collection[0]
+
+
+class CreateResourceSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    upload_file = serializers.FileField()
+    public = serializers.BooleanField(required=False)
+    uri = serializers.CharField(required=False)
+    description = serializers.CharField(required=False)
+    resource_type = TypeField()
+    collection = CollectionField(required=False)
+
+
 class ResourceViewSet(MultiSerializerViewSet):
-    parser_classes = (JSONParser,)
+    parser_classes = (JSONParser, MultiPartParser, FormParser,)
     queryset = Resource.active.filter(hidden=False)
 
     serializers = {
         'list': ResourceListSerializer,
         'retrieve':  ResourceDetailSerializer,
         'default':  ResourceListSerializer,
+        'create': CreateResourceSerializer,
     }
     permission_classes = (ResourcePermission,)
 
@@ -453,6 +503,17 @@ class ResourceViewSet(MultiSerializerViewSet):
             qs = qs.filter(Q(content__content_resource__content_type=content_type))
         return qs
 
+    def create(self, request):
+        serializer = CreateResourceSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+
+        resource_data = serializer.validated_data
+        uploaded_file = resource_data.pop('upload_file')
+
+        with transaction.atomic():
+            content_resource = _create_resource_file(request, uploaded_file)
+            resource = _create_resource_details(request, content_resource, resource_data)
+        return Response({'id': resource.id})
 
 
 # TODO: refactor or scrap this.
@@ -513,3 +574,4 @@ class ResourceContentView(APIView):
         resource.save()
 
         return Response(status=204)
+
