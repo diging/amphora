@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.parsers import JSONParser, FileUploadParser, MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.decorators import detail_route, list_route, api_view, parser_classes
+from rest_framework import permissions
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.authentication import TokenAuthentication
 from rest_framework import pagination
@@ -451,6 +452,17 @@ class CreateResourceSerializer(serializers.Serializer):
     resource_type = TypeField()
     collection = CollectionField(required=False)
 
+class ResourceCreatePermission(IsAuthenticated):
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            # Check permissions for read-only request
+            return True
+        else:
+            is_authenticated = super(ResourceCreatePermission, self).has_permission(request, view)
+            if not is_authenticated:
+                return False
+            return True
+
 
 class ResourceViewSet(MultiSerializerViewSet):
     parser_classes = (JSONParser, MultiPartParser, FormParser,)
@@ -462,7 +474,7 @@ class ResourceViewSet(MultiSerializerViewSet):
         'default':  ResourceListSerializer,
         'create': CreateResourceSerializer,
     }
-    permission_classes = (ResourcePermission,)
+    permission_classes = (ResourcePermission, ResourceCreatePermission)
 
     @method_decorator(cache_page(120, cache='rest_cache'))
     def retrieve(self, request, pk=None):
