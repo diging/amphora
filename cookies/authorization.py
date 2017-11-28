@@ -133,7 +133,7 @@ def check_authorization(auth, user, obj):
         _allow = anonymous_is_allowed(auth, user, obj)
         _deny = anonymous_is_denied(auth, user, obj)
     else:
-        _allow = allowed(auth, user, obj)
+        _allow = allowed(auth, user, obj) or anonymous_is_allowed(auth, user, obj)
         _deny = denied(auth, user, obj)
 
     if obj.part_of is not None:
@@ -160,14 +160,15 @@ def apply_filter(auth, user, qs):
         return qs
 
     if qs.model is Collection:
+        public = dict(authorizations__action=auth, authorizations__granted_to__isnull=True, authorizations__policy=ResourceAuthorization.ALLOW)
         if isinstance(user, AnonymousUser):
-            allow = dict(authorizations__action=auth, authorizations__granted_to__isnull=True, authorizations__policy=ResourceAuthorization.ALLOW)
+            allow = public
             deny = dict(authorizations__action=auth, authorizations__granted_to__isnull=True, authorizations__policy=ResourceAuthorization.DENY)
         else:
             allow = dict(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.ALLOW)
             deny = dict(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.DENY)
 
-        q = Q(created_by=user.id) | (Q(**allow) & ~Q(**deny))
+        q = Q(created_by=user.id) | ((Q(**public) | Q(**allow)) & ~Q(**deny))
     elif qs.model is ResourceContainer:
         q = Q(created_by=user.id) | \
             ((Q(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.ALLOW) \
