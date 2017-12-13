@@ -467,3 +467,22 @@ class SnapshotForm(forms.Form):
         super(SnapshotForm, self).__init__(*args, **kwargs)
         content_types = Resource.objects.values_list('content_type', flat=True).distinct('content_type')
         self.fields['content_type'].choices = [('__all__', 'All')] + [(val, val) for val in content_types if val is not None]
+
+class GilesLogReuploadForm(forms.Form):
+    UPLOAD_ALL = 'all'
+    UPLOAD_SELECTED = 'selected'
+
+    def __init__(self, *args, **kwargs):
+        queryset = kwargs.pop('queryset', [])
+        super(GilesLogReuploadForm, self).__init__(*args, **kwargs)
+        upload_type = forms.ChoiceField(choices=[
+            (self.UPLOAD_SELECTED, 'Reupload Selected'),
+            (self.UPLOAD_ALL, 'Reupload All'),
+        ], required=True)
+        self.fields['upload_type'] = upload_type
+
+        reupload = forms.ModelMultipleChoiceField(
+            queryset=queryset,
+            required=False,
+        )
+        self.fields['reupload'] = reupload
