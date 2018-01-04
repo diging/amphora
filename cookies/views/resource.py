@@ -531,6 +531,24 @@ def edit_resource_details(request, resource_id):
                 ('uri', form.cleaned_data['uri']),
                 ('namespace', form.cleaned_data['namespace']),
             ]
+
+            if form.cleaned_data['public'] != resource.public:
+                if form.cleaned_data['public']:
+                    ResourceAuthorization.objects.create(
+                        granted_by = request.user,
+                        granted_to = None,
+                        action = ResourceAuthorization.VIEW,
+                        policy = ResourceAuthorization.ALLOW,
+                        for_resource = resource.container
+                    )
+                else:
+                    ResourceAuthorization.objects.filter(
+                        granted_by = request.user,
+                        granted_to = None,
+                        for_resource = resource.container
+                    ).delete()
+
+
             for field, value in data:
                 setattr(resource, field, value)
             resource.save()
