@@ -532,28 +532,28 @@ def edit_resource_details(request, resource_id):
                 ('namespace', form.cleaned_data['namespace']),
             ]
 
-            if form.cleaned_data['public'] != resource.public:
-                if form.cleaned_data['public']:
-                    ResourceAuthorization.objects.create(
-                        granted_by = request.user,
-                        granted_to = None,
-                        action = ResourceAuthorization.VIEW,
-                        policy = ResourceAuthorization.ALLOW,
-                        for_resource = resource.container
-                    )
-                else:
-                    ResourceAuthorization.objects.filter(
-                        granted_by = request.user,
-                        granted_to = None,
-                        action = ResourceAuthorization.VIEW,
-                        policy = ResourceAuthorization.ALLOW,
-                        for_resource = resource.container
-                    ).delete()
+            with transaction.atomic():
+                if form.cleaned_data['public'] != resource.public:
+                    if form.cleaned_data['public']:
+                        ResourceAuthorization.objects.create(
+                            granted_by = request.user,
+                            granted_to = None,
+                            action = ResourceAuthorization.VIEW,
+                            policy = ResourceAuthorization.ALLOW,
+                            for_resource = resource.container
+                        )
+                    else:
+                        ResourceAuthorization.objects.filter(
+                            granted_by = request.user,
+                            granted_to = None,
+                            action = ResourceAuthorization.VIEW,
+                            policy = ResourceAuthorization.ALLOW,
+                            for_resource = resource.container
+                        ).delete()
 
-
-            for field, value in data:
-                setattr(resource, field, value)
-            resource.save()
+                for field, value in data:
+                    setattr(resource, field, value)
+                resource.save()
 
             if on_valid:
                 return HttpResponseRedirect(on_valid)
