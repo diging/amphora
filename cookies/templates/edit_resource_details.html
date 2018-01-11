@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load i18n %}
+{% load static %}
 {% load addcss %}
 {% load preview %}
 
@@ -11,6 +12,22 @@
     {% breadcrumb_url resource.name 'resource' resource.id  %}
     {% breadcrumb_url 'Edit' 'edit-resource-details' resource.id  %}
 </div>
+{% endblock %}
+
+{% block extrastyle %}
+<link rel="stylesheet" type="text/css" href="{% static "cookies/css/select2.css" %}" />
+<link rel="stylesheet" type="text/css" href="{% static "cookies/css/select2-bootstrap.css" %}" />
+{% endblock %}
+
+{% block extrahead %}
+    <script src="{% static "cookies/js/select2.js" %}" type="text/javascript"></script>
+    <script type="text/javascript">
+        $(document).ready(function(){
+            $("#id_resource_type").select2({
+                 theme: "bootstrap"
+            });
+        })
+    </script>
 {% endblock %}
 
 {% block content %}
