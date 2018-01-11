@@ -222,13 +222,15 @@ def test_giles_cleanup(request):
 
 @login_required
 def log(request):
+    upload_enabled = lambda f: True if filtered_objects.data['state'] in GilesUpload.ERROR_STATES else False
     if request.method == 'GET':
         qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
-                            GilesUpload.objects.all())
+                               GilesUpload.objects.all())
         filtered_objects = GilesUploadFilter(request.GET, queryset=qs)
         context = {
             'filtered_objects': filtered_objects,
             'upload_form': GilesLogReuploadForm(),
+            'upload_enabled': upload_enabled(filtered_objects),
         }
         return render(request, 'giles_log.html', context)
     elif request.method == 'POST':
@@ -245,7 +247,7 @@ def log(request):
             auth_reupload = auth.apply_filter(
                 ResourceAuthorization.EDIT,
                 request.user,
-                reupload)
+                reupload).filter(state__in=GilesUpload.ERROR_STATES)
 
             context = {}
             reuploads_count = reupload.count()
@@ -267,12 +269,14 @@ def log(request):
             context.update({
                 'filtered_objects': filtered_objects,
                 'upload_form': GilesLogReuploadForm(),
+                'upload_enabled': upload_enabled(filtered_objects),
             })
             return render(request, 'giles_log.html', context)
         else:
             context = {
                 'filtered_objects': filtered_objects,
                 'upload_form': upload_form,
+                'upload_enabled': upload_enabled(filtered_objects),
             }
             return render(request, 'giles_log.html', context)
 

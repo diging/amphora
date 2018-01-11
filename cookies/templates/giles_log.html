@@ -65,19 +65,21 @@
             {% if reuploads_success %}
                 Reuploaded {{ reuploads_success }} document(s).
             {% endif %}
-            {{ reuploads_skipped }} document(s) skipped (unauthorized).
+            {{ reuploads_skipped }} document(s) skipped.
         </div>
     {% elif reuploads_success > 0 %}
         <div class="alert alert-success" role="alert">Reuploaded {{reuploads_success}} document(s).</div>
     {% endif %}
     {% if uploads %}
-    <form method="POST">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-primary btn-xs" name="upload_type" value="selected" title="Reupload selected documents">Reupload Selected</button>
-        <button type="submit" class="btn btn-warning btn-xs" name="upload_type" value="all" title="Reupload all {{ filtered_objects.qs.count }} document(s) matching current filters">Reupload All</button>
+        {% if upload_enabled %}
+            <form method="POST">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary btn-xs" name="upload_type" value="selected" title="Reupload selected documents">Reupload Selected</button>
+                <button type="submit" class="btn btn-warning btn-xs" name="upload_type" value="all" title="Reupload all {{ filtered_objects.qs.count }} document(s) matching current filters">Reupload All</button>
+        {% endif %}
         <table class="table table-compact table-responsive">
             <thead>
-                <th><input id="upload_form_select_all" type="checkbox"></th>
+                {% if upload_enabled %}<th><input id="upload_form_select_all" type="checkbox"></th>{% endif %}
                 <th>Progress ID</th>
                 <th>Resource</th>
                 <th>State</th>
@@ -88,7 +90,7 @@
             <tbody>
                 {% for upload in uploads %}
                 <tr>
-                    <td><input type="checkbox" name="reupload" value="{{ upload.id }}"/></td>
+                    {% if upload_enabled %}<td><input type="checkbox" name="reupload" value="{{ upload.id }}"/></td>{% endif %}
                     <td><a class="btn btn-xs btn-xxs glyphicon glyphicon-eye-open" style="margin-right: 5px;" href="{% url "giles-log-item" upload.id %}"></a>{{ upload.upload_id }}</td>
                     <td>
                         <a href="{{ upload.resource.container.primary.get_absolute_url }}">{{ upload.resource.container.primary.name }}</a>
@@ -101,15 +103,17 @@
                 {% endfor %}
             </tbody>
         </table>
-        <script>
-            $(document).ready(function(){
-                $("#upload_form_select_all").change(function(){
-                    var checked = this.checked;
-                    $('[name="reupload"]').each(function(i, c){c.checked=checked;})
-                });
-            })
-        </script>
-    </form>
+        {% if upload_enabled %}
+                <script>
+                    $(document).ready(function(){
+                        $("#upload_form_select_all").change(function(){
+                            var checked = this.checked;
+                            $('[name="reupload"]').each(function(i, c){c.checked=checked;})
+                        });
+                    })
+                </script>
+            </form>
+        {% endif %}
     {% endif %}
     <div class="text-center">
         {% paginate %}
