@@ -84,7 +84,53 @@ class ResourceContainerFilter(django_filters.FilterSet):
                              .filter(num_instances__gt=0)
     )
 
-    content_type = django_filters.MultipleChoiceFilter(choices=[(val, val) for val in ContentRelation.objects.values_list('content_type', flat=True).distinct('content_type')], method='filter_content_type')
+    # FIXME: The following statement results in a very expensive Postgres query.
+    # As a temporary workaround, use a static list for choices.
+    # content_type = django_filters.MultipleChoiceFilter(choices=[(val, val) for val in ContentRelation.objects.values_list('content_type', flat=True).distinct('content_type')], method='filter_content_type')
+
+    content_type_choices = [
+        'application/java-archive',
+        'application/javascript',
+        'application/json',
+        'application/msword',
+        'application/octet-stream',
+        'application/pdf',
+        'application/rtf',
+        'application/vnd.apple.pages',
+        'application/vnd.ms-excel',
+        'application/vnd.oasis.opendocument.text',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/x-bibtex-text-file',
+        'application/xhtml+xml',
+        'application/x-java-archive',
+        'application/xml',
+        'application/x-msdownload',
+        'application/x-msdownload; format=pe32',
+        'application/x-sh',
+        'application/x-sqlite3',
+        'application/x-tika-msoffice',
+        'application/zip',
+        'image/gif',
+        'image/png',
+        'image/tiff',
+        'image/vnd.microsoft.icon',
+        'message/news',
+        'multipart/appledouble',
+        'text/css',
+        'text/csv',
+        'text/html',
+        'text/html; charset=utf-8',
+        'text/plain',
+        'text/tab-separated-values',
+        'text/x-matlab',
+        'text/xml',
+        'text/x-python',
+        'video/quicktime',
+    ]
+    content_type = django_filters.MultipleChoiceFilter(
+        choices=zip(content_type_choices, content_type_choices), method='filter_content_type')
 
     tag = django_filters.CharFilter(method='filter_tag')
 

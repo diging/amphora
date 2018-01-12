@@ -3,8 +3,10 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import caches
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, HttpResponse, JsonResponse, QueryDict
+from django.http import HttpResponseBadRequest
 from django.shortcuts import render, get_object_or_404
-from django.db.models import Q
+from django.db.models import Q, Max
+from django.db import transaction
 from django.utils.http import urlquote_plus
 
 from cookies.models import *
@@ -29,6 +31,61 @@ def _add_parameter(uri, key, value):
     parts[4] = urllib.urlencode(q)
     return urlparse.urlunparse(tuple(parts))
 
+def _create_resource_file(request, uploaded_file):
+    container = ResourceContainer.objects.create(created_by=request.user)
+    content = Resource.objects.create(**{
+        'content_type': uploaded_file.content_type,
+        'content_resource': True,
+        'name': uploaded_file._name,
+        'created_by': request.user,
+        'container': container,
+    })
+    collection = request.GET.get('collection')
+    if collection:
+        container.part_of_id = collection
+        container.save()
+
+    operations.add_creation_metadata(content, request.user)
+    # The file upload handler needs the Resource to have an ID first,
+    #  so we add the file after creation.
+    content.file = uploaded_file
+    content.save()
+    return content
+
+def _create_resource_details(request, content_resource, resource_data):
+    resource_data['entity_type'] = resource_data.pop('resource_type')
+    collection = resource_data.pop('collection', None)
+    if not content_resource.container:
+        content_resource.container = ResourceContainer.objects.create(created_by=request.user, part_of=collection)
+        content_resource.save()
+    else:
+        content_resource.container.part_of = collection
+
+    resource_data['created_by'] = request.user
+    resource_data['container'] = content_resource.container
+    resource = Resource.objects.create(**resource_data)
+    content_resource.container.primary = resource
+    content_resource.container.save()
+
+    operations.add_creation_metadata(resource, request.user)
+    content_relation = ContentRelation.objects.create(**{
+        'for_resource': resource,
+        'content_resource': content_resource,
+        'content_type': content_resource.content_type,
+        'container': content_resource.container,
+    })
+    resource.container = content_resource.container
+    resource.save()
+
+    if resource_data.get('public'):
+        ResourceAuthorization.objects.create(
+            granted_by = request.user,
+            granted_to = None,
+            action = ResourceAuthorization.VIEW,
+            policy = ResourceAuthorization.ALLOW,
+            for_resource = resource.container
+        )
+    return resource
 
 @auth.authorization_required(ResourceAuthorization.VIEW, _get_resource_by_id)
 def resource(request, obj_id):
@@ -36,11 +93,15 @@ def resource(request, obj_id):
     Display the resource with the given id
     """
     __isPartOf__ = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
+    __extent__ = Field.objects.get(name='Extent')
     resource = _get_resource_by_id(request, obj_id)
 
     # Get a fresh Giles auth token, if needed.
     # giles.get_user_auth_token(resource.created_by, fresh=True)
     preview = request.GET.get('preview')
+    part_relations = resource.relations_to.filter(predicate=__isPartOf__).order_by('sort_order')
+    content_region_relations = resource.relations_to.filter(predicate=__extent__).order_by('sort_order')
+
     context = {
         'resource':resource,
         'request': request,
@@ -48,7 +109,8 @@ def resource(request, obj_id):
         'part_of': resource.container.part_of,
         'relations_from': resource.relations_from.filter(is_deleted=False),
         'content_relations': resource.content.filter(is_deleted=False),
-        'part_relations': resource.relations_to.filter(predicate=__isPartOf__).order_by('sort_order')
+        'part_relations': part_relations,
+        'content_region_relations': content_region_relations,
     }
     if request.GET.get('format', None) == 'json':
         return JsonResponse(ResourceDetailSerializer(context=context).to_representation(resource))
@@ -137,25 +199,8 @@ def create_resource_file(request):
 
         form = UserResourceFileForm(request.POST, request.FILES)
         if form.is_valid():
-            uploaded_file = request.FILES['upload_file']
-            container = ResourceContainer.objects.create(created_by=request.user)
-            content = Resource.objects.create(**{
-                'content_type': uploaded_file.content_type,
-                'content_resource': True,
-                'name': uploaded_file._name,
-                'created_by': request.user,
-                'container': container,
-            })
-            collection = request.GET.get('collection')
-            if collection:
-                container.part_of_id = collection
-                container.save()
-
-            operations.add_creation_metadata(content, request.user)
-            # The file upload handler needs the Resource to have an ID first,
-            #  so we add the file after creation.
-            content.file = uploaded_file
-            content.save()
+            with transaction.atomic():
+                content = _create_resource_file(request, request.FILES['upload_file'])
             return HttpResponseRedirect(reverse('create-resource-details',
                                                 args=(content.id,)))
 
@@ -225,40 +270,8 @@ def create_resource_details(request, content_id):
         form = UserResourceForm(request.POST)
         if form.is_valid():
             resource_data = copy.copy(form.cleaned_data)
-            resource_data['entity_type'] = resource_data.pop('resource_type', None)
-            collection = resource_data.pop('collection', None)
-            if not content_resource.container:
-                content_resource.container = ResourceContainer.objects.create(created_by=request.user, part_of=collection)
-                content_resource.save()
-            else:
-                content_resource.container.part_of = collection
-
-            resource_data['created_by'] = request.user
-            resource_data['container'] = content_resource.container
-            resource = Resource.objects.create(**resource_data)
-            content_resource.container.primary = resource
-            content_resource.container.save()
-
-            operations.add_creation_metadata(resource, request.user)
-            content_relation = ContentRelation.objects.create(**{
-                'for_resource': resource,
-                'content_resource': content_resource,
-                'content_type': content_resource.content_type,
-                'container': content_resource.container,
-            })
-            resource.container = content_resource.container
-            resource.save()
-
-            if resource_data.get('public'):
-                ResourceAuthorization.objects.create(
-                    granted_by = request.user,
-                    granted_to = None,
-                    action = ResourceAuthorization.VIEW,
-                    policy = ResourceAuthorization.ALLOW,
-                    for_resource = resource.container
-                )
-
-
+            with transaction.atomic():
+                resource = _create_resource_details(request, content_resource, resource_data)
             return HttpResponseRedirect(reverse('resource', args=(resource.id,)))
 
     context.update({
@@ -518,9 +531,29 @@ def edit_resource_details(request, resource_id):
                 ('uri', form.cleaned_data['uri']),
                 ('namespace', form.cleaned_data['namespace']),
             ]
-            for field, value in data:
-                setattr(resource, field, value)
-            resource.save()
+
+            with transaction.atomic():
+                if form.cleaned_data['public'] != resource.public:
+                    if form.cleaned_data['public']:
+                        ResourceAuthorization.objects.create(
+                            granted_by = request.user,
+                            granted_to = None,
+                            action = ResourceAuthorization.VIEW,
+                            policy = ResourceAuthorization.ALLOW,
+                            for_resource = resource.container
+                        )
+                    else:
+                        ResourceAuthorization.objects.filter(
+                            granted_by = request.user,
+                            granted_to = None,
+                            action = ResourceAuthorization.VIEW,
+                            policy = ResourceAuthorization.ALLOW,
+                            for_resource = resource.container
+                        ).delete()
+
+                for field, value in data:
+                    setattr(resource, field, value)
+                resource.save()
 
             if on_valid:
                 return HttpResponseRedirect(on_valid)
@@ -533,6 +566,65 @@ def edit_resource_details(request, resource_id):
         'pages': resource.relations_from.filter(predicate_id=page_field.id),
     })
     return render(request, template, context)
+
+
+@auth.authorization_required(ResourceAuthorization.EDIT, _get_resource_by_id)
+def define_resource_content_region(request, resource_id):
+    """
+    Display the resource with the given id
+    """
+    __isPartOf__ = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
+    resource = _get_resource_by_id(request, resource_id)
+    part_relations = resource.relations_to.filter(predicate=__isPartOf__).order_by('sort_order')
+    resource_choices = [(relation.source.id, relation.source.name) for relation in part_relations]
+    resource_choices.insert(0, (resource.id, resource.name))
+
+    context = {
+        'resource': resource,
+        'request': request,
+    }
+    on_valid = request.GET.get('next', None)
+    if on_valid:
+        context.update({'next': on_valid})
+
+    if request.method == 'GET':
+        form = UserDefineContentRegionForm(resource_choices=resource_choices)
+
+    elif request.method == 'POST':
+        form = UserDefineContentRegionForm(request.POST, resource_choices=resource_choices)
+        if form.is_valid():
+            name = form.cleaned_data.get('name')
+            content_region_start_resource = form.cleaned_data.get('content_region_start_resource')
+            content_region_start_position = form.cleaned_data.get('content_region_start_position')
+            content_region_end_resource = form.cleaned_data.get('content_region_end_resource')
+            content_region_end_position = form.cleaned_data.get('content_region_end_position')
+            content_region = ContentRegion.objects.create(**{
+                'name': name,
+                'created_by_id': request.user.id,
+                'container': resource.container,
+                'start_position': content_region_start_position,
+                'start_resource': _get_resource_by_id(request, content_region_start_resource),
+                'end_position': content_region_end_position,
+                'end_resource': _get_resource_by_id(request, content_region_end_resource),
+            })
+            content_region.save()
+            __extent__ = Field.objects.get(name='Extent')
+            max_nr = resource.relations_to.filter(predicate=__extent__).aggregate(Max('sort_order'))
+            sort_order = 0 if max_nr.get('sort_order__max') is None else int(max_nr.get('sort_order__max')) + 1
+            Relation.objects.create(**{
+                'source': content_region,
+                'target': resource,
+                'predicate': __extent__,
+                'container': resource.container,
+                'sort_order': sort_order,
+            })
+
+            if on_valid:
+                return HttpResponseRedirect(on_valid)
+
+    context.update({'form': form})
+
+    return render(request, 'define_resource_content_region.html', context)
 
 
 def resource_merge(request):
@@ -641,7 +733,28 @@ def resource_content(request, resource_id):
     security layer here for non-public content.
     """
 
-    resource = _get_resource_by_id(request, resource_id)
+    parent_resource = _get_resource_by_id(request, resource_id)
+
+    request_content_type = request.GET.get('content_type', None)
+    request_content_index = request.GET.get('content_index', 0)
+    try:
+        request_content_index = int(request_content_index)
+    except (ValueError, TypeError) as e:
+        request_content_index = 0
+
+    if request_content_type is not None:
+        content_relations = parent_resource.content.filter(is_deleted=False,
+                                                           content_type=request_content_type)
+        if not content_relations:
+            return HttpResponseBadRequest('No \'%s\' content found for resource \'%s\'.' % (request_content_type, parent_resource.name),
+                    content_type='text/plain')
+        try:
+            resource = content_relations[request_content_index].content_resource
+        except IndexError:
+            return HttpResponseBadRequest('Content index \'%d\' out of range.' % (request_content_index), content_type='text/plain')
+    else:
+        resource = parent_resource
+
     if resource.content_type:
         content_type = resource.content_type
     else:

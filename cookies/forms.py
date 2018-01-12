@@ -231,6 +231,56 @@ class UserResourceURLForm(forms.Form):
                    + u' path to the resource here.'
     })
 
+class UserDefineContentRegionForm(forms.Form):
+    """
+    Form to define an content region from a resource
+    """
+    def __init__(self, *args, **kwargs):
+        self.resource_choices = kwargs.pop('resource_choices', None)
+        super(UserDefineContentRegionForm, self).__init__(*args, **kwargs)
+
+        self.groups = [
+            {
+                'name': 'start',
+                'fields': {},
+            },
+            {
+                'name': 'end',
+                'fields': {},
+            }
+        ]
+        self.fields['name'] = forms.CharField(**{
+            'label': 'Name',
+            'help_text': 'Give the content region a unique name'
+        })
+
+        self.fields['content_region_start_resource'] = forms.ChoiceField(**{
+            'label': 'Start Resource',
+            'help_text': 'Specify content region\'s starting resource',
+            'choices': self.resource_choices,
+        })
+        self.groups[0]['fields']['resource'] = self['content_region_start_resource']
+
+        self.fields['content_region_start_position'] = forms.IntegerField(**{
+            'label': 'Start Position',
+            'help_text': 'Specify content region\'s starting position',
+            'min_value': 0,
+        })
+        self.groups[0]['fields']['position'] = self['content_region_start_position']
+
+        self.fields['content_region_end_resource'] = forms.ChoiceField(**{
+            'label': 'End Resource',
+            'help_text': 'Specify content region\'s ending resource',
+            'choices': self.resource_choices,
+        })
+        self.groups[1]['fields']['resource'] = self['content_region_end_resource']
+
+        self.fields['content_region_end_position'] = forms.IntegerField(**{
+            'label': 'End Position',
+            'help_text': 'Specify content region\'s ending position',
+            'min_value': 0,
+        })
+        self.groups[1]['fields']['position'] = self['content_region_end_position']
 
 class ChooseCollectionForm(forms.Form):
     collection = CustomModelChoiceField(**{
@@ -417,3 +467,22 @@ class SnapshotForm(forms.Form):
         super(SnapshotForm, self).__init__(*args, **kwargs)
         content_types = Resource.objects.values_list('content_type', flat=True).distinct('content_type')
         self.fields['content_type'].choices = [('__all__', 'All')] + [(val, val) for val in content_types if val is not None]
+
+class GilesLogReuploadForm(forms.Form):
+    UPLOAD_ALL = 'all'
+    UPLOAD_SELECTED = 'selected'
+
+    def __init__(self, *args, **kwargs):
+        queryset = kwargs.pop('queryset', [])
+        super(GilesLogReuploadForm, self).__init__(*args, **kwargs)
+        upload_type = forms.ChoiceField(choices=[
+            (self.UPLOAD_SELECTED, 'Reupload Selected'),
+            (self.UPLOAD_ALL, 'Reupload All'),
+        ], required=True)
+        self.fields['upload_type'] = upload_type
+
+        reupload = forms.ModelMultipleChoiceField(
+            queryset=queryset,
+            required=False,
+        )
+        self.fields['reupload'] = reupload

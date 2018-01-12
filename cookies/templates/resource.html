@@ -110,15 +110,29 @@
 </div>
 
 <div class="container">
-    <dt>Parts</dt>
-    {% for relation in part_relations %}
-    <dd>
-        <a href="{{ relation.source.get_absolute_url }}">{{ relation.source.name }}</a>
-    </dd>
-    {% endfor %}
+    <dl>
+        <dt>Content Regions</dt>
+        {% for relation in content_region_relations %}
+        <dd>
+            {{ relation.source.name }} <i>({{ relation.source.start_resource.name }}:{{ relation.source.start_position }} &mdash; {{ relation.source.end_resource.name }}:{{ relation.source.end_position }})</i>
+        </dd>
+        {% endfor %}
+        {% if can_edit_resource %}
+        <a class="btn btn-xs"
+            href="{% url "define-resource-content-region" resource.id %}{% if request %}?next={{ request.path }}{% endif %}">
+            <span class="glyphicon glyphicon-plus"></span> Define Content Region
+        </a>
+        {% endif %}
+    </dl>
+    <dl>
+        <dt>Parts</dt>
+        {% for relation in part_relations %}
+        <dd>
+            <a href="{{ relation.source.get_absolute_url }}">{{ relation.source.name }}</a>
+        </dd>
+        {% endfor %}
+    </dl>
 </div>
-
-
 
 <div class="modal fade" tabindex="-1" role="dialog" id="uri-modal">
   <div class="modal-dialog" role="document">

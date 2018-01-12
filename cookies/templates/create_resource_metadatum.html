@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load addcss %}
 {% load preview %}
+{% load static %}
 
 {% load breadcrumbs %}
 {% block breadcrumbs %}
@@ -12,6 +13,22 @@
     {% breadcrumb_url 'Edit' 'edit-resource-details' resource.id  %}
     <span class="breadcrumbs-arrow">›&nbsp;</span> Create metadatum
 </div>
+{% endblock %}
+
+{% block extrastyle %}
+<link rel="stylesheet" type="text/css" href="{% static "cookies/css/select2.css" %}" />
+<link rel="stylesheet" type="text/css" href="{% static "cookies/css/select2-bootstrap.css" %}" />
+{% endblock %}
+
+{% block extrahead %}
+    <script src="{% static "cookies/js/select2.js" %}" type="text/javascript"></script>
+    <script type="text/javascript">
+        $(document).ready(function(){
+            $("#id_predicate").select2({
+                 theme: "bootstrap"
+            });
+        })
+    </script>
 {% endblock %}
 
 {% block content %}
