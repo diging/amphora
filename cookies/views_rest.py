@@ -523,8 +523,8 @@ class ResourceViewSet(MultiSerializerViewSet):
         uploaded_file = resource_data.pop('upload_file')
 
         with transaction.atomic():
-            content_resource = _create_resource_file(request, uploaded_file)
-            resource = _create_resource_details(request, content_resource, resource_data)
+            content_resource = _create_resource_file(request, uploaded_file, Resource.INTERFACE_API)
+            resource = _create_resource_details(request, content_resource, resource_data, Resource.INTERFACE_API)
         return Response({'id': resource.id})
 
 

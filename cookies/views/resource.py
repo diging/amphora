@@ -31,13 +31,14 @@ def _add_parameter(uri, key, value):
     parts[4] = urllib.urlencode(q)
     return urlparse.urlunparse(tuple(parts))
 
-def _create_resource_file(request, uploaded_file):
+def _create_resource_file(request, uploaded_file, upload_interface):
     container = ResourceContainer.objects.create(created_by=request.user)
     content = Resource.objects.create(**{
         'content_type': uploaded_file.content_type,
         'content_resource': True,
         'name': uploaded_file._name,
         'created_by': request.user,
+        'created_through': upload_interface,
         'container': container,
     })
     collection = request.GET.get('collection')
@@ -52,7 +53,7 @@ def _create_resource_file(request, uploaded_file):
     content.save()
     return content
 
-def _create_resource_details(request, content_resource, resource_data):
+def _create_resource_details(request, content_resource, resource_data, upload_interface):
     resource_data['entity_type'] = resource_data.pop('resource_type')
     collection = resource_data.pop('collection', None)
     if not content_resource.container:
@@ -62,6 +63,7 @@ def _create_resource_details(request, content_resource, resource_data):
         content_resource.container.part_of = collection
 
     resource_data['created_by'] = request.user
+    resource_data['created_through'] = upload_interface
     resource_data['container'] = content_resource.container
     resource = Resource.objects.create(**resource_data)
     content_resource.container.primary = resource
@@ -200,7 +202,7 @@ def create_resource_file(request):
         form = UserResourceFileForm(request.POST, request.FILES)
         if form.is_valid():
             with transaction.atomic():
-                content = _create_resource_file(request, request.FILES['upload_file'])
+                content = _create_resource_file(request, request.FILES['upload_file'], Resource.INTERFACE_WEB)
             return HttpResponseRedirect(reverse('create-resource-details',
                                                 args=(content.id,)))
 
@@ -271,7 +273,7 @@ def create_resource_details(request, content_id):
         if form.is_valid():
             resource_data = copy.copy(form.cleaned_data)
             with transaction.atomic():
-                resource = _create_resource_details(request, content_resource, resource_data)
+                resource = _create_resource_details(request, content_resource, resource_data, Resource.INTERFACE_WEB)
             return HttpResponseRedirect(reverse('resource', args=(resource.id,)))
 
     context.update({

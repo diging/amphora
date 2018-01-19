@@ -53,8 +53,16 @@ class Entity(models.Model):
     A named object that represents some element in the data.
     """
 
+    INTERFACE_WEB = 'Web'
+    INTERFACE_API = 'API'
+    INTERFACES = (
+        (INTERFACE_WEB, 'Web UI'),
+        (INTERFACE_API, 'API'),
+    )
+
     created = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, blank=True, null=True)
+    created_through = models.CharField(blank=True, max_length=3, choices=INTERFACES)
     updated = models.DateTimeField(auto_now=True)
 
     entity_type = models.ForeignKey('Type', blank=True, null=True,
@@ -293,7 +301,6 @@ class ContentRelation(models.Model):
     container = models.ForeignKey('ResourceContainer',
                                   related_name='content_relations')
     is_deleted = models.BooleanField(default=False)
-
 
 class Collection(ResourceBase):
     """
@@ -615,6 +622,27 @@ class GilesUpload(models.Model):
         (ASSIGNED, 'Assigned')
     )
     state  = models.CharField(max_length=2, choices=STATES)
+
+    PRIORITY_HIGH = 10
+    PRIORITY_MEDIUM = 20
+    PRIORITY_LOW = 30
+    PRIORITIES = (
+        (PRIORITY_HIGH, 'High priority'),
+        (PRIORITY_MEDIUM, 'Medium priority'),
+        (PRIORITY_LOW, 'Low priority'),
+    )
+    priority = models.IntegerField(default=PRIORITY_LOW, choices=PRIORITIES)
+
+    @property
+    def priority_label(self):
+        if self.priority == self.PRIORITY_HIGH:
+            return 'High'
+        elif self.priority == self.PRIORITY_MEDIUM:
+            return 'Medium'
+        elif self.priority == self.PRIORITY_LOW:
+            return 'Low'
+        else:
+            return str(self.priority)
 
     message = models.TextField()
     """Error messages, etc."""

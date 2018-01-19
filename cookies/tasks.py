@@ -176,7 +176,7 @@ def check_giles_uploads():
         return
 
     _e = 0
-    for upload in pending[:remaining]:
+    for upload in pending.order_by('priority')[:remaining]:
         send_to_giles.delay(upload.id, upload.created_by)
         upload.state = GilesUpload.ENQUEUED
         upload.save()

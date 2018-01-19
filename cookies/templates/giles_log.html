@@ -14,9 +14,28 @@
 </div>
 {% endblock %}
 
+{% block extrastyle %}
+<style>
+    .dropdown-menu>li>button:focus, .dropdown-menu>li>button:hover {
+        color: #262626;
+        background-color: #f5f5f5;
+    }
+    .dropdown-menu>li>button {
+        display: block;
+        padding: 3px 20px;
+        clear: both;
+        font-weight: 400;
+        line-height: 1.42857143;
+        color: #333;
+        white-space: nowrap;
+        text-align: left;
+        width: 100%;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 {% autopaginate filtered_objects.qs 40 as uploads %}
-
 
 
 <div class="container-fluid">
@@ -70,19 +89,45 @@
     {% elif reuploads_success > 0 %}
         <div class="alert alert-success" role="alert">Reuploaded {{reuploads_success}} document(s).</div>
     {% endif %}
+
+    {% if priority_change_skipped > 0 %}
+        <div class="alert alert-warning" role="alert">
+            {% if priority_change_success %}
+                Re-prioritized {{ priority_change_success }} document(s).
+            {% endif %}
+            {{ priority_change_skipped }} document(s) skipped.
+        </div>
+    {% elif priority_change_success > 0 %}
+        <div class="alert alert-success" role="alert">Re-prioritized {{priority_change_success}} document(s).</div>
+    {% endif %}
+
     {% if uploads %}
-        {% if upload_enabled %}
-            <form method="POST">
-                {% csrf_token %}
+        <form method="POST">
+            {% csrf_token %}
+            {% if upload_enabled %}
                 <button type="submit" class="btn btn-primary btn-xs" name="upload_type" value="selected" title="Reupload selected documents">Reupload Selected</button>
                 <button type="submit" class="btn btn-warning btn-xs" name="upload_type" value="all" title="Reupload all {{ filtered_objects.qs.count }} document(s) matching current filters">Reupload All</button>
-        {% endif %}
+            {% endif %}
+            {% if priority_changeable %}
+                <div class="btn-group">
+                    <button title="Change priority of selected documents" type="button" class="btn btn-default dropdown-toggle btn-xs" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        Change Priority <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><button type="submit" name="priority" value="high" class="btn btn-xs">High</button></li>
+                        <li><button type="submit" name="priority" value="medium" class="btn btn-xs">Medium</button></li>
+                        <li><button type="submit" name="priority" value="low" class="btn btn-xs">Low</button></li>
+                    </ul>
+                </div>
+            {% endif %}
+
         <table class="table table-compact table-responsive">
             <thead>
-                {% if upload_enabled %}<th><input id="upload_form_select_all" type="checkbox"></th>{% endif %}
+                {% if upload_enabled or priority_changeable %}<th><input id="form_select_all" type="checkbox"></th>{% endif %}
                 <th>Progress ID</th>
                 <th>Resource</th>
                 <th>State</th>
+                <th>Priority</th>
                 <th>Created</th>
                 <th>Updated</th>
                 <th>Message</th>
@@ -90,12 +135,13 @@
             <tbody>
                 {% for upload in uploads %}
                 <tr>
-                    {% if upload_enabled %}<td><input type="checkbox" name="reupload" value="{{ upload.id }}"/></td>{% endif %}
+                    {% if upload_enabled or priority_changeable %}<td><input type="checkbox" name="resources" value="{{ upload.id }}"/></td>{% endif %}
                     <td><a class="btn btn-xs btn-xxs glyphicon glyphicon-eye-open" style="margin-right: 5px;" href="{% url "giles-log-item" upload.id %}"></a>{{ upload.upload_id }}</td>
                     <td>
                         <a href="{{ upload.resource.container.primary.get_absolute_url }}">{{ upload.resource.container.primary.name }}</a>
                     </td>
                     <td><span class="label {% if upload.state in upload.ERROR_STATES %}label-danger{% elif upload.state == upload.DONE %}label-success{% elif upload.state == upload.SENT %}label-warning{% else %}label-primary{% endif %}">{{ upload.get_state_display }}</span></td>
+                    <td>{{ upload.priority_label }}</td>
                     <td>{{ upload.created }}</td>
                     <td>{{ upload.updated }}</td>
                     <td>{{ upload.message|truncatechars:50 }}</td>
@@ -103,12 +149,12 @@
                 {% endfor %}
             </tbody>
         </table>
-        {% if upload_enabled %}
+        {% if upload_enabled or priority_changeable %}
                 <script>
                     $(document).ready(function(){
-                        $("#upload_form_select_all").change(function(){
+                        $("#form_select_all").change(function(){
                             var checked = this.checked;
-                            $('[name="reupload"]').each(function(i, c){c.checked=checked;})
+                            $('[name="resources"]').each(function(i, c){c.checked=checked;})
                         });
                     })
                 </script>
