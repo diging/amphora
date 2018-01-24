@@ -5,7 +5,7 @@ from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, HttpResponse, JsonResponse, QueryDict
 from django.http import HttpResponseBadRequest
 from django.shortcuts import render, get_object_or_404
-from django.db.models import Q, Max
+from django.db.models import Q, Max, Count
 from django.db import transaction
 from django.utils.http import urlquote_plus
 
@@ -114,6 +114,34 @@ def resource(request, obj_id):
         'part_relations': part_relations,
         'content_region_relations': content_region_relations,
     }
+
+    if resource.giles_uploads.all()[0].state == GilesUpload.PENDING:
+        pending_stats = GilesUpload.objects.filter(state=GilesUpload.PENDING).values('priority').annotate(total=Count('priority'))
+        pending_stats = {e['priority']: e['total'] for e in pending_stats}
+        context['pending_counts'] = {}
+        context['pending_counts']['low'] = pending_stats.get(GilesUpload.PRIORITY_LOW, 0)
+        context['pending_counts']['medium'] = pending_stats.get(GilesUpload.PRIORITY_MEDIUM, 0)
+        context['pending_counts']['high'] = pending_stats.get(GilesUpload.PRIORITY_HIGH, 0)
+
+    if request.method == 'POST':
+        form = ResourceGilesPriorityForm(request.POST)
+        if form.is_valid():
+            if not auth.check_authorization('change_resource', request.user, resource):
+                context['priority_change_error'] = 'Unauthorized'
+            else:
+                priority_level = form.cleaned_data.get('priority')
+                if priority_level == ResourceGilesPriorityForm.PRIORITY_HIGH:
+                    priority = GilesUpload.PRIORITY_HIGH
+                elif priority_level == ResourceGilesPriorityForm.PRIORITY_MEDIUM:
+                    priority = GilesUpload.PRIORITY_MEDIUM
+                else:
+                    priority = GilesUpload.PRIORITY_LOW
+
+                success = resource.giles_uploads.all().update(priority=priority)
+                context['priority_change_success'] = success
+    else:
+        context['form'] = ResourceGilesPriorityForm()
+
     if request.GET.get('format', None) == 'json':
         return JsonResponse(ResourceDetailSerializer(context=context).to_representation(resource))
     return render(request, 'resource.html', context)

@@ -231,6 +231,16 @@ class UserResourceURLForm(forms.Form):
                    + u' path to the resource here.'
     })
 
+class ResourceGilesPriorityForm(forms.Form):
+    PRIORITY_HIGH = 'high'
+    PRIORITY_MEDIUM = 'medium'
+    PRIORITY_LOW = 'low'
+    priority = forms.ChoiceField(choices=[
+        (PRIORITY_HIGH, 'High'),
+        (PRIORITY_MEDIUM, 'Medium'),
+        (PRIORITY_LOW, 'Low'),
+    ], required=False)
+
 class UserDefineContentRegionForm(forms.Form):
     """
     Form to define an content region from a resource

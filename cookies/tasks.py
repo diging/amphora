@@ -25,6 +25,10 @@ logger.setLevel(settings.LOGLEVEL)
 import jsonpickle, json, os
 from datetime import timedelta, datetime
 
+# Celery priorities need to be 0-9, 9 being the highest and 0 being the lowest.
+CELERY_PRIORITY_HIGH = 8
+CELERY_PRIORITY_MEDIUM = 5
+CELERY_PRIORITY_LOW = 2
 
 @shared_task
 def handle_content(obj, commit=True):
@@ -158,9 +162,20 @@ def check_giles_uploads():
     qs = GilesUpload.objects.filter(state=GilesUpload.SENT)
     _u = 0
     for upload in qs.order_by('updated')[:100]:
+        if upload.priority == GilesUpload.PRIORITY_HIGH:
+            priority = CELERY_PRIORITY_HIGH
+        elif upload.priority == GilesUpload.PRIORITY_MEDIUM:
+            priority = CELERY_PRIORITY_MEDIUM
+        else:
+            priority = CELERY_PRIORITY_LOW
         upload.state = GilesUpload.ASSIGNED
         upload.save()
-        check_giles_upload.delay(upload.upload_id, upload.created_by.username)
+        # FIXME: Celery's support for 'priority' on Redis backend isn't clear.
+        # Revisit after https://github.com/celery/celery/issues/4028 is
+        # resolved and Amphora's celery version is updated.
+        check_giles_upload.apply_async(args=(upload.upload_id, upload.created_by.username),
+                                       kwargs={},
+                                       priority=priority)
         _u += 1
     logger.debug('assigned %i uploads to check' % _u)
 
@@ -177,7 +192,18 @@ def check_giles_uploads():
 
     _e = 0
     for upload in pending.order_by('priority')[:remaining]:
-        send_to_giles.delay(upload.id, upload.created_by)
+        if upload.priority == GilesUpload.PRIORITY_HIGH:
+            priority = CELERY_PRIORITY_HIGH
+        elif upload.priority == GilesUpload.PRIORITY_MEDIUM:
+            priority = CELERY_PRIORITY_MEDIUM
+        else:
+            priority = CELERY_PRIORITY_LOW
+        # FIXME: Celery's support for 'priority' on Redis backend isn't clear.
+        # Revisit after https://github.com/celery/celery/issues/4028 is
+        # resolved and Amphora's celery version is updated.
+        send_to_giles.apply_async(args=(upload.id, upload.created_by),
+                                  kwargs={},
+                                  priority=priority)
         upload.state = GilesUpload.ENQUEUED
         upload.save()
         _e += 1

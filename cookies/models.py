@@ -53,7 +53,7 @@ class Entity(models.Model):
     A named object that represents some element in the data.
     """
 
-    INTERFACE_WEB = 'Web'
+    INTERFACE_WEB = 'WEB'
     INTERFACE_API = 'API'
     INTERFACES = (
         (INTERFACE_WEB, 'Web UI'),
@@ -623,26 +623,15 @@ class GilesUpload(models.Model):
     )
     state  = models.CharField(max_length=2, choices=STATES)
 
-    PRIORITY_HIGH = 10
-    PRIORITY_MEDIUM = 20
-    PRIORITY_LOW = 30
+    PRIORITY_HIGH = 8
+    PRIORITY_MEDIUM = 5
+    PRIORITY_LOW = 2
     PRIORITIES = (
-        (PRIORITY_HIGH, 'High priority'),
-        (PRIORITY_MEDIUM, 'Medium priority'),
-        (PRIORITY_LOW, 'Low priority'),
+        (PRIORITY_HIGH, 'High'),
+        (PRIORITY_MEDIUM, 'Medium'),
+        (PRIORITY_LOW, 'Low'),
     )
-    priority = models.IntegerField(default=PRIORITY_LOW, choices=PRIORITIES)
-
-    @property
-    def priority_label(self):
-        if self.priority == self.PRIORITY_HIGH:
-            return 'High'
-        elif self.priority == self.PRIORITY_MEDIUM:
-            return 'Medium'
-        elif self.priority == self.PRIORITY_LOW:
-            return 'Low'
-        else:
-            return str(self.priority)
+    priority = models.IntegerField(db_index=True, default=PRIORITY_LOW, choices=PRIORITIES)
 
     message = models.TextField()
     """Error messages, etc."""
