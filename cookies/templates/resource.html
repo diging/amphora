@@ -34,15 +34,11 @@
 
 {% block extrahead %}
 <script>
-function changePriority(priority){
-    $("#priority-form").find("[name='priority']")[0].value = priority;
+function changePriority(element){
+    $("#priority-form").find("[name='priority']")[0].value = element.value;
     var modal = $("#priority-modal");
-    if(priority == 'high'){
-        modal.find(".modal-body").html('Are you sure you want to set the <strong>highest</strong> upload priority for the current resource?');
-        modal.modal();
-    }
-    else if(priority == 'low'){
-        modal.find(".modal-body").html('Are you sure you want to set the <strong>lowest</strong> upload priority for the current resource?');
+    if(element.dataset.confirm){
+        modal.find(".modal-body").html('Are you sure you want to set <strong>'+ element.innerText + '</strong> upload priority for the current resource?');
         modal.modal();
     }
     else {
@@ -151,9 +147,9 @@ $(document).ready(function(){
                                         </button>
                                         <input type="hidden" name="priority" value="low"/>
                                         <ul class="dropdown-menu">
-                                            <li><button type="button" onclick="changePriority('high');" class="btn btn-xs">High</button></li>
-                                            <li><button type="button" onclick="changePriority('medium');" class="btn btn-xs">Medium</button></li>
-                                            <li><button type="button" onclick="changePriority('low');" class="btn btn-xs">Low</button></li>
+                                            {% for value, label in form.fields.priority.choices %}
+                                                <li><button type="button" value='{{ value }}' {% if value in form.CHOICES_CONFIRM_CHANGE %}data-confirm="true"{% endif %} onclick="changePriority(this);" class="btn btn-xs">{{ label }}</button></li>
+                                            {% endfor %}
                                         </ul>
                                     </div>
                                     {% if priority_change_success %}

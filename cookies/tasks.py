@@ -30,6 +30,12 @@ CELERY_PRIORITY_HIGH = 8
 CELERY_PRIORITY_MEDIUM = 5
 CELERY_PRIORITY_LOW = 2
 
+GILESUPLOAD_CELERY_PRIORITY_MAP = {
+    GilesUpload.PRIORITY_HIGH: CELERY_PRIORITY_HIGH,
+    GilesUpload.PRIORITY_MEDIUM: CELERY_PRIORITY_MEDIUM,
+    GilesUpload.PRIORITY_LOW: CELERY_PRIORITY_LOW,
+}
+
 @shared_task
 def handle_content(obj, commit=True):
     """
@@ -162,20 +168,9 @@ def check_giles_uploads():
     qs = GilesUpload.objects.filter(state=GilesUpload.SENT)
     _u = 0
     for upload in qs.order_by('updated')[:100]:
-        if upload.priority == GilesUpload.PRIORITY_HIGH:
-            priority = CELERY_PRIORITY_HIGH
-        elif upload.priority == GilesUpload.PRIORITY_MEDIUM:
-            priority = CELERY_PRIORITY_MEDIUM
-        else:
-            priority = CELERY_PRIORITY_LOW
         upload.state = GilesUpload.ASSIGNED
         upload.save()
-        # FIXME: Celery's support for 'priority' on Redis backend isn't clear.
-        # Revisit after https://github.com/celery/celery/issues/4028 is
-        # resolved and Amphora's celery version is updated.
-        check_giles_upload.apply_async(args=(upload.upload_id, upload.created_by.username),
-                                       kwargs={},
-                                       priority=priority)
+        check_giles_upload.delay(upload.upload_id, upload.created_by.username)
         _u += 1
     logger.debug('assigned %i uploads to check' % _u)
 
@@ -192,12 +187,7 @@ def check_giles_uploads():
 
     _e = 0
     for upload in pending.order_by('priority')[:remaining]:
-        if upload.priority == GilesUpload.PRIORITY_HIGH:
-            priority = CELERY_PRIORITY_HIGH
-        elif upload.priority == GilesUpload.PRIORITY_MEDIUM:
-            priority = CELERY_PRIORITY_MEDIUM
-        else:
-            priority = CELERY_PRIORITY_LOW
+        priority = GILESUPLOAD_CELERY_PRIORITY_MAP.get(upload.priority, CELERY_PRIORITY_LOW)
         # FIXME: Celery's support for 'priority' on Redis backend isn't clear.
         # Revisit after https://github.com/celery/celery/issues/4028 is
         # resolved and Amphora's celery version is updated.

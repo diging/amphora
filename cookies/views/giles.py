@@ -246,13 +246,7 @@ def _reupload_resources(request, form_data, filtered_objects):
     return context
 
 def _change_priority(request, form_data, filtered_objects):
-    priority_level = form_data.get('priority')
-    if priority_level == GilesLogForm.PRIORITY_HIGH:
-        priority = GilesUpload.PRIORITY_HIGH
-    elif priority_level == GilesLogForm.PRIORITY_MEDIUM:
-        priority = GilesUpload.PRIORITY_MEDIUM
-    else:
-        priority = GilesUpload.PRIORITY_LOW
+    priority = form_data.get('priority')
 
     resources = form_data.get('resources')
     count_resources = resources.count()

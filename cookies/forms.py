@@ -232,14 +232,8 @@ class UserResourceURLForm(forms.Form):
     })
 
 class ResourceGilesPriorityForm(forms.Form):
-    PRIORITY_HIGH = 'high'
-    PRIORITY_MEDIUM = 'medium'
-    PRIORITY_LOW = 'low'
-    priority = forms.ChoiceField(choices=[
-        (PRIORITY_HIGH, 'High'),
-        (PRIORITY_MEDIUM, 'Medium'),
-        (PRIORITY_LOW, 'Low'),
-    ], required=False)
+    CHOICES_CONFIRM_CHANGE = (GilesUpload.PRIORITY_HIGH, GilesUpload.PRIORITY_LOW,)
+    priority = forms.ChoiceField(choices=GilesUpload.PRIORITIES, required=False)
 
 class UserDefineContentRegionForm(forms.Form):
     """
@@ -481,9 +475,6 @@ class SnapshotForm(forms.Form):
 class GilesLogForm(forms.Form):
     UPLOAD_ALL = 'all'
     UPLOAD_SELECTED = 'selected'
-    PRIORITY_HIGH = 'high'
-    PRIORITY_MEDIUM = 'medium'
-    PRIORITY_LOW = 'low'
 
     def __init__(self, *args, **kwargs):
         queryset = kwargs.pop('queryset', [])
@@ -500,11 +491,7 @@ class GilesLogForm(forms.Form):
         )
         self.fields['resources'] = resources
 
-        priority = forms.ChoiceField(choices=[
-            (self.PRIORITY_HIGH, 'High priority'),
-            (self.PRIORITY_MEDIUM, 'Medium priority'),
-            (self.PRIORITY_LOW, 'Low priority'),
-        ], required=False)
+        priority = forms.ChoiceField(choices=GilesUpload.PRIORITIES, required=False)
         self.fields['priority'] = priority
 
     def clean(self):

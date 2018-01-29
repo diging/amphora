@@ -623,9 +623,9 @@ class GilesUpload(models.Model):
     )
     state  = models.CharField(max_length=2, choices=STATES)
 
-    PRIORITY_HIGH = 8
-    PRIORITY_MEDIUM = 5
-    PRIORITY_LOW = 2
+    PRIORITY_HIGH = 100
+    PRIORITY_MEDIUM = 50
+    PRIORITY_LOW = 10
     PRIORITIES = (
         (PRIORITY_HIGH, 'High'),
         (PRIORITY_MEDIUM, 'Medium'),

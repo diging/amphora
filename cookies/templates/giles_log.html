@@ -114,9 +114,9 @@
                         Change Priority <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu">
-                        <li><button type="submit" name="priority" value="high" class="btn btn-xs">High</button></li>
-                        <li><button type="submit" name="priority" value="medium" class="btn btn-xs">Medium</button></li>
-                        <li><button type="submit" name="priority" value="low" class="btn btn-xs">Low</button></li>
+                        {% for value, label in form.fields.priority.choices %}
+                            <li><button type="submit" name="priority" value="{{ value }}" class="btn btn-xs">{{ label }}</button></li>
+                        {% endfor %}
                     </ul>
                 </div>
             {% endif %}

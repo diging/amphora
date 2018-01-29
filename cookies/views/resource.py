@@ -129,16 +129,10 @@ def resource(request, obj_id):
             if not auth.check_authorization('change_resource', request.user, resource):
                 context['priority_change_error'] = 'Unauthorized'
             else:
-                priority_level = form.cleaned_data.get('priority')
-                if priority_level == ResourceGilesPriorityForm.PRIORITY_HIGH:
-                    priority = GilesUpload.PRIORITY_HIGH
-                elif priority_level == ResourceGilesPriorityForm.PRIORITY_MEDIUM:
-                    priority = GilesUpload.PRIORITY_MEDIUM
-                else:
-                    priority = GilesUpload.PRIORITY_LOW
-
+                priority = form.cleaned_data.get('priority')
                 success = resource.giles_uploads.all().update(priority=priority)
                 context['priority_change_success'] = success
+        context['form'] = form
     else:
         context['form'] = ResourceGilesPriorityForm()
 
