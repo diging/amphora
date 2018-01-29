@@ -231,6 +231,10 @@ class UserResourceURLForm(forms.Form):
                    + u' path to the resource here.'
     })
 
+class ResourceGilesPriorityForm(forms.Form):
+    CHOICES_CONFIRM_CHANGE = (GilesUpload.PRIORITY_HIGH, GilesUpload.PRIORITY_LOW,)
+    priority = forms.ChoiceField(choices=GilesUpload.PRIORITIES, required=False)
+
 class UserDefineContentRegionForm(forms.Form):
     """
     Form to define an content region from a resource
@@ -468,21 +472,30 @@ class SnapshotForm(forms.Form):
         content_types = Resource.objects.values_list('content_type', flat=True).distinct('content_type')
         self.fields['content_type'].choices = [('__all__', 'All')] + [(val, val) for val in content_types if val is not None]
 
-class GilesLogReuploadForm(forms.Form):
+class GilesLogForm(forms.Form):
     UPLOAD_ALL = 'all'
     UPLOAD_SELECTED = 'selected'
 
     def __init__(self, *args, **kwargs):
         queryset = kwargs.pop('queryset', [])
-        super(GilesLogReuploadForm, self).__init__(*args, **kwargs)
+        super(GilesLogForm, self).__init__(*args, **kwargs)
         upload_type = forms.ChoiceField(choices=[
             (self.UPLOAD_SELECTED, 'Reupload Selected'),
             (self.UPLOAD_ALL, 'Reupload All'),
-        ], required=True)
+        ], required=False)
         self.fields['upload_type'] = upload_type
 
-        reupload = forms.ModelMultipleChoiceField(
+        resources = forms.ModelMultipleChoiceField(
             queryset=queryset,
             required=False,
         )
-        self.fields['reupload'] = reupload
+        self.fields['resources'] = resources
+
+        priority = forms.ChoiceField(choices=GilesUpload.PRIORITIES, required=False)
+        self.fields['priority'] = priority
+
+    def clean(self):
+        cleaned_data = super(GilesLogForm, self).clean()
+        if not (cleaned_data.get('upload_type') or cleaned_data.get('priority')):
+            raise forms.ValidationError('One of "upload_type", "priority" is required')
+        return cleaned_data

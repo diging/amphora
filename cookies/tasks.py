@@ -25,6 +25,16 @@ logger.setLevel(settings.LOGLEVEL)
 import jsonpickle, json, os
 from datetime import timedelta, datetime
 
+# Celery priorities need to be 0-9, 9 being the highest and 0 being the lowest.
+CELERY_PRIORITY_HIGH = 8
+CELERY_PRIORITY_MEDIUM = 5
+CELERY_PRIORITY_LOW = 2
+
+GILESUPLOAD_CELERY_PRIORITY_MAP = {
+    GilesUpload.PRIORITY_HIGH: CELERY_PRIORITY_HIGH,
+    GilesUpload.PRIORITY_MEDIUM: CELERY_PRIORITY_MEDIUM,
+    GilesUpload.PRIORITY_LOW: CELERY_PRIORITY_LOW,
+}
 
 @shared_task
 def handle_content(obj, commit=True):
@@ -176,8 +186,14 @@ def check_giles_uploads():
         return
 
     _e = 0
-    for upload in pending[:remaining]:
-        send_to_giles.delay(upload.id, upload.created_by)
+    for upload in pending.order_by('priority')[:remaining]:
+        priority = GILESUPLOAD_CELERY_PRIORITY_MAP.get(upload.priority, CELERY_PRIORITY_LOW)
+        # FIXME: Celery's support for 'priority' on Redis backend isn't clear.
+        # Revisit after https://github.com/celery/celery/issues/4028 is
+        # resolved and Amphora's celery version is updated.
+        send_to_giles.apply_async(args=(upload.id, upload.created_by),
+                                  kwargs={},
+                                  priority=priority)
         upload.state = GilesUpload.ENQUEUED
         upload.save()
         _e += 1

@@ -240,11 +240,19 @@ def create_giles_upload(resource_id, content_relation_id, username,
     content_resource = content_relation.content_resource
     user = User.objects.get(username=username)
 
+    if resource.created_through == Resource.INTERFACE_WEB:
+        priority = GilesUpload.PRIORITY_MEDIUM
+    elif resource.created_through == Resource.INTERFACE_API:
+        priority = GilesUpload.PRIORITY_LOW
+    else:
+        priority = GilesUpload.PRIORITY_MEDIUM
+
     data = {
         'resource':resource,
         'file_path': content_resource.file.name,
         'state': GilesUpload.PENDING,
         'created_by': user,
+        'priority': priority,
     }
 
     if delete_on_complete:
