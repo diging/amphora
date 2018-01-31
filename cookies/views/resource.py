@@ -115,7 +115,8 @@ def resource(request, obj_id):
         'content_region_relations': content_region_relations,
     }
 
-    if resource.giles_uploads.all()[0].state == GilesUpload.PENDING:
+    resource_pending_uploads = resource.giles_uploads.filter(state=GilesUpload.PENDING)
+    if resource_pending_uploads.count() > 0:
         pending_stats = GilesUpload.objects.filter(state=GilesUpload.PENDING).values('priority').annotate(total=Count('priority'))
         pending_stats = {e['priority']: e['total'] for e in pending_stats}
         context['pending_counts'] = {}
