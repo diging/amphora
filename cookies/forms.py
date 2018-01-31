@@ -469,8 +469,52 @@ class SnapshotForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super(SnapshotForm, self).__init__(*args, **kwargs)
-        content_types = Resource.objects.values_list('content_type', flat=True).distinct('content_type')
-        self.fields['content_type'].choices = [('__all__', 'All')] + [(val, val) for val in content_types if val is not None]
+
+        # FIXME: The following statement results in a very expensive Postgres query.
+        # As a temporary workaround, use a static list for choices.
+        # content_types = Resource.objects.values_list('content_type', flat=True).distinct('content_type')
+        content_type_choices = [
+            'application/java-archive',
+            'application/javascript',
+            'application/json',
+            'application/msword',
+            'application/octet-stream',
+            'application/pdf',
+            'application/rtf',
+            'application/vnd.apple.pages',
+            'application/vnd.ms-excel',
+            'application/vnd.oasis.opendocument.text',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/x-bibtex-text-file',
+            'application/xhtml+xml',
+            'application/x-java-archive',
+            'application/xml',
+            'application/x-msdownload',
+            'application/x-msdownload; format=pe32',
+            'application/x-sh',
+            'application/x-sqlite3',
+            'application/x-tika-msoffice',
+            'application/zip',
+            'image/gif',
+            'image/png',
+            'image/tiff',
+            'image/vnd.microsoft.icon',
+            'message/news',
+            'multipart/appledouble',
+            'text/css',
+            'text/csv',
+            'text/html',
+            'text/html; charset=utf-8',
+            'text/plain',
+            'text/tab-separated-values',
+            'text/x-matlab',
+            'text/xml',
+            'text/x-python',
+            'video/quicktime',
+        ]
+        self.fields['content_type'].choices = [('__all__', 'All')] + zip(content_type_choices, content_type_choices)
 
 class GilesLogForm(forms.Form):
     UPLOAD_ALL = 'all'
