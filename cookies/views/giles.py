@@ -9,7 +9,7 @@ from django.conf import settings
 from cookies import operations
 from cookies import authorization as auth
 from cookies.models import *
-from cookies.forms import ChooseCollectionForm, GilesLogReuploadForm
+from cookies.forms import ChooseCollectionForm, GilesLogForm
 from cookies import giles
 from cookies.filters import GilesUploadFilter
 
@@ -219,64 +219,101 @@ def test_giles_cleanup(request):
         pass
     return JsonResponse({'status': 'ok'})
 
+def _reupload_resources(request, form_data, filtered_objects):
+    upload_type = form_data.get('upload_type')
+    if upload_type == GilesLogForm.UPLOAD_ALL:
+        resources = filtered_objects.qs
+    else:
+        resources = form_data.get('resources')
+    auth_resources = auth.apply_filter(
+        ResourceAuthorization.EDIT,
+        request.user,
+        resources).filter(state__in=GilesUpload.ERROR_STATES)
+
+    context = {}
+    count_resources = resources.count()
+    count_success = 0
+    if auth_resources.count() > 0:
+        count_success = auth_resources.update(state=GilesUpload.PENDING)
+        context.update({
+            'reuploads_success': count_success,
+        })
+
+    if count_resources > 0:
+        context.update({
+            'reuploads_skipped': (count_resources - count_success),
+        })
+    return context
+
+def _change_priority(request, form_data, filtered_objects):
+    priority = form_data.get('priority')
+
+    resources = form_data.get('resources')
+    count_resources = resources.count()
+    auth_resources = auth.apply_filter(
+        ResourceAuthorization.EDIT,
+        request.user,
+        resources).filter(state=GilesUpload.PENDING)
+
+    context = {}
+    count_success = 0
+    if auth_resources.count() > 0:
+        count_success = auth_resources.update(priority=priority)
+        context.update({
+            'priority_change_success': count_success,
+        })
+
+    if count_resources > 0:
+        context.update({
+            'priority_change_skipped': (count_resources - count_success),
+        })
+    return context
+
 
 @login_required
 def log(request):
     upload_enabled = lambda f: True if filtered_objects.data['state'] in GilesUpload.ERROR_STATES else False
+    priority_changeable = lambda f: True if filtered_objects.data['state'] == GilesUpload.PENDING else False
     if request.method == 'GET':
         qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
                                GilesUpload.objects.all())
         filtered_objects = GilesUploadFilter(request.GET, queryset=qs)
         context = {
             'filtered_objects': filtered_objects,
-            'upload_form': GilesLogReuploadForm(),
+            'form': GilesLogForm(),
             'upload_enabled': upload_enabled(filtered_objects),
+            'priority_changeable': priority_changeable(filtered_objects),
         }
         return render(request, 'giles_log.html', context)
+
     elif request.method == 'POST':
         qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
                                GilesUpload.objects.all())
         filtered_objects = GilesUploadFilter(request.GET, queryset=qs)
-        upload_form = GilesLogReuploadForm(request.POST, queryset=filtered_objects.qs)
-        if upload_form.is_valid():
-            upload_type = upload_form.cleaned_data.get('upload_type')
-            if upload_type == GilesLogReuploadForm.UPLOAD_ALL:
-                reupload = filtered_objects.qs
+        form = GilesLogForm(request.POST, queryset=filtered_objects.qs)
+        if form.is_valid():
+            form_data = form.cleaned_data
+            if form_data.get('priority'):
+                context = _change_priority(request, form_data, filtered_objects)
             else:
-                reupload = upload_form.cleaned_data.get('reupload')
-            auth_reupload = auth.apply_filter(
-                ResourceAuthorization.EDIT,
-                request.user,
-                reupload).filter(state__in=GilesUpload.ERROR_STATES)
-
-            context = {}
-            reuploads_count = reupload.count()
-            reuploads_success = 0
-            if auth_reupload.count() > 0:
-                reuploads_success = auth_reupload.update(state=GilesUpload.PENDING)
-                context.update({
-                    'reuploads_success': reuploads_success,
-                })
-
-            if reuploads_count > 0:
-                context.update({
-                    'reuploads_skipped': (reuploads_count - reuploads_success),
-                })
+                context = _reupload_resources(request, form_data, filtered_objects)
 
             qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
                                    GilesUpload.objects.all())
             filtered_objects = GilesUploadFilter(request.GET, queryset=qs)
             context.update({
                 'filtered_objects': filtered_objects,
-                'upload_form': GilesLogReuploadForm(),
+                'form': GilesLogForm(),
                 'upload_enabled': upload_enabled(filtered_objects),
+                'priority_changeable': priority_changeable(filtered_objects),
             })
             return render(request, 'giles_log.html', context)
         else:
             context = {
                 'filtered_objects': filtered_objects,
-                'upload_form': upload_form,
+                'form': form,
                 'upload_enabled': upload_enabled(filtered_objects),
+                'priority_changeable': priority_changeable(filtered_objects),
             }
             return render(request, 'giles_log.html', context)
 

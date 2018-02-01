@@ -5,6 +5,55 @@
 {% load preview %}
 {% load authorization %}
 
+{% block extrastyle %}
+<style>
+    .dropdown-menu>li>button:focus, .dropdown-menu>li>button:hover {
+        color: #262626;
+        background-color: #f5f5f5;
+    }
+    .dropdown-menu>li>button {
+        display: block;
+        padding: 3px 20px;
+        clear: both;
+        font-weight: 400;
+        line-height: 1.42857143;
+        color: #333;
+        white-space: nowrap;
+        text-align: left;
+        width: 100%;
+    }
+
+    .giles_status {
+        margin-top: 10px;
+    }
+    .giles_status dd {
+        margin-bottom: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block extrahead %}
+<script>
+function changePriority(element){
+    $("#priority-form").find("[name='priority']")[0].value = element.value;
+    var modal = $("#priority-modal");
+    if(element.dataset.confirm){
+        modal.find(".modal-body").html('Are you sure you want to set <strong>'+ element.innerText + '</strong> upload priority for the current resource?');
+        modal.modal();
+    }
+    else {
+        $("#priority-form").submit();
+    }
+}
+$(document).ready(function(){
+    $("#priority-modal-confirm").on('click', function(e){
+        $("#priority-form").submit();
+    })
+});
+</script>
+{% endblock %}
+
+
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'index' %}">{% trans 'Home' %}</a>
@@ -77,6 +126,46 @@
                 </dd>
                 {% endfor %}
                 {% endif %}
+
+                {% with resource.giles_uploads.all.0 as upload %}
+                    {% if upload.state != upload.DONE %}
+                    <div class="giles_status">
+                        <dt>Giles Upload Status</dt>
+                        <dd>
+                        <span {% if pending_counts %}title='There are {{ pending_counts.high}} high priority, {{ pending_counts.medium }} medium priority, and {{ pending_counts.low }} low priority uploads pending.'{% endif %}
+                            class="label {% if upload.state in upload.ERROR_STATES %}label-danger{% elif upload.state == upload.DONE %}label-success{% elif upload.state == upload.SENT %}label-warning{% else %}label-primary{% endif %}">{{ upload.get_state_display }}</span></dd>
+                        {% if upload.state == upload.PENDING %}
+                        <dt>Giles Upload Priority</dt>
+                        <dd>
+                            {% if can_edit_resource %}
+                                <form method="POST" id="priority-form">
+                                    {% csrf_token %}
+                                    <span class="text-warning">{{ upload.get_priority_display }}</span>&nbsp;
+                                    <div class="btn-group">
+                                        <button title="Change priority of selected documents" type="button" class="btn btn-default dropdown-toggle btn-xs" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                            Change Priority <span class="caret"></span>
+                                        </button>
+                                        <input type="hidden" name="priority" value="low"/>
+                                        <ul class="dropdown-menu">
+                                            {% for value, label in form.fields.priority.choices %}
+                                                <li><button type="button" value='{{ value }}' {% if value in form.CHOICES_CONFIRM_CHANGE %}data-confirm="true"{% endif %} onclick="changePriority(this);" class="btn btn-xs">{{ label }}</button></li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% if priority_change_success %}
+                                        <span class="text-success">&nbsp;<span class="glyphicon glyphicon-ok" aria-hidden="true"></span> Priority updated!</span>
+                                    {% elif priority_change_error %}
+                                    <span class="text-error">&nbsp;<span class="glyphicon glyphicon-remove" aria-hidden="true"></span> {{ priority_change_error }} </span>
+                                    {% endif %}
+                                </form>
+                            {% else %}
+                                <span class="text-warning">{{ upload.get_priority_display }}</span>
+                            {% endif %}
+                        </dd>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                {% endwith %}
             </dl>
 
         </div>
@@ -164,4 +253,21 @@
     </div><!-- /.modal-content -->
   </div><!-- /.modal-dialog -->
 </div><!-- /.modal -->
+<div class="modal fade bs-example-modal-sm" tabindex="-1" role="dialog" id="priority-modal">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">Change Giles Upload Priority</h4>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to change the priority?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="priority-modal-confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
