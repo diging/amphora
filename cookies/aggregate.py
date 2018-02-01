@@ -102,13 +102,20 @@ def aggregate_content_resources(queryset, content_type=None,
     current_content = None
     q = Q(predicate__uri=part_uri)
     content_q = Q(content_resource=True)
+    content_q |= Q(content_resource__content_resource=True)
     if content_type is not None and '__all__' not in content_type:
         if not type(content_type) is list:
             content_type = [content_type]
 
+        content_type_q = None
         for ctype in content_type:
-            content_q |= Q(content_type=ctype)
-            content_q |= Q(content_resource__content_type=ctype)
+            if not content_type_q:
+                content_type_q = Q(content_type=ctype)
+            else:
+                content_type_q |= Q(content_type=ctype)
+            content_type_q |= Q(content_resource__content_type=ctype)
+
+        content_q &= content_type_q
 
     def get_parts(resource):
         return (o for rel in resource.relations_to.filter(q).order_by('sort_order')
@@ -120,6 +127,8 @@ def aggregate_content_resources(queryset, content_type=None,
         if current is None:
             try:
                 current = queryset.next()
+                for crel in current.content.filter(content_q & Q(is_deleted=False)):
+                    yield crel.content_resource
                 current_content = get_parts(current)
 
             except StopIteration:
