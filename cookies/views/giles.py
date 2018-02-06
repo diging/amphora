@@ -5,6 +5,7 @@ from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.conf import settings
+from django.db.models import Q
 
 from cookies import operations
 from cookies import authorization as auth
@@ -225,10 +226,13 @@ def _reupload_resources(request, form_data, filtered_objects):
         resources = filtered_objects.qs
     else:
         resources = form_data.get('resources')
+
+    # FIXME: We don't want to reupload documents in Enqueued/Assigned/Sent
+    # state.
     auth_resources = auth.apply_filter(
         ResourceAuthorization.EDIT,
         request.user,
-        resources).filter(state__in=GilesUpload.ERROR_STATES)
+        resources).filter(~Q(state__in=(GilesUpload.PENDING, GilesUpload.DONE)))
 
     context = {}
     count_resources = resources.count()
@@ -272,7 +276,10 @@ def _change_priority(request, form_data, filtered_objects):
 
 @login_required
 def log(request):
-    upload_enabled = lambda f: True if filtered_objects.data['state'] in GilesUpload.ERROR_STATES else False
+
+    # FIXME: We don't want upload enabled for Enqueued/Assigned/Sent state.
+    upload_enabled = lambda f: True if filtered_objects.data['state'] not in (GilesUpload.PENDING, GilesUpload.DONE) else False
+
     priority_changeable = lambda f: True if filtered_objects.data['state'] == GilesUpload.PENDING else False
     if request.method == 'GET':
         qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
