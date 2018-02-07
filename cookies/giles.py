@@ -287,7 +287,9 @@ def send_giles_upload(upload_pk, username):
 
     try:
         code, result = send_to_giles(username, upload.file_path, public=False)
-        upload.upload_id = result.get('id')
+        if code != 200:
+            raise RuntimeError('Giles returned HTTP {}'.format(code))
+        upload.upload_id = result['id']
         upload.state = GilesUpload.SENT
     except AttributeError as E:
         message = str(result)
