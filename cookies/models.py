@@ -62,7 +62,7 @@ class Entity(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, blank=True, null=True)
-    created_through = models.CharField(blank=True, max_length=3, choices=INTERFACES)
+    created_through = models.CharField(null=True, max_length=3, choices=INTERFACES)
     updated = models.DateTimeField(auto_now=True)
 
     entity_type = models.ForeignKey('Type', blank=True, null=True,
