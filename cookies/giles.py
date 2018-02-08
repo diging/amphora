@@ -287,7 +287,9 @@ def send_giles_upload(upload_pk, username):
 
     try:
         code, result = send_to_giles(username, upload.file_path, public=False)
-        upload.upload_id = result.get('id')
+        if code != 200:
+            raise RuntimeError('Giles returned HTTP {}'.format(code))
+        upload.upload_id = result['id']
         upload.state = GilesUpload.SENT
     except AttributeError as E:
         message = str(result)
@@ -374,6 +376,7 @@ def _create_content_resource(parent_resource, resource_type, creator, uri, url,
         'public': public,
         'content_resource': True,
         'created_by_id': creator.id,
+        'created_through': parent_resource.created_through,
         'entity_type': resource_type,
         'content_type': meta.get('content_type', None),
         'is_external': True,
@@ -421,6 +424,7 @@ def _create_page_resource(parent_resource, page_nr, resource_type, creator, uri,
     resource = Resource.objects.create(**{
         'name': '%s, page %i' % (parent_resource.name, page_nr),
         'created_by_id': creator.id,
+        'created_through': parent_resource.created_through,
         'entity_type': resource_type,
         'public': public,
         'content_resource': False,
