@@ -515,6 +515,12 @@ def process_upload(upload_id, username):
         upload.save()
         return
 
+    if code >= 400:
+        upload.message = str(data)
+        upload.state = GilesUpload.GILES_ERROR
+        upload.save()
+        return
+
     try:
         # If Giles is done processing the upload, details about the resulting
         #  files are returned.

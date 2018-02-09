@@ -143,13 +143,19 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
 @shared_task(rate_limit="15/m")
 def send_to_giles(upload_pk, created_by):
     logger.debug('send upload %i for user %s' % (upload_pk, created_by))
-    giles.send_giles_upload(upload_pk, created_by)
+    try:
+        giles.send_giles_upload(upload_pk, created_by)
+    except Exception as e:
+        GilesUpload.objects.filter(pk=upload_pk).update(state=GilesUpload.SEND_ERROR, message=str(e))
 
 
 @shared_task(rate_limit="2/s")
 def check_giles_upload(upload_id, username):
     logger.debug('check_giles_upload %s for user %s' % (upload_id, username))
-    return giles.process_upload(upload_id, username)
+    try:
+        return giles.process_upload(upload_id, username)
+    except Exception as e:
+        GilesUpload.objects.filter(upload_id=upload_id).update(state=GilesUpload.GILES_ERROR, message=str(e))
 
 
 @shared_task
