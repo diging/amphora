@@ -210,7 +210,7 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
     index = cStringIO.StringIO()
     index_writer = csv.writer(index)
     index_writer.writerow(['ID', 'Name', 'PrimaryID', 'PrimaryURI', 'PrimaryName', 'Location'])
-    with zipfile.ZipFile(target_path, 'w') as target:
+    with zipfile.ZipFile(target_path, 'w', allowZip64=True) as target:
         for content, resource in aggregator:
             if content is None:
                 log.append('No content for resource %i (%s)' % (resource.id, resource.name))
