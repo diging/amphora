@@ -33,7 +33,6 @@ from cookies.models import *
 from concepts.models import *
 from cookies.exceptions import *
 from cookies import giles, operations
-from cookies.views.resource import _create_resource_file, _create_resource_details
 
 
 from django.utils.decorators import method_decorator
@@ -587,3 +586,60 @@ class ResourceContentView(APIView):
 
         return Response(status=204)
 
+def _create_resource_file(request, uploaded_file, upload_interface):
+    container = ResourceContainer.objects.create(created_by=request.user)
+    content = Resource.objects.create(**{
+        'content_type': uploaded_file.content_type,
+        'content_resource': True,
+        'name': uploaded_file._name,
+        'created_by': request.user,
+        'created_through': upload_interface,
+        'container': container,
+    })
+    collection = request.GET.get('collection')
+    if collection:
+        container.part_of_id = collection
+        container.save()
+
+    operations.add_creation_metadata(content, request.user)
+    # The file upload handler needs the Resource to have an ID first,
+    #  so we add the file after creation.
+    content.file = uploaded_file
+    content.save()
+    return content
+
+def _create_resource_details(request, content_resource, resource_data, upload_interface):
+    resource_data['entity_type'] = resource_data.pop('resource_type')
+    collection = resource_data.pop('collection', None)
+    if not content_resource.container:
+        content_resource.container = ResourceContainer.objects.create(created_by=request.user, part_of=collection)
+        content_resource.save()
+    else:
+        content_resource.container.part_of = collection
+
+    resource_data['created_by'] = request.user
+    resource_data['created_through'] = upload_interface
+    resource_data['container'] = content_resource.container
+    resource = Resource.objects.create(**resource_data)
+    content_resource.container.primary = resource
+    content_resource.container.save()
+
+    operations.add_creation_metadata(resource, request.user)
+    content_relation = ContentRelation.objects.create(**{
+        'for_resource': resource,
+        'content_resource': content_resource,
+        'content_type': content_resource.content_type,
+        'container': content_resource.container,
+    })
+    resource.container = content_resource.container
+    resource.save()
+
+    if resource_data.get('public'):
+        ResourceAuthorization.objects.create(
+            granted_by = request.user,
+            granted_to = None,
+            action = ResourceAuthorization.VIEW,
+            policy = ResourceAuthorization.ALLOW,
+            for_resource = resource.container
+        )
+    return resource
