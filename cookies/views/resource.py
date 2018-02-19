@@ -4,7 +4,7 @@ from django.core.cache import caches
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, HttpResponse, JsonResponse, QueryDict
 from django.http import HttpResponseBadRequest
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, get_list_or_404
 from django.db.models import Q, Max, Count
 from django.db import transaction
 from django.utils.http import urlquote_plus
@@ -16,6 +16,7 @@ from cookies.tasks import *
 from cookies import giles, operations
 from cookies import authorization as auth
 from cookies.accession import get_remote
+from cookies.views_rest import ResourceDetailSerializer, _create_resource_details, _create_resource_file
 
 import hmac, base64, time, urllib, datetime, mimetypes, copy, urlparse
 
@@ -30,64 +31,6 @@ def _add_parameter(uri, key, value):
     q.update({key: value})
     parts[4] = urllib.urlencode(q)
     return urlparse.urlunparse(tuple(parts))
-
-def _create_resource_file(request, uploaded_file, upload_interface):
-    container = ResourceContainer.objects.create(created_by=request.user)
-    content = Resource.objects.create(**{
-        'content_type': uploaded_file.content_type,
-        'content_resource': True,
-        'name': uploaded_file._name,
-        'created_by': request.user,
-        'created_through': upload_interface,
-        'container': container,
-    })
-    collection = request.GET.get('collection')
-    if collection:
-        container.part_of_id = collection
-        container.save()
-
-    operations.add_creation_metadata(content, request.user)
-    # The file upload handler needs the Resource to have an ID first,
-    #  so we add the file after creation.
-    content.file = uploaded_file
-    content.save()
-    return content
-
-def _create_resource_details(request, content_resource, resource_data, upload_interface):
-    resource_data['entity_type'] = resource_data.pop('resource_type')
-    collection = resource_data.pop('collection', None)
-    if not content_resource.container:
-        content_resource.container = ResourceContainer.objects.create(created_by=request.user, part_of=collection)
-        content_resource.save()
-    else:
-        content_resource.container.part_of = collection
-
-    resource_data['created_by'] = request.user
-    resource_data['created_through'] = upload_interface
-    resource_data['container'] = content_resource.container
-    resource = Resource.objects.create(**resource_data)
-    content_resource.container.primary = resource
-    content_resource.container.save()
-
-    operations.add_creation_metadata(resource, request.user)
-    content_relation = ContentRelation.objects.create(**{
-        'for_resource': resource,
-        'content_resource': content_resource,
-        'content_type': content_resource.content_type,
-        'container': content_resource.container,
-    })
-    resource.container = content_resource.container
-    resource.save()
-
-    if resource_data.get('public'):
-        ResourceAuthorization.objects.create(
-            granted_by = request.user,
-            granted_to = None,
-            action = ResourceAuthorization.VIEW,
-            policy = ResourceAuthorization.ALLOW,
-            for_resource = resource.container
-        )
-    return resource
 
 @auth.authorization_required(ResourceAuthorization.VIEW, _get_resource_by_id)
 def resource(request, obj_id):
@@ -152,10 +95,16 @@ def resource_by_uri(request):
     if uri is None:
         raise Http404('No resource URI provided')
 
-    resource = get_object_or_404(Resource, uri=uri)
-    if resource.content_resource:
+    # JARS-119: because of a bug there might be several resources with that URI
+    resources = get_list_or_404(Resource, uri=uri)
+    resource = None
+    if resources:
+        resource = resources[0]
+    if resource and resource.content_resource:
         resource = resource.parent.first().for_resource
-    return HttpResponseRedirect(reverse('resource', args=(resource.id,)))
+
+    format = request.GET.get('format', None)
+    return HttpResponseRedirect(reverse('resource', args=(resource.id,)) + "?format=" + format)
 
 
 def resource_list(request):
