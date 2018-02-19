@@ -211,7 +211,7 @@ class Resource(ResourceBase):
 
     @property
     def content_types(self):
-        return self.container.content_relations.values_list('content_type', flat=True).distinct('content_type')
+        return list(self.container.content_relations.values_list('content_type', flat=True).distinct('content_type'))
 
     @property
     def content_view(self):
