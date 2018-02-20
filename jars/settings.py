@@ -156,6 +156,7 @@ AUTHENTICATION_BACKENDS = (
     'guardian.backends.ObjectPermissionBackend',
     'social_core.backends.github.GithubOAuth2',
     'jars.auth.GithubAuthenticationBackend',
+    'jars.auth.AmphoraTokenAuthBackend',
 )
 ANONYMOUS_USER_ID = -1
 

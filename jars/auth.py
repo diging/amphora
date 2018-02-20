@@ -9,6 +9,7 @@ from cookies.models import *
 from social_django.models import UserSocialAuth
 from django.conf import settings
 from rest_framework.authentication import BaseAuthentication, get_authorization_header
+from rest_framework.authentication import TokenAuthentication
 logger = settings.LOGGER
 logger.setLevel('DEBUG')
 GITHUB = 'https://api.github.com'
@@ -65,6 +66,19 @@ class GithubAuthenticationBackend(object):
             return
         return auth.user
 
+    def get_user(self, user_id):
+        return User.objects.get(pk=user_id)
+
+class AmphoraTokenAuthBackend(object):
+    def authenticate(self, token=None):
+        try:
+            user, token = TokenAuthentication().authenticate_credentials(token)
+        except exceptions.AuthenticationFailed:
+            return
+        return user
+
+    def get_user(self, user_id):
+        return User.objects.get(pk=user_id)
 
 class GithubTokenBackendMiddleware(object):
     def __init__(self, get_response=None):
