@@ -521,34 +521,39 @@ def process_upload(upload_id, username):
         upload.save()
         return
 
-    try:
-        # If Giles is done processing the upload, details about the resulting
-        #  files are returned.
-        resource = process_details(data, upload_id, username)
-        if not upload.resource:
-            upload.resource = resource
-            upload.save()
-    except Exception as E:    # We f***ed something up.
-        upload.message = str(E)
-        upload.state = GilesUpload.PROCESS_ERROR
-        upload.save()
-        return
+    with transaction.atomic():
+        if (upload.state in GilesUpload.ERROR_STATES) or (upload.state == GilesUpload.DONE):
+            # Resource already processed. Do nothing.
+            return
 
-    # Depending on configuration, we may want to do things like delete local
-    #  copies of files.
-    if upload.on_complete:
         try:
-            process_on_complete(jsonpickle.decode(upload.on_complete))
-        except Exception as E:
+            # If Giles is done processing the upload, details about the resulting
+            # files are returned.
+            resource = process_details(data, upload_id, username)
+            if not upload.resource:
+                upload.resource = resource
+                upload.save()
+        except Exception as E:    # We f***ed something up.
             upload.message = str(E)
-            upload.state = GilesUpload.CALLBACK_ERROR
+            upload.state = GilesUpload.PROCESS_ERROR
             upload.save()
             return
 
-    # Woohoo!
-    upload.state = GilesUpload.DONE
-    upload.message = jsonpickle.encode(data)
-    upload.save()
+        # Depending on configuration, we may want to do things like delete local
+        #  copies of files.
+        if upload.on_complete:
+            try:
+                process_on_complete(jsonpickle.decode(upload.on_complete))
+            except Exception as E:
+                upload.message = str(E)
+                upload.state = GilesUpload.CALLBACK_ERROR
+                upload.save()
+                return
+
+        # Woohoo!
+        upload.state = GilesUpload.DONE
+        upload.message = jsonpickle.encode(data)
+        upload.save()
 
 
 def process_details(data, upload_id, username):
