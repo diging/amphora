@@ -3,10 +3,12 @@ from __future__ import absolute_import
 from django.conf import settings
 from django.core.files import File
 from django.db import transaction
+from django.http import QueryDict
 from django.utils import timezone
 from django.utils.text import slugify
 
 from cookies import aggregate
+from cookies.filters import ResourceContainerFilter
 
 
 from celery import shared_task, task
