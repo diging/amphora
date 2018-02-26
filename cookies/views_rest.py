@@ -486,11 +486,13 @@ class ResourceViewSet(MultiSerializerViewSet):
         qs = super(ResourceViewSet, self).get_queryset()
         qs = authorization.apply_filter(ResourceAuthorization.VIEW, self.request.user, qs)
 
+
         if not self.kwargs.get('pk', None):
-            qs = qs.filter(content_resource=False).filter(is_primary_for__isnull=False)
-        uri = self.request.query_params.get('uri', None)
-        if uri:
-            qs = qs.filter(uri=uri)
+            uri = self.request.query_params.get('uri', None)
+            if uri:
+                qs = qs.filter(Q(uri=uri, content_resource=False) | Q(content__content_resource__uri=uri))
+            else:
+                qs = qs.filter(content_resource=False).filter(is_primary_for__isnull=False)
 
         query = self.request.query_params.get('search', None)
         if query:

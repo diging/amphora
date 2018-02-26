@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import caches
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, HttpResponse, JsonResponse, QueryDict
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, Http404
 from django.shortcuts import render, get_object_or_404, get_list_or_404
 from django.db.models import Q, Max, Count
 from django.db import transaction
