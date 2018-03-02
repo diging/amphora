@@ -3,11 +3,12 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import caches
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, HttpResponse, JsonResponse, QueryDict
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, Http404
 from django.shortcuts import render, get_object_or_404, get_list_or_404
 from django.db.models import Q, Max, Count
 from django.db import transaction
 from django.utils.http import urlquote_plus
+from django.utils.encoding import smart_str
 
 from cookies.models import *
 from cookies.filters import *
@@ -19,7 +20,10 @@ from cookies.accession import get_remote
 from cookies.views_rest import ResourceDetailSerializer, _create_resource_details, _create_resource_file
 
 import hmac, base64, time, urllib, datetime, mimetypes, copy, urlparse
+import os, posixpath
 
+
+logger = logging.getLogger(__name__)
 
 def _get_resource_by_id(request, resource_id, *args):
     return get_object_or_404(Resource, pk=resource_id)
@@ -734,11 +738,22 @@ def resource_content(request, resource_id):
     else:
         content_type = 'application/octet-stream'
     if resource.file:
-        try:
-            with open(resource.file.path, 'rb') as f:
-                return HttpResponse(f.read(), content_type=content_type)
-        except IOError:    # Whoops....
-            return HttpResponse('Hmmm....something went wrong.')
+        if not settings.DEVELOP and (content_type in ('application/octet-stream', 'application/zip')):
+            # Serve specific content_type files through Nginx only if the
+            # Django app is not running using 'manage.py runserver'.
+            file_path = resource.file.path
+            file_name = os.path.basename(file_path)
+            response = HttpResponse(content_type=content_type)
+            response['Content-Disposition'] = 'attachment; filename=%s' % (file_name)
+            response['X-Accel-Redirect'] = posixpath.join(settings.MEDIA_URL, smart_str(file_path).lstrip(settings.MEDIA_ROOT))
+            return response
+        else:
+            try:
+                with open(resource.file.path, 'rb') as f:
+                    return HttpResponse(f.read(), content_type=content_type)
+            except IOError as e:    # Whoops....
+                logger.exception("Error serving content from '{}': {}".format(resource.file.path, e))
+                return HttpResponse('Hmmm....something went wrong.')
     elif resource.location:
         cache = caches['remote_content']
 
