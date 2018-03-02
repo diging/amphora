@@ -23,6 +23,8 @@ import hmac, base64, time, urllib, datetime, mimetypes, copy, urlparse
 import os, posixpath
 
 
+logger = logging.getLogger(__name__)
+
 def _get_resource_by_id(request, resource_id, *args):
     return get_object_or_404(Resource, pk=resource_id)
 
@@ -749,7 +751,8 @@ def resource_content(request, resource_id):
             try:
                 with open(resource.file.path, 'rb') as f:
                     return HttpResponse(f.read(), content_type=content_type)
-            except IOError:    # Whoops....
+            except IOError as e:    # Whoops....
+                logger.exception("Error serving content from '{}': {}".format(resource.file.path, e))
                 return HttpResponse('Hmmm....something went wrong.')
     elif resource.location:
         cache = caches['remote_content']
