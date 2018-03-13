@@ -77,7 +77,7 @@ $(document).ready(function(){
                     {% endif %}
                     <a class="btn glyphicon glyphicon-link" data-toggle="modal" data-target="#uri-modal">
                     </a>
-                    {% is_authorized "change_resource" user resource as can_edit_resource %}
+                    {% is_authorized "resource_change" user resource as can_edit_resource %}
                     {% if can_edit_resource %}
                     <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
                         href="{% url "edit-resource-details" resource.id %}{% if request %}?next={{ request.path }}{% endif %}"
@@ -88,7 +88,7 @@ $(document).ready(function(){
                         data-toggle="tooltip"
                         data-title="Prune duplicate metadata"></a>
                     {% endif %}
-                    {% is_authorized "view_authorizations" user resource as can_view_authorizations %}
+                    {% is_authorized "resource_view_auth" user resource as can_view_authorizations %}
                 </span>
 
             </div>

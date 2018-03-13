@@ -8,7 +8,7 @@
   <div style="margin-bottom: 10px;" class="clearfix">
       <div class="pull-right btn-group">
       {% if collection %}
-          {% is_authorized "AD" user collection as can_add_resource %}
+          {% is_authorized "collection_add" user collection as can_add_resource %}
               {% if can_add_resource %}
               <a class="btn btn-xs"
                   href="{% url "create-resource" %}?collection={{ collection.id }}">

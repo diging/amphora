@@ -19,14 +19,14 @@
 
 <div class="collection_summary">
     <span class="pull-right btn-group">
-        {% is_authorized "change_resource" user collection as can_edit_resource %}
+        {% is_authorized "collection_change" user collection as can_edit_resource %}
         {% if can_edit_resource %}
         <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
             href="{% url "collection-edit" collection.id %}"
             data-toggle="tooltip"
             data-title="Edit collection"></a>
         {% endif %}
-        {% is_authorized "view_authorizations" user collection as can_view_authorizations %}
+        {% is_authorized "collection_view_auth" user collection as can_view_authorizations %}
         {% if can_view_authorizations %}
         <a class="btn glyphicon glyphicon-lock" aria-hidden="true"
             href="{% url "collection-authorizations" collection.id %}"
