@@ -78,10 +78,17 @@ class ResourceContainerFilter(django_filters.FilterSet):
     content = django_filters.CharFilter(name='primary__indexable_content',
                                         lookup_expr='icontains')
     part_of = django_filters.ModelChoiceFilter(name='part_of', queryset=Collection.objects.all())
+
+    # FIXME: The following statement results in a very expensive Postgres query.
+    # entity_type = django_filters.ModelChoiceFilter(
+    #     name='primary__entity_type',
+    #     queryset=Type.objects.annotate(num_instances=Count('resource'))\
+    #                          .filter(num_instances__gt=0)
+    # )
+    # As a temporary workaround, use a static list for choices.
     entity_type = django_filters.ModelChoiceFilter(
         name='primary__entity_type',
-        queryset=Type.objects.annotate(num_instances=Count('resource'))\
-                             .filter(num_instances__gt=0)
+        queryset=Type.objects.all(),
     )
 
     # FIXME: The following statement results in a very expensive Postgres query.
