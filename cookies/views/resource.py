@@ -74,7 +74,7 @@ def resource(request, obj_id):
     if request.method == 'POST':
         form = ResourceGilesPriorityForm(request.POST)
         if form.is_valid():
-            if not auth.check_authorization('change_resource', request.user, resource):
+            if not auth.check_authorization(ResourceAuthorization.EDIT, request.user, resource):
                 context['priority_change_error'] = 'Unauthorized'
             else:
                 priority = form.cleaned_data.get('priority')

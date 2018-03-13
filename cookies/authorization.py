@@ -15,27 +15,19 @@ from itertools import chain
 logger = settings.LOGGER
 
 
-AUTHORIZATIONS = [
-    ('change_resource', 'Change resource'),
-    ('view_resource', 'View resource'),
-    ('delete_resource', 'Delete resource'),
-    ('change_authorizations', 'Change authorizations'),
-    ('view_authorizations', 'View authorizations'),
-]
-
-COLLECTION_AUTHORIZATIONS = [
-    ('change_collection', 'Change collection'),
-    ('view_resource', 'View collection'),
-    ('delete_collection', 'Delete collection'),
-    ('change_authorizations', 'Change authorizations'),
-    ('view_authorizations', 'View authorizations'),
-]
-
-SHARED_AUTHORIZATIONS = [
-    'change_authorizations',
-    'view_authorizations',
-]
-
+AUTHORIZATIONS_MAP = {
+    'resource_change'      : ResourceAuthorization.EDIT,
+    'resource_view'        : ResourceAuthorization.VIEW,
+    'resource_delete'      : ResourceAuthorization.DELETE,
+    'resource_change_auth' : ResourceAuthorization.SHARE,
+    'resource_view_auth'   : ResourceAuthorization.SHARE,
+    'collection_change'      : CollectionAuthorization.EDIT,
+    'collection_view'        : CollectionAuthorization.VIEW,
+    'collection_add'         : CollectionAuthorization.ADD,
+    'collection_delete'      : CollectionAuthorization.REMOVE,
+    'collection_change_auth' : CollectionAuthorization.SHARE,
+    'collection_view_auth'   : CollectionAuthorization.SHARE,
+}
 
 def is_owner(user, obj):
     """
