@@ -278,9 +278,9 @@ def _change_priority(request, form_data, filtered_objects):
 def log(request):
 
     # FIXME: We don't want upload enabled for Enqueued/Assigned/Sent state.
-    upload_enabled = lambda f: True if filtered_objects.data['state'] not in (GilesUpload.PENDING, GilesUpload.DONE) else False
+    upload_enabled = lambda f: True if filtered_objects.data.get('state') not in (GilesUpload.PENDING, GilesUpload.DONE) else False
 
-    priority_changeable = lambda f: True if filtered_objects.data['state'] == GilesUpload.PENDING else False
+    priority_changeable = lambda f: True if filtered_objects.data.get('state') == GilesUpload.PENDING else False
     if request.method == 'GET':
         qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
                                GilesUpload.objects.all())
