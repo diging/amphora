@@ -140,13 +140,16 @@ def resource_list(request):
         del params['page']
     filter_parameters = urlquote_plus(params.urlencode())
     filtered_resources = ResourceContainerFilter(request.GET, queryset=resources)
-    tags = filtered_resources.qs.order_by('primary__tags__tag__id')\
-            .values_list('primary__tags__tag__id', 'primary__tags__tag__name')\
-            .distinct('primary__tags__tag__id')
+
+    # The following statement results in an expensive Postgres Query.
+    # Disable tags in this view for now.
+    # tags = filtered_resources.qs.order_by('primary__tags__tag__id')\
+    #         .values_list('primary__tags__tag__id', 'primary__tags__tag__name')\
+    #         .distinct('primary__tags__tag__id')
 
     context = {
         'filtered_objects': filtered_resources,
-        'tags': filter(lambda tag: tag[0] is not None, tags),
+        # 'tags': filter(lambda tag: tag[0] is not None, tags),
         'q': request.GET.get('name'),
         'filter_parameters': filter_parameters,
         'resource_count': filtered_resources.qs.count()
