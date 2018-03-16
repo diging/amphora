@@ -556,6 +556,52 @@ def process_upload(upload_id, username):
         upload.save()
 
 
+def _create_additional_files_resources(additional_files, parent_resource, creator,
+                                       processor_predicate, resource_type_fn,
+                                       name_fn=lambda x:x['url']):
+    """
+    Helper function for creating content resources for 'additionalFiles' in
+    processed Giles upload response.
+
+    Parameters
+    ----------
+    additional_files : list
+        List of dicts containing details of each additional file.
+    parent_resource : :class:`.Resource` instance
+        Represents the document/object of which the content resource (to be
+        created) is a digital surrogate.
+    creator : :class:`.User`
+        The person responsible for adding the content to Giles.
+    processor_predicate : :class:`.Field` instance
+        The predicate to use for defining 'processor' relation.
+    resource_type_fn : callable
+        A function accepting additional file info dict and returning the
+        resource type. Must return an instance of :class:`.Type`.
+    name_fn : callable
+        A function accepting dict and returning name for each additional file
+        content resource. Must return a str.
+    """
+    for additional_file in additional_files:
+        content_type = additional_file.get('content-type')
+        uri = additional_file.get('url')
+        resource_type = resource_type_fn(additional_file)
+        content_resource = _create_content_resource(
+            parent_resource,
+            resource_type,
+            creator,
+            uri, uri,
+            content_type=content_type,
+            name=name_fn(additional_file),
+        )
+
+        if additional_file.get('processor'):
+            Relation.objects.create(
+                source=content_resource,
+                predicate=processor_predicate,
+                target=Value.objects.create(name=additional_file.get('processor')),
+                container=content_resource.container,
+            )
+
 def process_details(data, upload_id, username):
     """
     Process document data from Giles.
@@ -641,21 +687,12 @@ def process_details(data, upload_id, username):
                                  text_uri, content_type=text_content_type)
 
     # Content resource for each additional file, if available.
-    for additional_file in data.get('additionalFiles', []):
-        content_type = additional_file.get('content-type')
-        uri = additional_file.get('url')
-        resource_type = _get_resource_type(additional_file)
-        content_resource = _create_content_resource(
-            resource, resource_type, creator, uri,
-            uri, content_type=content_type)
-
-        if additional_file.get('processor'):
-            Relation.objects.create(
-                source=content_resource,
-                predicate=__creator__,
-                target=Value.objects.create(name=additional_file.get('processor')),
-                container=content_resource.container,
-            )
+    _create_additional_files_resources(data.get('additionalFiles', []),
+                                       resource,
+                                       creator,
+                                       processor_predicate=__creator__,
+                                       resource_type_fn=_get_resource_type,
+                                       )
 
     # Keep track of page resources so that we can populate ``next_page``.
     pages = defaultdict(dict)
@@ -687,31 +724,16 @@ def process_details(data, upload_id, username):
                                      content_type=fmt_data.get('content-type'),
                                      name='%s (%s)' % (page_resource.name, fmt))
 
+        name_fn = lambda d: '%s - %s (%s)' % (page_resource.name, d.get('id'),
+                                              d.get('content_type'))
         # Content resource for each additional file, if available.
-        for additional_file in page_data.get('additionalFiles', []):
-            content_type = additional_file.get('content-type')
-            uri = '%s/files/%s' % (giles, additional_file.get('id'))
-            resource_type = _get_resource_type(additional_file)
-            content_resource  = _create_content_resource(
-                page_resource,
-                resource_type,
-                creator, uri,
-                _fix_url(additional_file.get('url')),
-                public=False,
-                content_type=content_type,
-                name='%s - %s (%s)' % (page_resource.name,
-                                       additional_file.get('id'),
-                                       content_type)
-            )
-
-            if additional_file.get('processor'):
-                Relation.objects.create(
-                    source=content_resource,
-                    predicate=__creator__,
-                    target=Value.objects.create(name=additional_file.get('processor')),
-                    container=content_resource.container,
-                )
-
+        _create_additional_files_resources(page_data.get('additionalFiles', []),
+                                           page_resource,
+                                           creator,
+                                           processor_predicate=__creator__,
+                                           resource_type_fn=_get_resource_type,
+                                           name_fn=name_fn,
+                                           )
 
         # Populate the ``next_page`` field for pages, and for their content
         #  resources.
