@@ -577,14 +577,30 @@ def process_details(data, upload_id, username):
             raise ValueError('data is empty')
         data = data[0]
 
+    __creator__ = Field.objects.get(uri='http://purl.org/dc/elements/1.1/creator')
+    __text__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Text')
+    __image__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Image')
+    __document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
+    __dataset__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Dataset')
+    CONTENT_RESOURCE_TYPE_MAP = {
+        'text/plain': __text__,
+        'text/csv': __dataset__,
+    }
+
+    def _get_resource_type(data):
+        content_type = data.get('content-type')
+        try:
+            return CONTENT_RESOURCE_TYPE_MAP[content_type]
+        except KeyError:
+            if 'image' in content_type:
+                return __image__
+        return __document__
+
     upload = GilesUpload.objects.get(upload_id=upload_id)
     resource = upload.resource    # This is the master resource.
     creator = User.objects.get(username=username)
 
     giles = settings.GILES
-    __text__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Text')
-    __image__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Image')
-    __document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
 
     document_id = data.get('documentId')
 
@@ -624,6 +640,23 @@ def process_details(data, upload_id, username):
         _create_content_resource(resource, __text__, creator, text_uri,
                                  text_uri, content_type=text_content_type)
 
+    # Content resource for each additional file, if available.
+    for additional_file in data.get('additionalFiles', []):
+        content_type = additional_file.get('content-type')
+        uri = additional_file.get('url')
+        resource_type = _get_resource_type(additional_file)
+        content_resource = _create_content_resource(
+            resource, resource_type, creator, uri,
+            uri, content_type=content_type)
+
+        if additional_file.get('processor'):
+            Relation.objects.create(
+                source=content_resource,
+                predicate=__creator__,
+                target=Value.objects.create(name=additional_file.get('processor')),
+                container=content_resource.container,
+            )
+
     # Keep track of page resources so that we can populate ``next_page``.
     pages = defaultdict(dict)
 
@@ -639,7 +672,7 @@ def process_details(data, upload_id, username):
         pages[page_nr]['resource'] = page_resource
 
         # Each page resource can have several content resources.
-        for fmt in ['image', 'text']:
+        for fmt in ['image', 'text', 'ocr',]:
             # We may not have both formats for each page.
             fmt_data = page_data.get(fmt, None)
             if fmt_data is None:
@@ -654,10 +687,36 @@ def process_details(data, upload_id, username):
                                      content_type=fmt_data.get('content-type'),
                                      name='%s (%s)' % (page_resource.name, fmt))
 
+        # Content resource for each additional file, if available.
+        for additional_file in page_data.get('additionalFiles', []):
+            content_type = additional_file.get('content-type')
+            uri = '%s/files/%s' % (giles, additional_file.get('id'))
+            resource_type = _get_resource_type(additional_file)
+            content_resource  = _create_content_resource(
+                page_resource,
+                resource_type,
+                creator, uri,
+                _fix_url(additional_file.get('url')),
+                public=False,
+                content_type=content_type,
+                name='%s - %s (%s)' % (page_resource.name,
+                                       additional_file.get('id'),
+                                       content_type)
+            )
+
+            if additional_file.get('processor'):
+                Relation.objects.create(
+                    source=content_resource,
+                    predicate=__creator__,
+                    target=Value.objects.create(name=additional_file.get('processor')),
+                    container=content_resource.container,
+                )
+
+
         # Populate the ``next_page`` field for pages, and for their content
         #  resources.
         for i in sorted(pages.keys())[:-1]:
-            for fmt in ['resource', 'image', 'text']:
+            for fmt in ['resource', 'image', 'text', 'ocr',]:
                 if fmt not in pages[i]:
                     continue
                 pages[i][fmt].next_page = pages[i + 1][fmt]
