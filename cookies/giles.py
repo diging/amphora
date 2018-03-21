@@ -683,8 +683,15 @@ def process_details(data, upload_id, username):
         text_content_type = text_data.get('content-type')
         # text_uri = '%s/files/%s' % (giles, text_data.get('id'))
         text_uri = text_data.get('url')
-        _create_content_resource(resource, __text__, creator, text_uri,
-                                 text_uri, content_type=text_content_type)
+        content_resource = _create_content_resource(resource, __text__, creator,
+                                                    text_uri, text_uri,
+                                                    content_type=text_content_type)
+        Relation.objects.create(
+            source=content_resource,
+            predicate=__creator__,
+            target=Value.objects.create(name='PDF Extract'),
+            container=content_resource.container,
+        )
 
     # Content resource for each additional file, if available.
     _create_additional_files_resources(data.get('additionalFiles', []),
@@ -696,6 +703,11 @@ def process_details(data, upload_id, username):
 
     # Keep track of page resources so that we can populate ``next_page``.
     pages = defaultdict(dict)
+
+    PAGE_CREATOR_MAP = {
+        'text': 'PDF Extract',
+        'ocr': 'Tesseract',
+    }
 
     # Each page is represented by a Resource.
     for page_data in data.get('pages', []):
@@ -716,13 +728,23 @@ def process_details(data, upload_id, username):
                 continue
 
             page_fmt_uri = '%s/files/%s' % (giles, fmt_data.get('id'))
-            pages[page_nr][fmt] = _create_content_resource(page_resource,
+            content_resource = _create_content_resource(page_resource,
                                      __image__ if fmt == 'image' else __text__,
                                      creator, page_fmt_uri,
                                      _fix_url(fmt_data.get('url')),
                                      public=False,
                                      content_type=fmt_data.get('content-type'),
                                      name='%s (%s)' % (page_resource.name, fmt))
+
+            if PAGE_CREATOR_MAP.get(fmt):
+                Relation.objects.create(
+                    source=content_resource,
+                    predicate=__creator__,
+                    target=Value.objects.create(name=PAGE_CREATOR_MAP.get(fmt)),
+                    container=content_resource.container,
+                )
+
+            pages[page_nr][fmt] = content_resource
 
         name_fn = lambda d: '%s - %s (%s)' % (page_resource.name, d.get('id'),
                                               d.get('content_type'))
