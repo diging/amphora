@@ -27,7 +27,8 @@ import smart_open, zipfile, logging, cStringIO, mimetypes
 import os, urlparse, mimetypes
 import unicodecsv as csv
 
-from cookies.models import Resource
+from django.utils.text import slugify
+from cookies.models import Resource, Value
 
 cache = caches['remote_content']
 
@@ -35,6 +36,21 @@ logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOGLEVEL)
 
+METADATA_CSV_HEADER = [
+    'resource_name',
+    'resource_uri',
+    'resource_type',
+    'resource_type_uri',
+    'collection_name',
+    'collection_uri',
+    'creator_name',
+    'creator_id',
+    'date_created',
+    'predicate',
+    'predicate_uri',
+    'target',
+    'target_uri',
+]
 
 def get_filename(resource):
     if resource.is_external:
@@ -45,13 +61,8 @@ def get_filename(resource):
     else:
         filename = os.path.split(resource.file.path)[-1]
 
-    # Try to append a file extension, one is not already present.
-    filename, ext = os.path.splitext(filename)
-    if not ext:
-        ext = mimetypes.guess_extension(resource.content_type)
-        if ext:
-            filename += '.' + ext
-    return filename.replace(':', '-').replace('/', '_').replace('..', '.')
+    ext = mimetypes.guess_extension(resource.content_type)
+    return slugify(filename) + ext
 
 
 def get_content(content_resource):
@@ -76,6 +87,36 @@ def get_content(content_resource):
         with open(content_resource.file.path) as f:
             return f.read()
     return
+
+def write_metadata_csv(filehandle, resource=None, write_header=False):
+    writer = csv.writer(filehandle)
+
+    if write_header:
+        writer.writerow(METADATA_CSV_HEADER)
+
+    if not resource:
+        return
+
+    for relation in resource.relations_from.all():
+        row = {
+            'resource_name'     : resource.name,
+            'resource_uri'      : resource.uri,
+            'resource_type'     : str(resource.entity_type),
+            'resource_type_uri' : resource.entity_type.uri,
+            'collection_name'   : resource.container.part_of.name,
+            'collection_uri'    : resource.container.part_of.uri,
+            'creator_name'      : resource.created_by.username,
+            'creator_id'        : resource.created_by_id,
+            'date_created'      : resource.created.isoformat(),
+            'predicate'         : str(relation.predicate),
+            'predicate_uri'     : relation.predicate.uri,
+            'target'            : getattr(relation.target, "name", None),
+            'target_uri'        : None
+        }
+        if relation.target and not isinstance(relation.target, Value):
+            row['target_uri'] = relation.target.uri
+
+        writer.writerow([row[c] for c in METADATA_CSV_HEADER])
 
 
 def aggregate_content_resources_fast(container, content_type=None, part_uri='http://purl.org/dc/terms/isPartOf'):
@@ -168,6 +209,12 @@ def aggregate_content(queryset, proc=lambda content, rsrc: content, **kwargs):
     aggregator = aggregate_content_resources(queryset, **kwargs)
     return (proc(get_content(resource), resource) for resource in aggregator)
 
+def aggregate_part_resources(queryset):
+    part_uri = 'http://purl.org/dc/terms/isPartOf'
+    for resource in queryset:
+        yield resource
+        for part_rel in resource.relations_to.filter(predicate__uri=part_uri):
+            yield part_rel.source
 
 def export(queryset, target_path, fname=get_filename, **kwargs):
     """
@@ -202,24 +249,37 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
     if not target_path.endswith('.zip'):
         target_path += '.zip'
 
+    has_metadata = kwargs.pop('has_metadata')
     proc = kwargs.pop('proc', lambda content, resource: content)
     export_proc = lambda content, resource: (content, resource)
-    aggregator = aggregate_content(queryset, proc=export_proc, **kwargs)
     base = 'amphora/'
     log = []
     index = cStringIO.StringIO()
+    metadata = cStringIO.StringIO()
     index_writer = csv.writer(index)
     index_writer.writerow(['ID', 'Name', 'PrimaryID', 'PrimaryURI', 'PrimaryName', 'Location'])
+
+    # Write header only
+    write_metadata_csv(metadata, resource=None, write_header=True)
+
     with zipfile.ZipFile(target_path, 'w', allowZip64=True) as target:
-        for content, resource in aggregator:
-            if content is None:
-                log.append('No content for resource %i (%s)' % (resource.id, resource.name))
-            elif isinstance(content, Exception):
-                log.append('Encountered exception while retrieving content for %i (%s): %s' % (resource.id, resource.name, content.message))
-            else:
-                filename = fname(resource)
-                index_writer.writerow([resource.id, resource.name, resource.container.primary.id, resource.container.primary.uri, resource.container.primary.name, filename])
-                target.writestr(base + filename, content)
+        for queryset_resource in queryset:
+            for content, resource in aggregate_content([queryset_resource], proc=export_proc, **kwargs):
+                if content is None:
+                    log.append('No content for resource %i (%s)' % (resource.id, resource.name))
+                elif isinstance(content, Exception):
+                    log.append('Encountered exception while retrieving content for %i (%s): %s' % (resource.id, resource.name, content.message))
+                else:
+                    filename = fname(resource)
+                    index_writer.writerow([resource.id, resource.name, resource.container.primary.id, resource.container.primary.uri, resource.container.primary.name, filename])
+                    target.writestr(base + filename, content)
+
+            if has_metadata:
+                for resource in aggregate_part_resources([queryset_resource]):
+                    write_metadata_csv(metadata, resource, write_header=False)
+                target.writestr(base + 'metadata.csv', metadata.getvalue())
+                metadata.close()
+
         target.writestr(base + 'MANIFEST.txt', manifest(log))
         target.writestr(base + 'index.csv', index.getvalue())
         index.close()
@@ -272,3 +332,24 @@ def export_with_resource_structure(queryset, target_path, **kwargs):
             name = name[1:]
         return name
     return export_zip(queryset, target_path, fname=recursive_filename, **kwargs)
+
+def export_metadata(queryset, target_path):
+    """
+    Stream metadata into a zip archive at ``target_path``.
+    """
+    logger.debug('aggregate.export_metadata: target: %s' % (target_path))
+    if not target_path.endswith('.zip'):
+        target_path += '.zip'
+
+    aggregator = aggregate_part_resources(queryset)
+
+    base = 'amphora/'
+    log = []
+    metadata = cStringIO.StringIO()
+    with zipfile.ZipFile(target_path, 'w', allowZip64=True) as target:
+        write_metadata_csv(metadata, aggregator.next(), write_header=True)
+        for resource in aggregator:
+            write_metadata_csv(metadata, resource, write_header=False)
+        target.writestr(base + 'metadata.csv', metadata.getvalue())
+        metadata.close()
+    return target_path
