@@ -249,7 +249,7 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
     if not target_path.endswith('.zip'):
         target_path += '.zip'
 
-    has_metadata = kwargs.pop('has_metadata')
+    has_metadata = kwargs.pop('has_metadata', False)
     proc = kwargs.pop('proc', lambda content, resource: content)
     export_proc = lambda content, resource: (content, resource)
     base = 'amphora/'
