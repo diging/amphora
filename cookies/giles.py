@@ -15,6 +15,7 @@ import requests, os, jsonpickle, urllib, urlparse
 from datetime import datetime, timedelta
 from django.utils import timezone
 from collections import defaultdict
+from jars.settings import GILES_RESPONSE_CREATOR_MAP
 
 _fix_url = lambda url: url#url.replace('http://', 'https://') if url is not None else None
 
@@ -689,7 +690,7 @@ def process_details(data, upload_id, username):
         Relation.objects.create(
             source=content_resource,
             predicate=__creator__,
-            target=Value.objects.create(name='PDF Extract'),
+            target=Value.objects.create(name=GILES_RESPONSE_CREATOR_MAP['extractedText']),
             container=content_resource.container,
         )
 
@@ -703,11 +704,6 @@ def process_details(data, upload_id, username):
 
     # Keep track of page resources so that we can populate ``next_page``.
     pages = defaultdict(dict)
-
-    PAGE_CREATOR_MAP = {
-        'text': 'PDF Extract',
-        'ocr': 'Tesseract',
-    }
 
     # Each page is represented by a Resource.
     for page_data in data.get('pages', []):
@@ -736,13 +732,16 @@ def process_details(data, upload_id, username):
                                      content_type=fmt_data.get('content-type'),
                                      name='%s (%s)' % (page_resource.name, fmt))
 
-            if PAGE_CREATOR_MAP.get(fmt):
+            try:
                 Relation.objects.create(
                     source=content_resource,
                     predicate=__creator__,
-                    target=Value.objects.create(name=PAGE_CREATOR_MAP.get(fmt)),
+                    target=Value.objects.create(name=GILES_RESPONSE_CREATOR_MAP[fmt]),
                     container=content_resource.container,
                 )
+            except KeyError:
+                # Creator not defined for `fmt` in GILES_RESPONSE_CREATOR_MAP
+                pass
 
             pages[page_nr][fmt] = content_resource
 
