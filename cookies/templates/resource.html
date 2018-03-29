@@ -76,18 +76,19 @@ $(document).ready(function(){
                         <img style="height: 15px;" src="{% static "cookies/img/giles_logo.png" %}" />
                     </span>
                     {% endif %}
-                    <a class="btn glyphicon glyphicon-link" data-toggle="modal" data-target="#uri-modal">
+                    <a class="btn glyphicon glyphicon-link" title="View resource URI" data-toggle="modal" data-target="#uri-modal">
                     </a>
                     {% is_authorized "resource_change" user resource as can_edit_resource %}
                     {% if can_edit_resource %}
                     <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
                         href="{% url "edit-resource-details" resource.id %}{% if request %}?next={{ request.path }}{% endif %}"
-                        data-toggle="tooltip"
-                        data-title="Edit record"></a>
+                        title="Edit record"></a>
                     <a class="btn glyphicon glyphicon-compressed" aria-hidden="true"
                         href="{% url "resource-prune" resource.id %}"
-                        data-toggle="tooltip"
-                        data-title="Prune duplicate metadata"></a>
+                        title="Prune duplicate metadata"></a>
+                    <a class="btn glyphicon glyphicon-export" aria-hidden="true"
+                        title="Export metadata"
+                        href="{% url "export-resource-metadata" resource.id %}"></a>
                     {% endif %}
                     {% is_authorized "resource_view_auth" user resource as can_view_authorizations %}
                 </span>

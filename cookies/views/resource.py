@@ -18,9 +18,12 @@ from cookies import giles, operations
 from cookies import authorization as auth
 from cookies.accession import get_remote
 from cookies.views_rest import ResourceDetailSerializer, _create_resource_details, _create_resource_file
+from cookies.aggregate import write_metadata_csv
 
 import hmac, base64, time, urllib, datetime, mimetypes, copy, urlparse
 import os, posixpath
+
+from cStringIO import StringIO
 
 
 logger = logging.getLogger(__name__)
@@ -88,6 +91,13 @@ def resource(request, obj_id):
         return JsonResponse(ResourceDetailSerializer(context=context).to_representation(resource))
     return render(request, 'resource.html', context)
 
+
+@auth.authorization_required(ResourceAuthorization.VIEW, _get_resource_by_id)
+def export_resource_metadata(request, obj_id):
+    resource = _get_resource_by_id(request, obj_id)
+    fh = StringIO()
+    write_metadata_csv(fh, resource, write_header=True)
+    return HttpResponse(fh.getvalue(), content_type="text/csv")
 
 def resource_by_uri(request):
     """
@@ -846,11 +856,15 @@ def create_snapshot(request, dataset_id):
     if request.method == 'POST':
         form = SnapshotForm(request.POST)
         if form.is_valid():
-            content_type = form.cleaned_data.get('content_type')
-            content_type = ','.join(content_type)
+            has_metadata = form.cleaned_data.get('include_metadata')
+            has_content = form.cleaned_data.get('include_content')
+            content_type = form.cleaned_data.get('content_type', None)
+            content_type = ','.join(content_type) if content_type else None
             export_structure = form.cleaned_data.get('export_structure')
             snapshot = DatasetSnapshot.objects.create(created_by=request.user,
                                                       dataset=dataset,
+                                                      has_metadata=has_metadata,
+                                                      has_content=has_content,
                                                       content_type=content_type)
 
             job = UserJob.objects.create(**{

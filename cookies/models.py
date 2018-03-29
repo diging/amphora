@@ -758,6 +758,8 @@ class DatasetSnapshot(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
     dataset = models.ForeignKey(Dataset, related_name='snapshots')
+    has_content = models.BooleanField(default=True)
+    has_metadata = models.BooleanField(default=False)
     content_type = models.CharField(max_length=255, blank=True, null=True)
     resource = models.OneToOneField(Resource, related_name='snapshot', blank=True, null=True)
 

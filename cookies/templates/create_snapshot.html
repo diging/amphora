@@ -15,6 +15,20 @@
 </div>
 {% endblock %}
 
+{% block extrahead %}
+<script>
+$(document).ready(function(){
+    var disable_content = !$("#id_include_content").prop('checked');
+    $("#id_content_type").attr('disabled', disable_content);
+    $("#id_export_structure").attr('disabled', disable_content);
+    $("#id_include_content").change(function(){
+        $("#id_content_type").attr('disabled', !this.checked);
+        $("#id_export_structure").attr('disabled', !this.checked);
+    });
+});
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <div class="h1">{{ dataset.name }}</div>
@@ -29,21 +43,28 @@
 </div>
 <div class="container-fluid">
     <form class="form" action="{% if next %}?next={{ next }}{% else %}.{% endif %}" method="POST">
-       {% csrf_token %}
-       {% for error in form.non_field_errors %}
-       <div class="alert alert-warning">{{ error }}</div>
-       {% endfor %}
+        {% csrf_token %}
+        {% if form.errors %}
+            <div class="alert alert-warning">{{ form.non_field_errors }}</div>
+        {% endif %}
+        <div class="form-group">
+            <label>Include</label>
+            <ul class="list-unstyled">
+                <li>{{ form.include_metadata }} {{ form.include_metadata.label }}</li>
+                <li>{{ form.include_content }} {{ form.include_content.label }}</li>
+            </ul>
+        </div>
 
-       {% with form.content_type as field %}
-       <div class="form-group">
-          {% for error in field.errors %}
-          <div class="alert alert-warning">{{ error }}</div>
-          {% endfor %}
-          <label>{{ field.label }}</label>
-          {{ field|addcss:"form-control" }}
-          <p class="text-muted">{{ field.help_text }}</p>
-       </div>
-       {% endwith %}
+        {% with form.content_type as field %}
+        <div class="form-group">
+            {% for error in field.errors %}
+            <div class="alert alert-warning">{{ error }}</div>
+            {% endfor %}
+            <label>{{ field.label }}</label>
+            {{ field|addcss:"form-control" }}
+            <p class="text-muted">{{ field.help_text }}</p>
+        </div>
+        {% endwith %}
 
         {% with form.export_structure as field %}
         <div class="form-group">
@@ -55,10 +76,7 @@
             <p class="text-muted">{{ field.help_text }}</p>
         </div>
         {% endwith %}
-
-       <div class="text-right">
-          <input class="btn btn-success" type="submit" value="Create">
-       </div>
+        <input class="btn btn-success" type="submit" value="Create">
     </form>
 </div>
 {% endblock %}

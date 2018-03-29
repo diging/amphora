@@ -248,7 +248,16 @@ def create_snapshot_async(self, dataset_id, snapshot_id, export_structure, job=N
         now = timezone.now().strftime('%Y-%m-%d-%H-%m-%s')
         fname = 'dataset-%s-%s.zip' % (slugify(dataset.name), now)
         target_path = os.path.join(settings.MEDIA_ROOT, 'upload', fname)
-        methods[export_structure]((obj.primary for obj in queryset if obj.primary), target_path, content_type=snapshot.content_type.split(','))
+        if snapshot.has_content:
+            methods[export_structure]((obj.primary for obj in queryset if obj.primary),
+                                      target_path,
+                                      content_type=snapshot.content_type.split(','),
+                                      has_metadata=snapshot.has_metadata,
+                                     )
+        else:
+            aggregate.export_metadata((obj.primary for obj in queryset if obj.primary),
+                                      target_path,
+                                     )
 
         container = ResourceContainer.objects.create(created_by=snapshot.created_by)
         resource = Resource.objects.create(
@@ -283,5 +292,6 @@ def create_snapshot_async(self, dataset_id, snapshot_id, export_structure, job=N
         snapshot.resource = resource
         snapshot.state = DatasetSnapshot.DONE
         snapshot.save()
-    job.result = jsonpickle.encode({'view': 'resource', 'id': resource.id})
-    job.save()
+    if job:
+        job.result = jsonpickle.encode({'view': 'resource', 'id': resource.id})
+        job.save()
