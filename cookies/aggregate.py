@@ -277,11 +277,13 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
             if has_metadata:
                 for resource in aggregate_part_resources([queryset_resource]):
                     write_metadata_csv(metadata, resource, write_header=False)
-                target.writestr(base + 'metadata.csv', metadata.getvalue())
-                metadata.close()
 
         target.writestr(base + 'MANIFEST.txt', manifest(log))
         target.writestr(base + 'index.csv', index.getvalue())
+        if has_metadata:
+            target.writestr(base + 'metadata.csv', metadata.getvalue())
+
+        metadata.close()
         index.close()
     return target_path
 
