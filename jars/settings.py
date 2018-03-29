@@ -185,6 +185,18 @@ GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
 GILES_TOKEN_EXPIRATION = os.environ.get('GILES_TOKEN_EXPIRATION', 120)    # min.
 MAX_GILES_UPLOADS = 200
 
+# Defines creators for each type of document keys in Giles response.
+#  - Keys in this map are the keys that may be present in
+#    Giles JSON response for a processed document.
+#  - Values in this map specify what Amphora should use as a "target" while
+#    defining creator metadata for each document resource in Giles JSON
+#    response.
+GILES_RESPONSE_CREATOR_MAP = {
+    'ocr' : 'Tesseract',
+    'text': 'PDF Extract',
+    'extractedText': 'PDF Extract',
+}
+
 # Metadata globals.
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'

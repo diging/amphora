@@ -4,6 +4,7 @@
 {% load breadcrumbs %}
 {% load preview %}
 {% load authorization %}
+{% load resource_creator %}
 
 {% block extrastyle %}
 <style>
@@ -123,6 +124,12 @@ $(document).ready(function(){
                         {{ content_relation.content_type }}
                     </span>
                     {% endif %}
+                    <span class="text-success">
+                        {% get_resource_creator content_relation.content_resource as creator %}
+                        {% if creator %}
+                            &mdash; <em>{{ creator }}</em>
+                        {% endif %}
+                    </span>
                 </dd>
                 {% endfor %}
                 {% endif %}
