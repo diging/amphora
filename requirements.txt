@@ -71,3 +71,4 @@ urllib3==1.15.1
 whitenoise==2.0.4
 smart_open==1.5.3
 unicodecsv
+git+https://github.com/hashknot/django-pg-fts
