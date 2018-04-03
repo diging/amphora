@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.urlresolvers import reverse
 from django.conf import settings
+from pg_fts.fields import TSVectorField
 
 
 import iso8601, json, sys, six, logging, rest_framework, jsonpickle, os
@@ -197,6 +198,8 @@ class Resource(ResourceBase):
                                        blank=True, null=True)
 
     description = models.TextField(blank=True, null=True)
+
+    name_index = TSVectorField(('name',), dictionary='simple')
 
     @property
     def active_content(self):
