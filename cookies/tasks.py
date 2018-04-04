@@ -20,7 +20,7 @@ from cookies.accession import IngesterFactory
 from cookies.exceptions import *
 
 
-logging.basicConfig()
+logging.basicConfig(format=settings.LOGFORMAT)
 logger = logging.getLogger(__name__)
 logger.setLevel(settings.LOGLEVEL)
 

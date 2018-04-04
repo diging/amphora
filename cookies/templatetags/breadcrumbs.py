@@ -3,8 +3,10 @@ from django.template import loader, Node, Variable
 from django.utils.encoding import smart_str, smart_unicode
 from django.template.defaulttags import url
 from django.template import VariableDoesNotExist
+from django.conf import settings
 
 register = template.Library()
+logger = settings.LOGGER
 
 @register.tag
 def breadcrumb(parser, token):
@@ -79,7 +81,7 @@ class BreadcrumbNode(Node):
 			try:
 				url = val.resolve(context)
 			except VariableDoesNotExist:
-				print 'URL does not exist', val
+				logger.error('URL does not exist %s', val)
 				url = None
 
 		return create_crumb(title, url)
