@@ -50,18 +50,25 @@ METADATA_CSV_HEADER = [
     'target_uri',
 ]
 
+CONTENT_TYPE_EXTENSIONS = {
+    'text/plain'      : '.txt',
+    'text/csv'        : '.csv',
+    'image/tiff'      : '.tiff',
+    'application/pdf' : '.pdf',
+}
+
 def get_filename(resource):
     if resource.is_external:
         if resource.name:
             filename = resource.name
         else:
             filename = urlparse.urlparse(resource.location).path.split('/')[-1]
+
+        ext = CONTENT_TYPE_EXTENSIONS.get(resource.content_type,
+                                          mimetypes.guess_extension(resource.content_type))
+        return slugify(filename) + ext
     else:
-        filename = os.path.split(resource.file.path)[-1]
-
-    ext = mimetypes.guess_extension(resource.content_type)
-    return slugify(filename) + ext
-
+        return os.path.basename(resource.file.path)
 
 def get_content(content_resource):
     """
@@ -260,6 +267,7 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
     # Write header only
     write_metadata_csv(metadata, resource=None, write_header=True)
 
+    files_in_zip = set()
     with zipfile.ZipFile(target_path, 'w', allowZip64=True) as target:
         for queryset_resource in queryset:
             for content, resource in aggregate_content([queryset_resource], proc=export_proc, **kwargs):
@@ -268,9 +276,20 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
                 elif isinstance(content, Exception):
                     log.append('Encountered exception while retrieving content for %i (%s): %s' % (resource.id, resource.name, content.message))
                 else:
-                    filename = fname(resource)
-                    index_writer.writerow([resource.id, resource.name, resource.container.primary.id, resource.container.primary.uri, resource.container.primary.name, filename])
-                    target.writestr(base + filename, content)
+                    filepath = fname(resource)
+                    if filepath in files_in_zip:
+                        filename, ext = os.path.splitext(os.path.basename(filepath))
+                        filepath = os.path.join(os.path.dirname(filepath),
+                                                '{}_{}{}'.format(filename,
+                                                                 resource.id,
+                                                                 ext))
+                    files_in_zip.add(filepath)
+                    target.writestr(base + filepath, content)
+                    index_writer.writerow([resource.id, resource.name,
+                                           resource.container.primary.id,
+                                           resource.container.primary.uri,
+                                           resource.container.primary.name,
+                                           filepath])
 
             if has_metadata:
                 for resource in aggregate_part_resources([queryset_resource]):
@@ -297,15 +316,12 @@ def export_with_collection_structure(queryset, target_path, **kwargs):
         def get_collection_name(collection):
             if collection is None:
                 return ''
-            return get_collection_name(collection.part_of) + '/' + collection.name
-        if resource.is_external:
-            filename = urlparse.urlparse(resource.location).path.split('/')[-1]
-        else:
-            filename = os.path.split(resource.file.path)[-1]
-        name = get_collection_name(resource.container.part_of) + '/' + filename
-        if name.startswith('/'):
-            name = name[1:]
-        return name
+            return os.path.join(get_collection_name(collection.part_of),
+                                collection.name)
+
+        return os.path.join(get_collection_name(resource.container.part_of),
+                            get_filename(resource))
+
     return export_zip(queryset, target_path, fname=recursive_filename, **kwargs)
 
 
