@@ -23,9 +23,7 @@ GET = requests.get
 POST = requests.post
 ACCEPTED = 202
 
-logging.basicConfig(format=settings.LOGFORMAT)
-logger = logging.getLogger(__name__)
-logger.setLevel(settings.LOGLEVEL)
+logger = settings.LOGGER
 
 
 class StatusException(Exception):

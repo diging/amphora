@@ -32,9 +32,7 @@ from cookies.models import Resource, Value
 
 cache = caches['remote_content']
 
-logging.basicConfig(format=settings.LOGFORMAT)
-logger = logging.getLogger(__name__)
-logger.setLevel(settings.LOGLEVEL)
+logger = settings.LOGGER
 
 METADATA_CSV_HEADER = [
     'resource_name',

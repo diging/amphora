@@ -12,9 +12,7 @@ from cookies import metadata
 from datetime import datetime, timedelta
 
 
-logging.basicConfig(format=settings.LOGFORMAT)
-logger = logging.getLogger(__name__)
-logger.setLevel(settings.LOGLEVEL)
+logger = settings.LOGGER
 
 from itertools import repeat, imap
 

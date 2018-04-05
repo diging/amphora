@@ -13,9 +13,7 @@ from django.conf import settings
 import iso8601, json, sys, six, logging, rest_framework, jsonpickle, os
 from uuid import uuid4
 
-logging.basicConfig(format=settings.LOGFORMAT)
-logger = logging.getLogger(__name__)
-logger.setLevel(settings.LOGLEVEL)
+logger = settings.LOGGER
 
 from django.conf import settings
 import concepts
