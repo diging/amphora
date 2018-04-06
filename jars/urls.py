@@ -1,3 +1,5 @@
+import warnings
+
 from django.conf.urls import patterns, include, url
 from rest_framework import routers
 from rest_framework.urlpatterns import format_suffix_patterns
@@ -21,7 +23,7 @@ router.register(r'content', views_rest.ContentViewSet)
 router.register(r'schema', views_rest.SchemaViewSet)
 
 
-urlpatterns = patterns('',
+urlpatterns = [
     url('', include('social_django.urls', namespace='social')),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^autocomplete/$', EntityAutocomplete.as_view(create_field='name'), name='autocomplete'),
@@ -102,8 +104,19 @@ urlpatterns = patterns('',
     url(r'^oaipmh/', views_oaipmh.oaipmh, name='oaipmh'),
 
     # url(r'^search/$', views.ResourceSearchView.as_view(), name='search'),
-    url(r'^o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     url(r'^s3/', views.resource.sign_s3, name='sign_s3'),
     url(r'^testupload/', views.resource.test_upload, name='test_upload'),
     url(r'^$', views.index, name="index"),
-) + format_suffix_patterns((url(r'^resource_content/([0-9]+)$', views_rest.ResourceContentView.as_view(), name='resource_content'),))   + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    ]
+
+urlpatterns += format_suffix_patterns((url(r'^resource_content/([0-9]+)$', views_rest.ResourceContentView.as_view(), name='resource_content'),))
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+with warnings.catch_warnings():
+    # WARNING:py.warnings:../oauth2_provider/urls.py:20: RemovedInDjango110Warning: django.conf.urls.patterns() is
+    # deprecated and will be removed in Django 1.10. Update your urlpatterns to be a list of django.conf.urls.url()
+    # instances instead.
+
+    if not settings.DEBUG:
+        warnings.simplefilter('ignore')
+    urlpatterns.append(url(r'^o/', include('oauth2_provider.urls', namespace='oauth2_provider')))

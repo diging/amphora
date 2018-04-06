@@ -12,9 +12,7 @@ from cookies import metadata
 from datetime import datetime, timedelta
 
 
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logger.setLevel(settings.LOGLEVEL)
+logger = settings.LOGGER
 
 from itertools import repeat, imap
 
@@ -355,8 +353,6 @@ class IngestManager(object):
             try:
                 resource = Resource.objects.create(**data)
             except Exception as E:
-                print data
-                print E
                 raise E
         if container is None:
             container = ResourceContainer.objects.create(primary=resource,

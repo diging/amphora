@@ -5,6 +5,8 @@ import django_filters
 from cookies.models import *
 from cookies import authorization
 
+from django.conf import settings
+logger = settings.LOGGER
 
 class GilesUploadFilter(django_filters.FilterSet):
     class Meta:
@@ -56,7 +58,7 @@ class ConceptEntityFilter(django_filters.FilterSet):
         try:
             queryset = queryset.filter(relations_from__predicate=value)
         except Exception as E:
-            print str(E)
+            logger.exception(E)
 
         return queryset
 
@@ -147,7 +149,6 @@ class ResourceContainerFilter(django_filters.FilterSet):
         return queryset.filter(primary__tags__tag__id=value)
 
     def filter_content_type(self, queryset, name, value):
-        print value
         if not value:
             return queryset
         return queryset.filter(Q(content_relations__content_type__in=value)).distinct('id')

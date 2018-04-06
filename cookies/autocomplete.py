@@ -70,7 +70,6 @@ class EntityAutocomplete(Select2QuerySetSequenceView):
     def create_object(self, text):
         """Create an object given a text."""
         model = self.get_model_for_value(text)
-        print model
         if model:
             return model.objects.create(**{self.create_field: model.pytype(text)})
         return None

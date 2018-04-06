@@ -399,8 +399,8 @@ class HiddenModelMultipleChoiceField(forms.ModelMultipleChoiceField):
         return super(HiddenModelMultipleChoiceField, self).to_python(value)
 
     def validate(self, value):
-
-        print 'validate', value
+        # print 'validate', value
+        pass
 
 
 class AddTagForm(forms.Form):

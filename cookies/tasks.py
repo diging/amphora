@@ -20,9 +20,7 @@ from cookies.accession import IngesterFactory
 from cookies.exceptions import *
 
 
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logger.setLevel(settings.LOGLEVEL)
+logger = settings.LOGGER
 
 import jsonpickle, json, os
 from datetime import timedelta, datetime
