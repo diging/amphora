@@ -159,7 +159,7 @@ class ResourceContainerFilter(django_filters.FilterSet):
         return queryset.filter(q)
 
     def lookup_using_name_index(self, queryset, name, value):
-        return queryset.filter(primary__name_index__search=value)
+        return queryset.filter(primary__name_index__plain_tsquery=value)
 
     o = django_filters.OrderingFilter(
         # tuple-mapping retains order
