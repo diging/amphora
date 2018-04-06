@@ -86,7 +86,7 @@ class Entity(models.Model):
     " have the right to upload and distribute this resource.")
 
     namespace = models.CharField(max_length=255, blank=True, null=True)
-    uri = models.CharField(max_length=255, verbose_name='URI', help_text="You"
+    uri = models.CharField(db_index=True, max_length=255, verbose_name='URI', help_text="You"
     " may provide your own URI, or allow the system to assign one"
     " automatically.")
 
