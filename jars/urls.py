@@ -117,5 +117,6 @@ with warnings.catch_warnings():
     # deprecated and will be removed in Django 1.10. Update your urlpatterns to be a list of django.conf.urls.url()
     # instances instead.
 
-    warnings.simplefilter('ignore')
+    if not settings.DEBUG:
+        warnings.simplefilter('ignore')
     urlpatterns.append(url(r'^o/', include('oauth2_provider.urls', namespace='oauth2_provider')))
