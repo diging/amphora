@@ -55,8 +55,9 @@ INSTALLED_APPS = (
     'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
-     'social_django',
-     'django.contrib.humanize',
+    'social_django',
+    'django.contrib.humanize',
+    'pg_fts',
 )
 
 MIDDLEWARE_CLASSES = (

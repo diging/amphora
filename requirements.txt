@@ -71,3 +71,4 @@ urllib3==1.15.1
 whitenoise==2.0.4
 smart_open==1.5.3
 unicodecsv
+git+https://github.com/diging/django-pg-fts.git@1f251c09f3bfdaa58e85b8bdbe00a75ddce3d6a8

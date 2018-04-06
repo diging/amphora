@@ -76,7 +76,7 @@ class ConceptEntityFilter(django_filters.FilterSet):
 
 
 class ResourceContainerFilter(django_filters.FilterSet):
-    name = django_filters.CharFilter(method='lookup_name_in_parts')
+    name = django_filters.CharFilter(method='lookup_using_name_index')
     content = django_filters.CharFilter(name='primary__indexable_content',
                                         lookup_expr='icontains')
     part_of = django_filters.ModelChoiceFilter(name='part_of', queryset=Collection.objects.all())
@@ -158,6 +158,9 @@ class ResourceContainerFilter(django_filters.FilterSet):
         for part in value.split():
             q &= Q(primary__name__icontains=part)
         return queryset.filter(q)
+
+    def lookup_using_name_index(self, queryset, name, value):
+        return queryset.filter(primary__name_index__plain_tsquery=value)
 
     o = django_filters.OrderingFilter(
         # tuple-mapping retains order
