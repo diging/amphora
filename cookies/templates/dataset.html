@@ -39,8 +39,20 @@
     <div class="list-group">
         {% for snapshot in dataset.snapshots.all %}
         <a class="list-group-item clearfix" {% if snapshot.resource %}href="{% url "resource" snapshot.resource.id %}"{% endif %}>
-            <span class="pull-right">{{ snapshot.get_state_display }}</span>
-            {{ snapshot.created }} by <span class="text-warning">{{ snapshot.created_by }}</span> using <strong>{{ snapshot.content_type }}</strong>
+            <span class="pull-right">
+                {{ snapshot.get_state_display }}
+            </span>
+            {{ snapshot.created }} by <span class="text-warning">{{ snapshot.created_by }}</span>
+            having
+            {% if snapshot.has_metadata %}
+                <span class="label label-primary">Metadata</span>
+            {% endif %}
+            {% if snapshot.has_content %}
+                <span class="label label-default">Content</span>
+            {% endif %}
+            {% if snapshot.content_type %}
+                using <strong>{{ snapshot.content_type }}</strong>
+            {% endif %}
         </a>
         {% endfor %}
     </div>

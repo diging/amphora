@@ -321,6 +321,8 @@ class CreateGilesUpload(unittest.TestCase):
         __image__ = Type.objects.create(uri='http://purl.org/dc/dcmitype/Image')
         __document__ = Type.objects.create(uri='http://xmlns.com/foaf/0.1/Document')
         __part__ = Field.objects.create(uri='http://purl.org/dc/terms/isPartOf')
+        __creator__ = Field.objects.create(uri='http://purl.org/dc/elements/1.1/creator')
+        __dataset__ = Type.objects.create(uri='http://purl.org/dc/dcmitype/Dataset')
 
         mock_get.return_value = MockDataResponse(200, [{
           "documentId" : "DOC123edf",
@@ -417,6 +419,8 @@ class CreateGilesUpload(unittest.TestCase):
         __image__ = Type.objects.create(uri='http://purl.org/dc/dcmitype/Image')
         __document__ = Type.objects.create(uri='http://xmlns.com/foaf/0.1/Document')
         __part__ = Field.objects.create(uri='http://purl.org/dc/terms/isPartOf')
+        __creator__ = Field.objects.create(uri='http://purl.org/dc/elements/1.1/creator')
+        __dataset__ = Type.objects.create(uri='http://purl.org/dc/dcmitype/Dataset')
 
         mock_get.return_value = MockDataResponse(200, [{
           "documentId" : "DOC123edf",

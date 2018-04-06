@@ -179,8 +179,6 @@ class HathiTrustRemoteIngest(HathiTrustRemote):
                 'entity_type': ['http://purl.org/dc/dcmitype/Text']
             }
         except Exception as E:
-            print E
-            print data
             raise E
 
     def process_content_metadata(self, identifier, raw):

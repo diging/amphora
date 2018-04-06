@@ -16,7 +16,6 @@ class GilesRemote(object):
         Generates the authorization header for Giles requests.
         """
         access_token = self.access_token_generator(self.get_auth_token)
-        print access_token
         return {'Authorization': 'token %s' % access_token}
 
     def get_auth_token(self):

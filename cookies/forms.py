@@ -399,8 +399,8 @@ class HiddenModelMultipleChoiceField(forms.ModelMultipleChoiceField):
         return super(HiddenModelMultipleChoiceField, self).to_python(value)
 
     def validate(self, value):
-
-        print 'validate', value
+        # print 'validate', value
+        pass
 
 
 class AddTagForm(forms.Form):
@@ -460,12 +460,14 @@ class DatasetForm(forms.ModelForm):
 
 
 class SnapshotForm(forms.Form):
-    content_type = forms.MultipleChoiceField(choices=[])
+    content_type = forms.MultipleChoiceField(choices=[], required=False)
+    include_metadata = forms.BooleanField(label="Metadata", required=False, initial=True)
+    include_content = forms.BooleanField(label="Content", required=False, initial=True)
     export_structure = forms.ChoiceField(choices=[
         ('flat', 'Flat'),
         ('collection', 'Preserve collection structure'),
         ('parts', 'Preserve resource hierarchy')
-    ])
+    ], required=False, label="Content export structure")
 
     def __init__(self, *args, **kwargs):
         super(SnapshotForm, self).__init__(*args, **kwargs)
@@ -515,6 +517,17 @@ class SnapshotForm(forms.Form):
             'video/quicktime',
         ]
         self.fields['content_type'].choices = [('__all__', 'All')] + zip(content_type_choices, content_type_choices)
+
+    def clean(self):
+        cleaned_data = super(SnapshotForm, self).clean()
+        if not (cleaned_data.get('include_metadata') or cleaned_data.get('include_content')):
+            raise forms.ValidationError('At least one of "include_content", "include_metadata" is required')
+
+        if (cleaned_data.get('include_content')
+                and not (cleaned_data.get('content_type')
+                         and cleaned_data.get('export_structure'))):
+            raise forms.ValidationError('Content type and export structure required')
+        return cleaned_data
 
 class GilesLogForm(forms.Form):
     UPLOAD_ALL = 'all'

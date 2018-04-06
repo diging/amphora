@@ -5,6 +5,8 @@ import django_filters
 from cookies.models import *
 from cookies import authorization
 
+from django.conf import settings
+logger = settings.LOGGER
 
 class GilesUploadFilter(django_filters.FilterSet):
     class Meta:
@@ -56,7 +58,7 @@ class ConceptEntityFilter(django_filters.FilterSet):
         try:
             queryset = queryset.filter(relations_from__predicate=value)
         except Exception as E:
-            print str(E)
+            logger.exception(E)
 
         return queryset
 
@@ -74,14 +76,21 @@ class ConceptEntityFilter(django_filters.FilterSet):
 
 
 class ResourceContainerFilter(django_filters.FilterSet):
-    name = django_filters.CharFilter(method='lookup_name_in_parts')
+    name = django_filters.CharFilter(method='lookup_using_name_index')
     content = django_filters.CharFilter(name='primary__indexable_content',
                                         lookup_expr='icontains')
     part_of = django_filters.ModelChoiceFilter(name='part_of', queryset=Collection.objects.all())
+
+    # FIXME: The following statement results in a very expensive Postgres query.
+    # entity_type = django_filters.ModelChoiceFilter(
+    #     name='primary__entity_type',
+    #     queryset=Type.objects.annotate(num_instances=Count('resource'))\
+    #                          .filter(num_instances__gt=0)
+    # )
+    # As a temporary workaround, use a static list for choices.
     entity_type = django_filters.ModelChoiceFilter(
         name='primary__entity_type',
-        queryset=Type.objects.annotate(num_instances=Count('resource'))\
-                             .filter(num_instances__gt=0)
+        queryset=Type.objects.all(),
     )
 
     # FIXME: The following statement results in a very expensive Postgres query.
@@ -140,7 +149,6 @@ class ResourceContainerFilter(django_filters.FilterSet):
         return queryset.filter(primary__tags__tag__id=value)
 
     def filter_content_type(self, queryset, name, value):
-        print value
         if not value:
             return queryset
         return queryset.filter(Q(content_relations__content_type__in=value)).distinct('id')
@@ -150,6 +158,9 @@ class ResourceContainerFilter(django_filters.FilterSet):
         for part in value.split():
             q &= Q(primary__name__icontains=part)
         return queryset.filter(q)
+
+    def lookup_using_name_index(self, queryset, name, value):
+        return queryset.filter(primary__name_index__plain_tsquery=value)
 
     o = django_filters.OrderingFilter(
         # tuple-mapping retains order

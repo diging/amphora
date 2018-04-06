@@ -15,6 +15,7 @@ import requests, os, jsonpickle, urllib, urlparse
 from datetime import datetime, timedelta
 from django.utils import timezone
 from collections import defaultdict
+from jars.settings import GILES_RESPONSE_CREATOR_MAP
 
 _fix_url = lambda url: url#url.replace('http://', 'https://') if url is not None else None
 
@@ -22,9 +23,7 @@ GET = requests.get
 POST = requests.post
 ACCEPTED = 202
 
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logger.setLevel(settings.LOGLEVEL)
+logger = settings.LOGGER
 
 
 class StatusException(Exception):
@@ -556,6 +555,52 @@ def process_upload(upload_id, username):
         upload.save()
 
 
+def _create_additional_files_resources(additional_files, parent_resource, creator,
+                                       processor_predicate, resource_type_fn,
+                                       name_fn=lambda x:x['url']):
+    """
+    Helper function for creating content resources for 'additionalFiles' in
+    processed Giles upload response.
+
+    Parameters
+    ----------
+    additional_files : list
+        List of dicts containing details of each additional file.
+    parent_resource : :class:`.Resource` instance
+        Represents the document/object of which the content resource (to be
+        created) is a digital surrogate.
+    creator : :class:`.User`
+        The person responsible for adding the content to Giles.
+    processor_predicate : :class:`.Field` instance
+        The predicate to use for defining 'processor' relation.
+    resource_type_fn : callable
+        A function accepting additional file info dict and returning the
+        resource type. Must return an instance of :class:`.Type`.
+    name_fn : callable
+        A function accepting dict and returning name for each additional file
+        content resource. Must return a str.
+    """
+    for additional_file in additional_files:
+        content_type = additional_file.get('content-type')
+        uri = additional_file.get('url')
+        resource_type = resource_type_fn(additional_file)
+        content_resource = _create_content_resource(
+            parent_resource,
+            resource_type,
+            creator,
+            uri, uri,
+            content_type=content_type,
+            name=name_fn(additional_file),
+        )
+
+        if additional_file.get('processor'):
+            Relation.objects.create(
+                source=content_resource,
+                predicate=processor_predicate,
+                target=Value.objects.create(name=additional_file.get('processor')),
+                container=content_resource.container,
+            )
+
 def process_details(data, upload_id, username):
     """
     Process document data from Giles.
@@ -577,14 +622,30 @@ def process_details(data, upload_id, username):
             raise ValueError('data is empty')
         data = data[0]
 
+    __creator__ = Field.objects.get(uri='http://purl.org/dc/elements/1.1/creator')
+    __text__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Text')
+    __image__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Image')
+    __document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
+    __dataset__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Dataset')
+    CONTENT_RESOURCE_TYPE_MAP = {
+        'text/plain': __text__,
+        'text/csv': __dataset__,
+    }
+
+    def _get_resource_type(data):
+        content_type = data.get('content-type')
+        try:
+            return CONTENT_RESOURCE_TYPE_MAP[content_type]
+        except KeyError:
+            if 'image' in content_type:
+                return __image__
+        return __document__
+
     upload = GilesUpload.objects.get(upload_id=upload_id)
     resource = upload.resource    # This is the master resource.
     creator = User.objects.get(username=username)
 
     giles = settings.GILES
-    __text__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Text')
-    __image__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Image')
-    __document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
 
     document_id = data.get('documentId')
 
@@ -621,8 +682,23 @@ def process_details(data, upload_id, username):
         text_content_type = text_data.get('content-type')
         # text_uri = '%s/files/%s' % (giles, text_data.get('id'))
         text_uri = text_data.get('url')
-        _create_content_resource(resource, __text__, creator, text_uri,
-                                 text_uri, content_type=text_content_type)
+        content_resource = _create_content_resource(resource, __text__, creator,
+                                                    text_uri, text_uri,
+                                                    content_type=text_content_type)
+        Relation.objects.create(
+            source=content_resource,
+            predicate=__creator__,
+            target=Value.objects.create(name=GILES_RESPONSE_CREATOR_MAP['extractedText']),
+            container=content_resource.container,
+        )
+
+    # Content resource for each additional file, if available.
+    _create_additional_files_resources(data.get('additionalFiles', []),
+                                       resource,
+                                       creator,
+                                       processor_predicate=__creator__,
+                                       resource_type_fn=_get_resource_type,
+                                       )
 
     # Keep track of page resources so that we can populate ``next_page``.
     pages = defaultdict(dict)
@@ -639,14 +715,14 @@ def process_details(data, upload_id, username):
         pages[page_nr]['resource'] = page_resource
 
         # Each page resource can have several content resources.
-        for fmt in ['image', 'text']:
+        for fmt in ['image', 'text', 'ocr',]:
             # We may not have both formats for each page.
             fmt_data = page_data.get(fmt, None)
             if fmt_data is None:
                 continue
 
             page_fmt_uri = '%s/files/%s' % (giles, fmt_data.get('id'))
-            pages[page_nr][fmt] = _create_content_resource(page_resource,
+            content_resource = _create_content_resource(page_resource,
                                      __image__ if fmt == 'image' else __text__,
                                      creator, page_fmt_uri,
                                      _fix_url(fmt_data.get('url')),
@@ -654,10 +730,34 @@ def process_details(data, upload_id, username):
                                      content_type=fmt_data.get('content-type'),
                                      name='%s (%s)' % (page_resource.name, fmt))
 
+            try:
+                Relation.objects.create(
+                    source=content_resource,
+                    predicate=__creator__,
+                    target=Value.objects.create(name=GILES_RESPONSE_CREATOR_MAP[fmt]),
+                    container=content_resource.container,
+                )
+            except KeyError:
+                # Creator not defined for `fmt` in GILES_RESPONSE_CREATOR_MAP
+                pass
+
+            pages[page_nr][fmt] = content_resource
+
+        name_fn = lambda d: '%s - %s (%s)' % (page_resource.name, d.get('id'),
+                                              d.get('content_type'))
+        # Content resource for each additional file, if available.
+        _create_additional_files_resources(page_data.get('additionalFiles', []),
+                                           page_resource,
+                                           creator,
+                                           processor_predicate=__creator__,
+                                           resource_type_fn=_get_resource_type,
+                                           name_fn=name_fn,
+                                           )
+
         # Populate the ``next_page`` field for pages, and for their content
         #  resources.
         for i in sorted(pages.keys())[:-1]:
-            for fmt in ['resource', 'image', 'text']:
+            for fmt in ['resource', 'image', 'text', 'ocr',]:
                 if fmt not in pages[i]:
                     continue
                 pages[i][fmt].next_page = pages[i + 1][fmt]

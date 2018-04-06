@@ -8,14 +8,13 @@ from django.core.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.urlresolvers import reverse
 from django.conf import settings
+from pg_fts.fields import TSVectorField
 
 
 import iso8601, json, sys, six, logging, rest_framework, jsonpickle, os
 from uuid import uuid4
 
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logger.setLevel(settings.LOGLEVEL)
+logger = settings.LOGGER
 
 from django.conf import settings
 import concepts
@@ -87,7 +86,7 @@ class Entity(models.Model):
     " have the right to upload and distribute this resource.")
 
     namespace = models.CharField(max_length=255, blank=True, null=True)
-    uri = models.CharField(max_length=255, verbose_name='URI', help_text="You"
+    uri = models.CharField(db_index=True, max_length=255, verbose_name='URI', help_text="You"
     " may provide your own URI, or allow the system to assign one"
     " automatically.")
 
@@ -197,6 +196,8 @@ class Resource(ResourceBase):
                                        blank=True, null=True)
 
     description = models.TextField(blank=True, null=True)
+
+    name_index = TSVectorField(('name',), dictionary='simple')
 
     @property
     def active_content(self):
@@ -758,6 +759,8 @@ class DatasetSnapshot(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
     dataset = models.ForeignKey(Dataset, related_name='snapshots')
+    has_content = models.BooleanField(default=True)
+    has_metadata = models.BooleanField(default=False)
     content_type = models.CharField(max_length=255, blank=True, null=True)
     resource = models.OneToOneField(Resource, related_name='snapshot', blank=True, null=True)
 

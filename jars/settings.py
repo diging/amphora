@@ -10,25 +10,29 @@ DEVELOP = 'runserver' in sys.argv or eval(os.environ.get('DEVELOP', 'False'))
 DEBUG = eval(os.environ.get('DEBUG', 'False')) or TEST or DEVELOP
 SECRET_KEY = os.environ.get('SECRET_KEY', 'fake')
 
-TEMPLATE_DIRS = [os.path.join(BASE_DIR, 'templates')]
-TEMPLATE_DEBUG = True
-TEMPLATE_CONTEXT_PROCESSORS = (
-    "django.contrib.auth.context_processors.auth",
-    "django.core.context_processors.debug",
-    "django.core.context_processors.i18n",
-    "django.core.context_processors.media",
-    "django.core.context_processors.static",
-    "django.core.context_processors.tz",
-    "django.contrib.messages.context_processors.messages",
-)
-
-if not TEST:    # These are removed for test performance.
-    TEMPLATE_CONTEXT_PROCESSORS += (
-        "django.core.context_processors.request",
-        'social_django.context_processors.backends',
-        'social_django.context_processors.login_redirect',
-        #    "audit_log.middleware.UserLoggingMiddleware",
-    )
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': (
+                "django.contrib.auth.context_processors.auth",
+                "django.core.context_processors.debug",
+                "django.core.context_processors.i18n",
+                "django.core.context_processors.media",
+                "django.core.context_processors.static",
+                "django.core.context_processors.tz",
+                "django.contrib.messages.context_processors.messages",
+            ) + ((
+                "django.core.context_processors.request",
+                'social_django.context_processors.backends',
+                'social_django.context_processors.login_redirect',
+                #    "audit_log.middleware.UserLoggingMiddleware",
+            ) if not TEST else ()),
+        },
+    },
+]
 
 ALLOWED_HOSTS = ['*']
 
@@ -51,8 +55,9 @@ INSTALLED_APPS = (
     'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
-     'social_django',
-     'django.contrib.humanize',
+    'social_django',
+    'django.contrib.humanize',
+    'pg_fts',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -185,6 +190,18 @@ GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
 GILES_TOKEN_EXPIRATION = os.environ.get('GILES_TOKEN_EXPIRATION', 120)    # min.
 MAX_GILES_UPLOADS = 200
 
+# Defines creators for each type of document keys in Giles response.
+#  - Keys in this map are the keys that may be present in
+#    Giles JSON response for a processed document.
+#  - Values in this map specify what Amphora should use as a "target" while
+#    defining creator metadata for each document resource in Giles JSON
+#    response.
+GILES_RESPONSE_CREATOR_MAP = {
+    'ocr' : 'Tesseract',
+    'text': 'PDF Extract',
+    'extractedText': 'PDF Extract',
+}
+
 # Metadata globals.
 RDFNS = 'http://www.w3.org/2000/01/rdf-schema#'
 LITERAL = 'http://www.w3.org/2000/01/rdf-schema#Literal'
@@ -194,10 +211,11 @@ IS_PART_OF = 'http://purl.org/dc/terms/isPartOf'
 URI_NAMESPACE = os.environ.get('NAMESPACE', 'http://diging.asu.edu/amphora')
 
 
+LOGFORMAT = '%(asctime)s:%(levelname)s:%(pathname)s:%(lineno)d:: %(message)s'
 LOGLEVEL = os.environ.get('LOGLEVEL', 'ERROR')
 # LOGLEVEL = 'ERROR'
 import logging
-logging.basicConfig()
+logging.basicConfig(format=LOGFORMAT)
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(LOGLEVEL)
 
