@@ -26,7 +26,7 @@
           {% if filter_parameters and user.is_authenticated %}
           <a class="btn btn-xs"
              href="{% url "create-dataset" %}?filter_parameters={{ filter_parameters }}">
-              <span class="glyphicon glyphicon-hdd"></span> Create Dataset
+              <span class="glyphicon glyphicon-hdd"></span> Create Dataset from filters
           </a>
           {% endif %}
       </div>

@@ -8,9 +8,10 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from cookies import aggregate
-from cookies.filters import ResourceContainerFilter
+from cookies.filters import ResourceContainerFilter, apply_dataset_filters
 
 
+from itertools import chain
 from celery import shared_task, task
 
 from cookies import content, giles, authorization, operations
@@ -219,19 +220,13 @@ def create_snapshot_async(self, dataset_id, snapshot_id, export_structure, job=N
     dataset = Dataset.objects.get(pk=dataset_id)
     snapshot = DatasetSnapshot.objects.get(pk=snapshot_id)
 
+    user = snapshot.created_by
     if dataset.dataset_type == Dataset.EXPLICIT:
-        queryset = dataset.resources.all()
+        containers = authorization.apply_filter(ResourceAuthorization.VIEW, user,
+                                                dataset.resources.all())
+        collections = Collection.objects.none()
     else:
-        params = QueryDict(dataset.filter_parameters)
-
-        queryset = authorization.apply_filter(ResourceAuthorization.VIEW,
-                                     dataset.created_by,
-                                     ResourceContainer.active.all())
-        queryset = ResourceContainerFilter(params, queryset=queryset).qs
-
-    # Only include records that the __current__ user has permission to view.
-    queryset = authorization.apply_filter(ResourceAuthorization.VIEW,
-                                          snapshot.created_by, queryset)
+        collections, containers = apply_dataset_filters(user, dataset.filter_parameters)
 
     snapshot.state = DatasetSnapshot.IN_PROGRESS
     snapshot.save()
@@ -246,14 +241,16 @@ def create_snapshot_async(self, dataset_id, snapshot_id, export_structure, job=N
         now = timezone.now().strftime('%Y-%m-%d-%H-%m-%s')
         fname = 'dataset-%s-%s.zip' % (slugify(dataset.name), now)
         target_path = os.path.join(settings.MEDIA_ROOT, 'upload', fname)
+        object_iterator = chain(containers, (container for collection in collections
+                                             for container in aggregate.get_collection_containers(user, collection)))
         if snapshot.has_content:
-            methods[export_structure]((obj.primary for obj in queryset if obj.primary),
+            methods[export_structure]((obj.primary for obj in object_iterator if obj.primary),
                                       target_path,
                                       content_type=snapshot.content_type.split(','),
                                       has_metadata=snapshot.has_metadata,
                                      )
         else:
-            aggregate.export_metadata((obj.primary for obj in queryset if obj.primary),
+            aggregate.export_metadata((obj.primary for obj in object_iterator if obj.primary),
                                       target_path,
                                      )
 

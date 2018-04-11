@@ -28,7 +28,10 @@ import os, urlparse, mimetypes
 import unicodecsv as csv
 
 from django.utils.text import slugify
+from cookies import authorization as auth
 from cookies.models import Resource, Value
+from cookies.models import ResourceAuthorization, CollectionAuthorization
+from cookies.models import ResourceContainer, Collection
 
 cache = caches['remote_content']
 
@@ -92,6 +95,25 @@ def get_content(content_resource):
         with open(content_resource.file.path) as f:
             return f.read()
     return
+
+def get_collection_containers(user, collection):
+    """
+    Yield containers recursively for the supplied collection object.
+    """
+    containers = auth.apply_filter(ResourceAuthorization.VIEW,
+                                   user,
+                                   ResourceContainer.active.filter(part_of=collection.id))
+    for container in containers:
+        yield container
+
+    subcollections = auth.apply_filter(CollectionAuthorization.VIEW,
+                                       user,
+                                       Collection.objects.filter(part_of=collection.id,
+                                                                 hidden=False))
+    for subcollection in subcollections:
+        for container in get_collection_containers(user, subcollection):
+            yield container
+
 
 def write_metadata_csv(filehandle, resource=None, write_header=False):
     writer = csv.writer(filehandle)
