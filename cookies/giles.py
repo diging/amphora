@@ -744,7 +744,7 @@ def process_details(data, upload_id, username):
             pages[page_nr][fmt] = content_resource
 
         name_fn = lambda d: '%s - %s (%s)' % (page_resource.name, d.get('id'),
-                                              d.get('content_type'))
+                                              d.get('content-type'))
         # Content resource for each additional file, if available.
         _create_additional_files_resources(page_data.get('additionalFiles', []),
                                            page_resource,
