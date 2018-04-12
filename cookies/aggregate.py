@@ -26,6 +26,7 @@ from cookies.accession import get_remote
 import smart_open, zipfile, logging, cStringIO, mimetypes
 import os, urlparse, mimetypes
 import unicodecsv as csv
+import posixpath
 
 from django.utils.text import slugify
 from cookies import authorization as auth
@@ -284,7 +285,7 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
     index = cStringIO.StringIO()
     metadata = cStringIO.StringIO()
     index_writer = csv.writer(index)
-    index_writer.writerow(['ID', 'Name', 'PrimaryID', 'PrimaryURI', 'PrimaryName', 'Location'])
+    index_writer.writerow(['ID', 'Name', 'PrimaryID', 'PrimaryURI', 'PrimaryName', 'Location', 'CollectionID', 'CollectionName'])
 
     # Write header only
     write_metadata_csv(metadata, resource=None, write_header=True)
@@ -311,7 +312,10 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
                                            resource.container.primary.id,
                                            resource.container.primary.uri,
                                            resource.container.primary.name,
-                                           filepath])
+                                           filepath,
+                                           resource.container.part_of.id,
+                                           get_collection_name(resource, concat_fn=posixpath.join),
+                                          ])
 
             if has_metadata:
                 for resource in aggregate_part_resources([queryset_resource]):
@@ -326,6 +330,13 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
         index.close()
     return target_path
 
+def get_collection_name(resource, concat_fn=os.path.join):
+    def recursive_collection_name(collection):
+        if not collection:
+            return ''
+        return concat_fn(recursive_collection_name(collection.part_of),
+                         collection.name)
+    return recursive_collection_name(resource.container.part_of)
 
 def export_with_collection_structure(queryset, target_path, **kwargs):
     """
@@ -333,18 +344,8 @@ def export_with_collection_structure(queryset, target_path, **kwargs):
     collection structure. Collection names are used to build file paths within
     the archive.
     """
-    import os, urlparse
-    def recursive_filename(resource):
-        def get_collection_name(collection):
-            if collection is None:
-                return ''
-            return os.path.join(get_collection_name(collection.part_of),
-                                collection.name)
-
-        return os.path.join(get_collection_name(resource.container.part_of),
-                            get_filename(resource))
-
-    return export_zip(queryset, target_path, fname=recursive_filename, **kwargs)
+    fname = lambda r: os.path.join(get_collection_name(r), get_filename(r))
+    return export_zip(queryset, target_path, fname=fname, **kwargs)
 
 
 def export_with_resource_structure(queryset, target_path, **kwargs):
