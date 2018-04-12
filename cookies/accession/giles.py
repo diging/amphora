@@ -56,7 +56,11 @@ class GilesRemote(object):
         """
         """
         headers = self.build_auth_headers()
-        response = requests.get(self.sign_uri(target), headers=headers)
+
+        # Giles doesn't return images if 'dw' parameter is missing
+        params = {'dw': 500}
+
+        response = requests.get(self.sign_uri(target), params=params, headers=headers)
         if response.status_code != 200:
             raise IOError('Giles responded with %i: %s' % (response.status_code, response.content))
         if raw:

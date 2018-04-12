@@ -29,7 +29,9 @@
         <dd>{{ dataset.updated }}</dd>
         <dt>Type</dt>
         <dd>{{ dataset.get_dataset_type_display }} </dd>
-        <dt>Size</dt>
+        <dt>Collections count</dt>
+        <dd>{{ collection_count|intcomma }} </dd>
+        <dt>Resources count</dt>
         <dd>{{ resource_count|intcomma }} </dd>
     </dl>
 

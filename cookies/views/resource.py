@@ -18,7 +18,7 @@ from cookies import giles, operations
 from cookies import authorization as auth
 from cookies.accession import get_remote
 from cookies.views_rest import ResourceDetailSerializer, _create_resource_details, _create_resource_file
-from cookies.aggregate import write_metadata_csv
+from cookies.aggregate import write_metadata_csv, get_collection_containers
 
 import hmac, base64, time, urllib, datetime, mimetypes, copy, urlparse
 import os, posixpath
@@ -880,21 +880,26 @@ def create_snapshot(request, dataset_id):
     return render(request, 'create_snapshot.html', context)
 
 
+
 def dataset(request, dataset_id):
     """
     Details about a dataset.
     """
     dataset = get_object_or_404(Dataset, pk=dataset_id)
     if dataset.dataset_type == Dataset.EXPLICIT:
-        count = dataset.resources.count()
+        resource_count = dataset.resources.count()
+        collection_count = 0
     else:
-        params = QueryDict(dataset.filter_parameters)
-        containers = auth.apply_filter(ResourceAuthorization.VIEW, dataset.created_by,
-                                       ResourceContainer.active.all())
-        containers = ResourceContainerFilter(params, queryset=containers).qs
-        count = containers.count()
+        collections, containers = apply_dataset_filters(request.user,
+                                                        dataset.filter_parameters)
+        resource_count = containers.count()
+        collection_count = collections.count()
 
-    context = {'dataset': dataset, 'resource_count': count}
+    context = {
+        'dataset': dataset,
+        'resource_count': resource_count,
+        'collection_count': collection_count,
+    }
     return render(request, 'dataset.html', context)
 
 
@@ -910,27 +915,27 @@ def create_dataset(request):
     if not filter_parameters:
         return HttpResponseRedirect(reverse('resources'))
 
-    containers = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
-                                  ResourceContainer.active.all())
-    containers = ResourceContainerFilter(QueryDict(filter_parameters),
-                                         queryset=containers).qs
-    if request.method == 'GET':
-        form = DatasetForm(initial={'filter_parameters': filter_parameters})
-    elif request.method == 'POST':
+    form = DatasetForm(initial={'filter_parameters': filter_parameters})
+    collections, containers = apply_dataset_filters(request.user, filter_parameters)
+
+    if request.method == 'POST':
         form = DatasetForm(request.POST)
         if form.is_valid():
             data = dict(form.cleaned_data)
             data.update({'created_by': request.user})
             instance = Dataset.objects.create(**data)
-
             if instance.dataset_type == Dataset.EXPLICIT:
                 with transaction.atomic():
                     for container in containers:
                         instance.resources.add(container)
+                    for collection in collections:
+                        for container in get_collection_containers(request.user, collection):
+                            instance.resources.add(container)
             return HttpResponseRedirect(reverse('dataset', args=(instance.id,)))
 
     context = {
         'form': form,
-        'resource_count': containers.count()
+        'resource_count': containers.count(),
+        'collection_count': collections.count(),
     }
     return render(request, 'create_dataset.html', context)

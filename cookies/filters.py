@@ -1,4 +1,5 @@
 from django.db.models import Q, Count
+from django.http import QueryDict
 
 import django_filters
 
@@ -26,6 +27,34 @@ class GilesUploadFilter(django_filters.FilterSet):
         }
     )
 
+
+def apply_dataset_filters(user, filter_parameters):
+    """
+    Applies the filters on all collections, resources viewable to `user`
+    for facilitating dataset export.
+
+    Returns tuple(QuerySet<Collection>, QuerySet<ResourceContainer>)
+    """
+    filter_query_dict = QueryDict(filter_parameters)
+    collection_id = filter_query_dict.getlist('collection', None)
+
+    # At the moment, dataset can be created either using collection IDs
+    # or resource filters, but NOT BOTH. You can't have collection IDs
+    # listed along with resource filter parameters.
+    if collection_id:
+        collections = authorization.apply_filter(CollectionAuthorization.VIEW,
+                                                 user,
+                                                 Collection.objects.filter(id__in=collection_id,
+                                                                           hidden=False))
+        containers = ResourceContainer.objects.none()
+    else:
+        collections = Collection.objects.none()
+        containers = authorization.apply_filter(ResourceAuthorization.VIEW,
+                                                user,
+                                                ResourceContainer.active.all())
+        containers = ResourceContainerFilter(filter_query_dict,
+                                             queryset=containers).qs
+    return collections, containers
 
 
 def get_collections(request):

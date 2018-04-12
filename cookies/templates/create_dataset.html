@@ -21,7 +21,9 @@
         Use datasets to define groups of resources for future reference.
     </p>
     <p class="text-warning">
-        You have selected {{ resource_count|intcomma }} resources.
+        You have selected
+        {% if collection_count %} {{ collection_count|intcomma }} collection(s) {% endif %}
+        {% if resource_count %} {% if collection_count %} and {% endif %} {{ resource_count|intcomma }} resource(s). {% endif %}
     </p>
 </div>
 <div class="container-fluid">
