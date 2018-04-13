@@ -36,7 +36,19 @@
         <dd>{{ upload.on_complete }}</dd>
     </dl>
     <p>{{ upload.message }}</p>
-
+    {% is_authorized "resource_change" user upload.resource as can_edit_resource %}
+    {% if can_edit_resource %}
+        <form method="POST">
+            {% csrf_token %}
+            {% if checked %}
+                <div class="alert alert-success" role="alert">Checked {{ checked }}</div>
+            {% endif %}
+            {% if error %}
+                <div class="alert alert-danger" role="alert"><strong>ERROR: </strong>{{ error }}</div>
+            {% endif %}
+            <button type="submit" class="btn btn-sm btn-primary" title="Recheck Giles Upload status"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Recheck</button>
+        </form>
+    {% endif %}
 </div>
 
 {% endblock %}

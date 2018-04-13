@@ -14,9 +14,12 @@ from cookies.forms import ChooseCollectionForm, GilesLogForm
 from cookies import giles
 from cookies.filters import GilesUploadFilter
 
+import pytz
+import calendar
+from datetime import datetime
 
 def _get_upload_by_id(request, upload_id, *args):
-    return get_object_or_404(GilesUpload, pk=upload_id)
+    return get_object_or_404(GilesUpload, pk=upload_id).resource
 
 
 @login_required
@@ -315,4 +318,27 @@ def log(request):
 @auth.authorization_required(ResourceAuthorization.VIEW, _get_upload_by_id)
 def log_item(request, upload_id):
     upload = get_object_or_404(GilesUpload, pk=upload_id)
-    return render(request, 'giles_log_item.html', {'upload': upload})
+    if request.method == 'POST':
+        if auth.check_authorization(ResourceAuthorization.EDIT,
+                                    request.user,
+                                    upload.resource):
+            try:
+                giles.process_upload(upload.upload_id, upload.created_by.username)
+            except Exception, e:
+                return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)) + '?error=' + str(e))
+            timestamp = str(calendar.timegm(datetime.utcnow().timetuple()))
+            return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)) + '?checked=' + timestamp)
+        else:
+            return HttpResponse('Forbidden', status=403)
+
+    try:
+        checked = datetime.utcfromtimestamp(float(request.GET['checked'])).replace(tzinfo=pytz.utc)
+    except Exception:
+        checked = None
+
+    context = {
+        'upload': upload,
+        'checked': checked,
+        'error': request.GET.get('error'),
+    }
+    return render(request, 'giles_log_item.html', context)
