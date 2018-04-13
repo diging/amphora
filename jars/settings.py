@@ -18,14 +18,14 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': (
                 "django.contrib.auth.context_processors.auth",
-                "django.core.context_processors.debug",
-                "django.core.context_processors.i18n",
-                "django.core.context_processors.media",
-                "django.core.context_processors.static",
-                "django.core.context_processors.tz",
+                "django.template.context_processors.debug",
+                "django.template.context_processors.i18n",
+                "django.template.context_processors.media",
+                "django.template.context_processors.static",
+                "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
             ) + ((
-                "django.core.context_processors.request",
+                "django.template.context_processors.request",
                 'social_django.context_processors.backends',
                 'social_django.context_processors.login_redirect',
                 #    "audit_log.middleware.UserLoggingMiddleware",
@@ -89,7 +89,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         # 'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.TokenAuthentication',
-        'oauth2_provider.ext.rest_framework.OAuth2Authentication',
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
         'jars.auth.GithubTokenBackend',
         'rest_framework.authentication.SessionAuthentication',
     ),

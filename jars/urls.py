@@ -1,6 +1,6 @@
 import warnings
 
-from django.conf.urls import patterns, include, url
+from django.conf.urls import include, url
 from rest_framework import routers
 from rest_framework.urlpatterns import format_suffix_patterns
 from django.conf import settings
@@ -107,16 +107,8 @@ urlpatterns = [
     url(r'^s3/', views.resource.sign_s3, name='sign_s3'),
     url(r'^testupload/', views.resource.test_upload, name='test_upload'),
     url(r'^$', views.index, name="index"),
+    url(r'^o/', include('oauth2_provider.urls', namespace='oauth2_provider'))
     ]
 
 urlpatterns += format_suffix_patterns((url(r'^resource_content/([0-9]+)$', views_rest.ResourceContentView.as_view(), name='resource_content'),))
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
-with warnings.catch_warnings():
-    # WARNING:py.warnings:../oauth2_provider/urls.py:20: RemovedInDjango110Warning: django.conf.urls.patterns() is
-    # deprecated and will be removed in Django 1.10. Update your urlpatterns to be a list of django.conf.urls.url()
-    # instances instead.
-
-    if not settings.DEBUG:
-        warnings.simplefilter('ignore')
-    urlpatterns.append(url(r'^o/', include('oauth2_provider.urls', namespace='oauth2_provider')))

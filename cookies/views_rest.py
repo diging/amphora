@@ -15,7 +15,6 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework import pagination
 import django_filters
 
-from guardian.shortcuts import get_objects_for_user
 from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
 
