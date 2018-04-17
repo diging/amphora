@@ -167,6 +167,8 @@ def apply_filter(auth, user, qs):
               | Q(part_of__authorizations__action=auth, part_of__authorizations__granted_to=user.id, part_of__authorizations__policy=ResourceAuthorization.ALLOW, part_of__authorizations__heritable=True)) \
              & ~(Q(authorizations__action=auth, authorizations__granted_to=user.id, authorizations__policy=ResourceAuthorization.DENY) \
                  | Q(part_of__authorizations__action=auth, part_of__authorizations__granted_to=user.id, part_of__authorizations__policy=ResourceAuthorization.DENY, part_of__authorizations__heritable=True)))
+    elif qs.model is GilesUpload:
+        q = Q(created_by=user.id)
     else:
         q = Q(created_by=user.id) | \
             ((Q(container__authorizations__action=auth, container__authorizations__granted_to=user.id, container__authorizations__policy=ResourceAuthorization.ALLOW) \
