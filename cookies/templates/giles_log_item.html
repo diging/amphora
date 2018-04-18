@@ -15,6 +15,16 @@
 </div>
 {% endblock %}
 
+{% block extrahead %}
+<script>
+$(document).ready(function(){
+    $("#recheck-modal-confirm").on('click', function(e){
+        $("#recheck-form").submit();
+    })
+});
+</script>
+{% endblock %}
+
 {% block content %}
 
 <div class="container-fluid">
@@ -38,7 +48,7 @@
     <p>{{ upload.message }}</p>
     {% is_authorized "resource_change" user upload.resource as can_edit_resource %}
     {% if can_edit_resource %}
-        <form method="POST">
+        <form id="recheck-form" method="POST">
             {% csrf_token %}
             {% if checked %}
                 <div class="alert alert-success" role="alert">Checked {{ checked }}</div>
@@ -46,9 +56,26 @@
             {% if error %}
                 <div class="alert alert-danger" role="alert"><strong>ERROR: </strong>{{ error }}</div>
             {% endif %}
-            <button type="submit" class="btn btn-sm btn-primary" title="Recheck Giles Upload status"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Recheck</button>
+            <button type="button" class="btn btn-sm btn-danger" data-toggle="modal" data-target="#recheck-modal" title="Process Giles upload and update resource"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Recheck</button>
         </form>
     {% endif %}
 </div>
 
+<div class="modal fade bs-example-modal-sm" tabindex="-1" role="dialog" id="recheck-modal">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">Recheck Giles upload</h4>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to recheck this Giles upload? Rechecking <strong>may overwrite properties</strong> of current upload's resources.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="recheck-modal-confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
