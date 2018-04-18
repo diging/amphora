@@ -17,8 +17,6 @@ from django.utils import timezone
 from collections import defaultdict
 from jars.settings import GILES_RESPONSE_CREATOR_MAP
 
-_fix_url = lambda url: url#url.replace('http://', 'https://') if url is not None else None
-
 GET = requests.get
 POST = requests.post
 ACCEPTED = 202
@@ -331,118 +329,6 @@ def check_upload_status(username, upload_id , **kwargs):
     return get(checkURL, headers=_create_auth_header(user, **kwargs))
 
 
-def _create_content_resource(parent_resource, resource_type, creator, uri, url,
-                             public=False, **meta):
-    """
-    Helper function for creating appropriate resources and relations after
-    Giles successfully processes an upload.
-
-    Parameters
-    ----------
-    parent_resource : :class:`.Resource` instance
-        Represents the document/object of which the content resource (to be
-        created) is a digital surrogate.
-    resource_type : :class:`.Type` instance
-    creator : :class:`.User`
-        The person responsible for adding the content to Giles.
-    uri : str
-        Identifier for the content resource. Should usually be
-        ``{giles}/files/{file_id}``.
-    url : str
-        Location of the content.
-    public : bool
-        Whether or not this record should be public in JARS. This should match
-        the setting for this resource in Giles, otherwise things might get
-        weird.
-    meta : kwargs
-        Can provide any of the following:
-          - ``name`` : Human-readable name (for display).
-          - ``file_id`` : Giles identifier.
-          - ``path`` : Digilib-style image path.
-          - ``size`` : (int) Dimensionless.
-          - ``content_type`` : Should be a valid MIME-type (but not enforced).
-
-    Returns
-    -------
-    :class:`.Resource`
-        The content resource.
-    """
-    url = _fix_url(url)
-    # This is the page image.
-    content_resource = Resource.objects.create(**{
-        'name': meta.get('name', url),
-        'location': url,
-        'public': public,
-        'content_resource': True,
-        'created_by_id': creator.id,
-        'created_through': parent_resource.created_through,
-        'entity_type': resource_type,
-        'content_type': meta.get('content_type', None),
-        'is_external': True,
-        'external_source': Resource.GILES,
-        'uri': uri,
-        'container': parent_resource.container,
-    })
-
-    ContentRelation.objects.create(**{
-        'for_resource': parent_resource,
-        'content_resource': content_resource,
-        'content_type': meta.get('content_type', None),
-        'container': parent_resource.container,
-    })
-
-    return content_resource
-
-
-def _create_page_resource(parent_resource, page_nr, resource_type, creator, uri,
-                          url, public=False, **meta):
-    """
-    Helper function for creating appropriate resources and relations after
-    Giles successfully processes an upload.
-
-    Parameters
-    ----------
-    parent_resource : :class:`.Resource` instance
-    page_nr : int
-    resource_type : :class:`.Type` instance
-    creator : :class:`.User`
-        The person responsible for adding the content to Giles.
-    uri : str
-        Identifier for the content resource. Should usually be
-        ``{giles}/files/{file_id}``.
-    url : str
-        Location of the content.
-    public : bool
-        Whether or not this record should be public in JARS. This should match
-        the setting for this resource in Giles, otherwise things might get
-        weird.
-    meta : kwargs
-    """
-    __part__ = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
-
-    resource = Resource.objects.create(**{
-        'name': '%s, page %i' % (parent_resource.name, page_nr),
-        'created_by_id': creator.id,
-        'created_through': parent_resource.created_through,
-        'entity_type': resource_type,
-        'public': public,
-        'content_resource': False,
-        'is_part': True,
-        'is_external': True,
-        'external_source': Resource.GILES,
-        'container': parent_resource.container,
-    })
-
-    Relation.objects.create(**{
-        'source': resource,
-        'target': parent_resource,
-        'predicate': __part__,
-        'container': parent_resource.container,
-        'sort_order': int(page_nr),
-    })
-    return resource
-
-
 def process_on_complete(on_complete):
     """
     Perform post-processing actions.
@@ -472,7 +358,7 @@ def process_on_complete(on_complete):
         _actions.get(action, (lambda o: o))(obj)
 
 
-def process_upload(upload_id, username):
+def process_upload(upload_id, username, reprocess=False):
     """
     Given a Giles upload id, attempt to retrieve file details and create local
     data structures (if ready).
@@ -486,6 +372,10 @@ def process_upload(upload_id, username):
         The "poll id" returned by Giles when the file was uploaded.
     username : str
         This must be the same user on whose behalf we uploaded the file.
+    reprocess : bool
+        If True, reprocess the Giles response even if the upload was processed
+        before. Default behavior (reprocess=False) is to do nothing if the
+        upload is in one of the error states or Done.
     """
     import datetime, jsonpickle
     from django.utils import timezone
@@ -521,7 +411,8 @@ def process_upload(upload_id, username):
         return
 
     with transaction.atomic():
-        if (upload.state in GilesUpload.ERROR_STATES) or (upload.state == GilesUpload.DONE):
+        is_processed = ((upload.state in GilesUpload.ERROR_STATES) or (upload.state == GilesUpload.DONE))
+        if is_processed and not reprocess:
             # Resource already processed. Do nothing.
             return
 
@@ -533,6 +424,7 @@ def process_upload(upload_id, username):
                 upload.resource = resource
                 upload.save()
         except Exception as E:    # We f***ed something up.
+            logger.exception('Error processing Giles response')
             upload.message = str(E)
             upload.state = GilesUpload.PROCESS_ERROR
             upload.save()
@@ -540,10 +432,11 @@ def process_upload(upload_id, username):
 
         # Depending on configuration, we may want to do things like delete local
         #  copies of files.
-        if upload.on_complete:
+        if upload.on_complete and not is_processed:
             try:
                 process_on_complete(jsonpickle.decode(upload.on_complete))
             except Exception as E:
+                logger.exception('Error executing callback')
                 upload.message = str(E)
                 upload.state = GilesUpload.CALLBACK_ERROR
                 upload.save()
@@ -555,51 +448,325 @@ def process_upload(upload_id, username):
         upload.save()
 
 
-def _create_additional_files_resources(additional_files, parent_resource, creator,
-                                       processor_predicate, resource_type_fn,
-                                       name_fn=lambda x:x['url']):
-    """
-    Helper function for creating content resources for 'additionalFiles' in
-    processed Giles upload response.
+class _GilesDetailsProcessor(object):
 
-    Parameters
-    ----------
-    additional_files : list
-        List of dicts containing details of each additional file.
-    parent_resource : :class:`.Resource` instance
-        Represents the document/object of which the content resource (to be
-        created) is a digital surrogate.
-    creator : :class:`.User`
-        The person responsible for adding the content to Giles.
-    processor_predicate : :class:`.Field` instance
-        The predicate to use for defining 'processor' relation.
-    resource_type_fn : callable
-        A function accepting additional file info dict and returning the
-        resource type. Must return an instance of :class:`.Type`.
-    name_fn : callable
-        A function accepting dict and returning name for each additional file
-        content resource. Must return a str.
-    """
-    for additional_file in additional_files:
-        content_type = additional_file.get('content-type')
-        uri = additional_file.get('url')
-        resource_type = resource_type_fn(additional_file)
-        content_resource = _create_content_resource(
-            parent_resource,
-            resource_type,
-            creator,
-            uri, uri,
-            content_type=content_type,
-            name=name_fn(additional_file),
-        )
+    def __init__(self, upload, resource, user, data):
+        self.__creator__ = Field.objects.get(uri='http://purl.org/dc/elements/1.1/creator')
+        self.__text__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Text')
+        self.__image__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Image')
+        self.__document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
+        self.__dataset__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Dataset')
+        self.__part__ = Field.objects.get(uri='http://purl.org/dc/terms/isPartOf')
 
-        if additional_file.get('processor'):
-            Relation.objects.create(
-                source=content_resource,
-                predicate=processor_predicate,
-                target=Value.objects.create(name=additional_file.get('processor')),
-                container=content_resource.container,
+        self.CONTENT_RESOURCE_TYPE_MAP = {
+            'text/plain': self.__text__,
+            'text/csv': self.__dataset__,
+            'application/pdf': self.__text__,
+        }
+
+        self._upload = upload
+        self._resource = resource
+        self._user = user
+        self._data = data
+        content_filter = dict(is_deleted=False, content_resource__is_external=True,
+            content_resource__external_source=Resource.GILES)
+        self._existing_giles_resources = {
+            crel.content_resource.location: (crel, crel.content_resource)
+                for crel in resource.content.filter(**content_filter)
+        }
+        self._pages = {
+            int(rel.sort_order): rel.source
+                for rel in self._resource.parts.order_by('sort_order')
+        }
+        for page in self._pages.values():
+            for crel in page.content.filter(**content_filter):
+                self._existing_giles_resources[crel.content_resource.location] = (crel, crel.content_resource)
+
+    def _process_uploaded_file(self):
+        upload_data = self._data.get('uploadedFile')
+        giles_url = upload_data.get('url')
+        resource_uri = giles_url
+
+        content_type = upload_data.get('content-type')
+        resource_type = self.CONTENT_RESOURCE_TYPE_MAP.get(content_type,
+                                                           self.__image__)
+        self._save_content_resource(self._resource, resource_type, resource_uri,
+                                    giles_url, content_type=content_type)
+
+    def _process_extracted_text(self):
+        text_data = self._data.get('extractedText', None)
+        if text_data is None:
+            return
+        text_content_type = text_data.get('content-type')
+        text_uri = text_data.get('url')
+        content_resource = self._save_content_resource(self._resource, self.__text__,
+                                                       text_uri, text_uri,
+                                                       content_type=text_content_type)
+        self._save_resource_creator(content_resource,
+                                    self.__creator__,
+                                    GILES_RESPONSE_CREATOR_MAP['extractedText'])
+
+    def _process_pages(self):
+        # Keep track of page resources so that we can populate ``next_page``.
+        pages = defaultdict(dict)
+        document_id = self._data.get('documentId')
+
+        # Each page is represented by a Resource.
+        for page_data in self._data.get('pages', []):
+            page_nr = int(page_data.get('nr'))
+            page_uri = '%s/documents/%s/%i' % (settings.GILES, document_id, page_nr)
+            page_resource = self._save_page_resource(self._resource, page_nr, self.__document__,
+                                                     page_uri, page_data.get('url'),
+                                                     public=False)
+            pages[page_nr]['resource'] = page_resource
+
+            # Each page resource can have several content resources.
+            for fmt in ['image', 'text', 'ocr',]:
+                # We may not have both formats for each page.
+                fmt_data = page_data.get(fmt, None)
+                if fmt_data is None:
+                    continue
+
+                page_fmt_uri = '%s/files/%s' % (settings.GILES, fmt_data.get('id'))
+                content_resource = self._save_content_resource(
+                    page_resource, self.__image__ if fmt == 'image' else self.__text__,
+                    page_fmt_uri, fmt_data.get('url'),
+                    public=False, content_type=fmt_data.get('content-type'),
+                    name='%s (%s)' % (page_resource.name, fmt)
+                )
+
+                try:
+                    self._save_resource_creator(content_resource,
+                                                self.__creator__,
+                                                GILES_RESPONSE_CREATOR_MAP[fmt])
+                except KeyError:
+                    # Creator not defined for `fmt` in GILES_RESPONSE_CREATOR_MAP
+                    pass
+
+                pages[page_nr][fmt] = content_resource
+
+            name_fn = lambda d: '%s - %s (%s)' % (page_resource.name, d.get('id'),
+                                                  d.get('content-type'))
+            # Content resource for each additional file, if available.
+            self._process_additional_files(page_data.get('additionalFiles', []),
+                                           page_resource,
+                                           name_fn=name_fn)
+
+            # Populate the ``next_page`` field for pages, and for their content
+            #  resources.
+            for i in sorted(pages.keys())[:-1]:
+                for fmt in ['resource', 'image', 'text', 'ocr',]:
+                    if fmt not in pages[i]:
+                        continue
+                    pages[i][fmt].next_page = pages[i + 1][fmt]
+                    pages[i][fmt].save()
+
+    def _process_additional_files(self, additional_files, parent_resource,
+                                  name_fn=lambda x:x['url']):
+        """
+        Helper function for creating content resources for 'additionalFiles' in
+        processed Giles upload response.
+
+        Parameters
+        ----------
+        additional_files : list
+            List of dicts containing details of each additional file.
+        parent_resource : :class:`.Resource` instance
+            Represents the document/object of which the content resource (to be
+            created) is a digital surrogate.
+        creator : :class:`.User`
+            The person responsible for adding the content to Giles.
+        name_fn : callable
+            A function accepting dict and returning name for each additional file
+            content resource. Must return a str.
+        """
+
+        def _get_resource_type(data):
+            content_type = data.get('content-type')
+            try:
+                return self.CONTENT_RESOURCE_TYPE_MAP[content_type]
+            except KeyError:
+                if 'image' in content_type:
+                    return self.__image__
+            return self.__document__
+
+        for additional_file in additional_files:
+            content_type = additional_file.get('content-type')
+            uri = additional_file.get('url')
+            resource_type = _get_resource_type(additional_file)
+
+            content_resource = self._save_content_resource(
+                parent_resource,
+                resource_type,
+                uri, uri,
+                content_type=content_type,
+                name=name_fn(additional_file),
             )
+
+            if additional_file.get('processor'):
+                self._save_resource_creator(
+                    content_resource,
+                    self.__creator__,
+                    additional_file.get('processor'),
+                )
+
+    def process(self):
+        # Content resource for uploaded file.
+        self._process_uploaded_file()
+
+        # Content resource for extracted text, if available.
+        self._process_extracted_text()
+
+        # Content resource for each additional file, if available.
+        self._process_additional_files(self._data.get('additionalFiles', []), self._resource)
+
+        self._process_pages()
+
+        return self._resource
+
+    def _save_content_resource(self, parent_resource, resource_type, uri, url,
+                               public=False, **meta):
+        """
+        Helper function for creating appropriate resources and relations after
+        Giles successfully processes an upload.
+
+        Parameters
+        ----------
+        parent_resource : :class:`.Resource` instance
+            Represents the document/object of which the content resource (to be
+            created) is a digital surrogate.
+        resource_type : :class:`.Type` instance
+        uri : str
+            Identifier for the content resource. Should usually be
+            ``{giles}/files/{file_id}``.
+        url : str
+            Location of the content.
+        meta : kwargs
+            Can provide any of the following:
+            - ``name`` : Human-readable name (for display).
+            - ``file_id`` : Giles identifier.
+            - ``path`` : Digilib-style image path.
+            - ``size`` : (int) Dimensionless.
+            - ``content_type`` : Should be a valid MIME-type (but not enforced).
+            - ``public`` : bool
+                  Whether or not this record should be public in JARS. This should match
+                  the setting for this resource in Giles, otherwise things might get
+                  weird.
+
+        Returns
+        -------
+        :class:`.Resource`
+            The content resource.
+        """
+        try:
+            content_rel, content_resource = self._existing_giles_resources[url]
+            content_resource.entity_type = resource_type
+            for key, value in meta.items():
+                try:
+                    setattr(content_resource, key, value)
+                except AttributeError, e:
+                    logger.warning(e)
+
+            content_resource.save()
+
+            if 'content_type' in meta.keys():
+                content_rel.content_type = meta.get('content_type')
+                content_rel.save()
+
+        except KeyError:
+            content_resource = Resource.objects.create(**{
+                'name': meta.get('name', url),
+                'location': url,
+                'public': meta.get('public', False),
+                'content_resource': True,
+                'created_by_id': self._user.id,
+                'created_through': parent_resource.created_through,
+                'entity_type': resource_type,
+                'content_type': meta.get('content_type', None),
+                'is_external': True,
+                'external_source': Resource.GILES,
+                'uri': uri,
+                'container': parent_resource.container,
+            })
+
+            content_rel = ContentRelation.objects.create(**{
+                'for_resource': parent_resource,
+                'content_resource': content_resource,
+                'content_type': meta.get('content_type', None),
+                'container': parent_resource.container,
+            })
+            self._existing_giles_resources[url] = (content_rel,
+                                                   content_resource)
+
+        return content_resource
+
+    def _save_page_resource(self, parent_resource, page_nr, resource_type, uri,
+                            url, public=False, **meta):
+        """
+        Helper function for creating appropriate resources and relations after
+        Giles successfully processes an upload.
+
+        Parameters
+        ----------
+        parent_resource : :class:`.Resource` instance
+        page_nr : int
+        resource_type : :class:`.Type` instance
+        uri : str
+            Identifier for the content resource. Should usually be
+            ``{giles}/files/{file_id}``.
+        url : str
+            Location of the content.
+        public : bool
+            Whether or not this record should be public in JARS. This should match
+            the setting for this resource in Giles, otherwise things might get
+            weird.
+        meta : kwargs
+        """
+        try:
+            return self._pages[page_nr]
+        except KeyError:
+            pass
+
+        resource = Resource.objects.create(**{
+            'name': '%s, page %i' % (parent_resource.name, page_nr),
+            'created_by_id': self._user.id,
+            'created_through': parent_resource.created_through,
+            'entity_type': resource_type,
+            'public': public,
+            'content_resource': False,
+            'is_part': True,
+            'is_external': True,
+            'external_source': Resource.GILES,
+            'container': parent_resource.container,
+        })
+
+        Relation.objects.create(**{
+            'source': resource,
+            'target': parent_resource,
+            'predicate': self.__part__,
+            'container': parent_resource.container,
+            'sort_order': int(page_nr),
+        })
+        self._pages[page_nr] = resource
+        return resource
+
+    def _save_resource_creator(self, resource, predicate, value):
+        existing_relations = resource.relations_from.filter(predicate=predicate)
+        rel_count = existing_relations.count()
+        if rel_count == 0:
+            Relation.objects.create(
+                source=resource,
+                predicate=predicate,
+                target=Value.objects.create(name=value),
+                container=resource.container,
+            )
+        elif rel_count == 1:
+            target = existing_relations[0].target
+            target.name = value
+            target.save()
+        else:
+            logger.warning('Multiple creator relations for Resource {}'.format(resource))
+
 
 def process_details(data, upload_id, username):
     """
@@ -622,25 +789,6 @@ def process_details(data, upload_id, username):
             raise ValueError('data is empty')
         data = data[0]
 
-    __creator__ = Field.objects.get(uri='http://purl.org/dc/elements/1.1/creator')
-    __text__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Text')
-    __image__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Image')
-    __document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
-    __dataset__ = Type.objects.get(uri='http://purl.org/dc/dcmitype/Dataset')
-    CONTENT_RESOURCE_TYPE_MAP = {
-        'text/plain': __text__,
-        'text/csv': __dataset__,
-    }
-
-    def _get_resource_type(data):
-        content_type = data.get('content-type')
-        try:
-            return CONTENT_RESOURCE_TYPE_MAP[content_type]
-        except KeyError:
-            if 'image' in content_type:
-                return __image__
-        return __document__
-
     upload = GilesUpload.objects.get(upload_id=upload_id)
     resource = upload.resource    # This is the master resource.
     creator = User.objects.get(username=username)
@@ -652,6 +800,7 @@ def process_details(data, upload_id, username):
     # We may already have a master Resource, e.g. if we POSTed a file from a
     #  Zotero batch-ingest and have been awaiting processing by Giles.
     if resource is None:
+        __document__ = Type.objects.get(uri='http://xmlns.com/foaf/0.1/Document')
         resource, created = Resource.objects.get_or_create(
             name = document_id,
             defaults = {
@@ -667,103 +816,7 @@ def process_details(data, upload_id, username):
         resource.container = container
         resource.save()
 
-    # Content resource for uploaded file.
-    upload_data = data.get('uploadedFile')
-    content_type = upload_data.get('content-type')
-    resource_type = __text__ if content_type == 'application/pdf' else __image__
-    # resource_uri = '%s/files/%s' % (giles, upload_data.get('id'))
-    resource_uri = upload_data.get('url')
-    _create_content_resource(resource, resource_type, creator, resource_uri,
-                             resource_uri, content_type=content_type)
-
-    # Content resoruce for extracted text, if available.
-    text_data = data.get('extractedText', None)
-    if text_data is not None:
-        text_content_type = text_data.get('content-type')
-        # text_uri = '%s/files/%s' % (giles, text_data.get('id'))
-        text_uri = text_data.get('url')
-        content_resource = _create_content_resource(resource, __text__, creator,
-                                                    text_uri, text_uri,
-                                                    content_type=text_content_type)
-        Relation.objects.create(
-            source=content_resource,
-            predicate=__creator__,
-            target=Value.objects.create(name=GILES_RESPONSE_CREATOR_MAP['extractedText']),
-            container=content_resource.container,
-        )
-
-    # Content resource for each additional file, if available.
-    _create_additional_files_resources(data.get('additionalFiles', []),
-                                       resource,
-                                       creator,
-                                       processor_predicate=__creator__,
-                                       resource_type_fn=_get_resource_type,
-                                       )
-
-    # Keep track of page resources so that we can populate ``next_page``.
-    pages = defaultdict(dict)
-
-    # Each page is represented by a Resource.
-    for page_data in data.get('pages', []):
-        page_nr = int(page_data.get('nr'))
-        page_uri = '%s/documents/%s/%i' % (giles, document_id, page_nr)
-        page_resource = _create_page_resource(resource, page_nr, __document__,
-                                              creator, page_uri,
-                                              _fix_url(page_data.get('url')),
-                                              public=False)
-
-        pages[page_nr]['resource'] = page_resource
-
-        # Each page resource can have several content resources.
-        for fmt in ['image', 'text', 'ocr',]:
-            # We may not have both formats for each page.
-            fmt_data = page_data.get(fmt, None)
-            if fmt_data is None:
-                continue
-
-            page_fmt_uri = '%s/files/%s' % (giles, fmt_data.get('id'))
-            content_resource = _create_content_resource(page_resource,
-                                     __image__ if fmt == 'image' else __text__,
-                                     creator, page_fmt_uri,
-                                     _fix_url(fmt_data.get('url')),
-                                     public=False,
-                                     content_type=fmt_data.get('content-type'),
-                                     name='%s (%s)' % (page_resource.name, fmt))
-
-            try:
-                Relation.objects.create(
-                    source=content_resource,
-                    predicate=__creator__,
-                    target=Value.objects.create(name=GILES_RESPONSE_CREATOR_MAP[fmt]),
-                    container=content_resource.container,
-                )
-            except KeyError:
-                # Creator not defined for `fmt` in GILES_RESPONSE_CREATOR_MAP
-                pass
-
-            pages[page_nr][fmt] = content_resource
-
-        name_fn = lambda d: '%s - %s (%s)' % (page_resource.name, d.get('id'),
-                                              d.get('content-type'))
-        # Content resource for each additional file, if available.
-        _create_additional_files_resources(page_data.get('additionalFiles', []),
-                                           page_resource,
-                                           creator,
-                                           processor_predicate=__creator__,
-                                           resource_type_fn=_get_resource_type,
-                                           name_fn=name_fn,
-                                           )
-
-        # Populate the ``next_page`` field for pages, and for their content
-        #  resources.
-        for i in sorted(pages.keys())[:-1]:
-            for fmt in ['resource', 'image', 'text', 'ocr',]:
-                if fmt not in pages[i]:
-                    continue
-                pages[i][fmt].next_page = pages[i + 1][fmt]
-                pages[i][fmt].save()
-
-    return resource
+    return _GilesDetailsProcessor(upload, resource, creator, data).process()
 
 
 def format_giles_url(url, username, dw=300):

@@ -18,9 +18,13 @@ import pytz
 import calendar
 from datetime import datetime
 
-def _get_upload_by_id(request, upload_id, *args):
-    return get_object_or_404(GilesUpload, pk=upload_id).resource
+logger = settings.LOGGER
 
+def _get_upload_by_id(request, upload_id, *args):
+    return get_object_or_404(GilesUpload, pk=upload_id)
+
+def _get_resource_by_upload_id(request, upload_id, *args):
+    return get_object_or_404(GilesUpload, pk=upload_id).resource
 
 @login_required
 def handle_giles_upload(request):
@@ -315,7 +319,7 @@ def log(request):
     }
     return render(request, 'giles_log.html', context)
 
-@auth.authorization_required(ResourceAuthorization.VIEW, _get_upload_by_id)
+@auth.authorization_required(ResourceAuthorization.VIEW, _get_resource_by_upload_id)
 def log_item(request, upload_id):
     upload = get_object_or_404(GilesUpload, pk=upload_id)
     if request.method == 'POST':
@@ -323,18 +327,23 @@ def log_item(request, upload_id):
                                     request.user,
                                     upload.resource):
             try:
-                giles.process_upload(upload.upload_id, upload.created_by.username)
+                giles.process_upload(upload.upload_id, upload.created_by.username,
+                                     reprocess=True)
             except Exception, e:
+                logger.exception("Error rechecking upload")
                 return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)) + '?error=' + str(e))
             timestamp = str(calendar.timegm(datetime.utcnow().timetuple()))
             return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)) + '?checked=' + timestamp)
         else:
             return HttpResponse('Forbidden', status=403)
 
+    checked = None
     try:
         checked = datetime.utcfromtimestamp(float(request.GET['checked'])).replace(tzinfo=pytz.utc)
-    except Exception:
-        checked = None
+    except KeyError:
+        pass
+    except Exception, e:
+        logger.error("Error reading '{}' as timestamp: {}".format(checked, e))
 
     context = {
         'upload': upload,
