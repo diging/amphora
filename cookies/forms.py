@@ -558,6 +558,8 @@ class GilesLogForm(forms.Form):
 
         choices = [('', '--------')]
         choices.extend(GilesUpload.STATES)
+        index, text = next(((i, text) for i, (state, text) in enumerate(choices) if state == GilesUpload.PENDING))
+        choices[index] = (GilesUpload.PENDING, text + ' (reupload)')
         desired_state = forms.ChoiceField(initial='',
                                           choices=choices,
                                           label='State',

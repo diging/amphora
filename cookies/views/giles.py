@@ -326,6 +326,12 @@ def log_item(request, upload_id):
         if auth.check_authorization(ResourceAuthorization.EDIT,
                                     request.user,
                                     upload.resource):
+            if not upload.upload_id:
+                if upload.state == GilesUpload.PENDING:
+                    error = 'Resource is yet to be uploaded to Giles.'
+                else:
+                    error = 'Giles upload ID missing for the resource. Consider re-uploading.'
+                return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)) + '?error=' + error)
             try:
                 giles.process_upload(upload.upload_id, upload.created_by.username,
                                      reprocess=True)
