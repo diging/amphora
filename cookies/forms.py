@@ -556,10 +556,9 @@ class GilesLogForm(forms.Form):
                                              required=False)
         self.fields['desired_priority'] = desired_priority
 
-        choices = [('', '--------')]
-        choices.extend(GilesUpload.STATES)
-        index, text = next(((i, text) for i, (state, text) in enumerate(choices) if state == GilesUpload.PENDING))
-        choices[index] = (GilesUpload.PENDING, text + ' (reupload)')
+        choices = [(state, text) if state != GilesUpload.PENDING else (state, text + ' (reupload)') for (state, text) in GilesUpload.STATES]
+        choices.insert(0, ('','--------'))
+
         desired_state = forms.ChoiceField(initial='',
                                           choices=choices,
                                           label='State',

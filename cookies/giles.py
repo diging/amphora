@@ -17,6 +17,8 @@ from django.utils import timezone
 from collections import defaultdict
 from jars.settings import GILES_RESPONSE_CREATOR_MAP
 
+import django.db.utils
+
 GET = requests.get
 POST = requests.post
 ACCEPTED = 202
@@ -423,6 +425,11 @@ def process_upload(upload_id, username, reprocess=False):
             if not upload.resource:
                 upload.resource = resource
                 upload.save()
+        except django.db.utils.Error as E:
+            # Being in a transaction, can't update `upload` object on Database
+            # errors.
+            logger.exception('Database error processing Giles response')
+            raise
         except Exception as E:    # We f***ed something up.
             logger.exception('Error processing Giles response')
             upload.message = str(E)

@@ -332,12 +332,18 @@ def log_item(request, upload_id):
                 else:
                     error = 'Giles upload ID missing for the resource. Consider re-uploading.'
                 return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)) + '?error=' + error)
+
             try:
                 giles.process_upload(upload.upload_id, upload.created_by.username,
                                      reprocess=True)
             except Exception, e:
                 logger.exception("Error rechecking upload")
+                upload.refresh_from_db()
+                upload.state = GilesUpload.GILES_ERROR
+                upload.message = str(e)
+                upload.save()
                 return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)) + '?error=' + str(e))
+
             timestamp = str(calendar.timegm(datetime.utcnow().timetuple()))
             return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)) + '?checked=' + timestamp)
         else:
