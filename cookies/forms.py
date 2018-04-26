@@ -539,7 +539,7 @@ class GilesLogForm(forms.Form):
         upload_type = forms.ChoiceField(choices=[
             (self.APPLY_SELECTED, 'Apply Selected'),
             (self.APPLY_ALL, 'Apply All'),
-        ], required=False)
+        ], required=True)
         self.fields['apply_type'] = upload_type
 
         resources = forms.ModelMultipleChoiceField(
@@ -556,8 +556,9 @@ class GilesLogForm(forms.Form):
                                              required=False)
         self.fields['desired_priority'] = desired_priority
 
-        choices = [('', '--------')]
-        choices.extend(GilesUpload.STATES)
+        choices = [(state, text) if state != GilesUpload.PENDING else (state, text + ' (reupload)') for (state, text) in GilesUpload.STATES]
+        choices.insert(0, ('','--------'))
+
         desired_state = forms.ChoiceField(initial='',
                                           choices=choices,
                                           label='State',
@@ -569,3 +570,10 @@ class GilesLogForm(forms.Form):
         if not (cleaned_data.get('desired_state') or cleaned_data.get('desired_priority')):
             raise forms.ValidationError('One of State, Priority is required.')
         return cleaned_data
+
+
+class GilesLogItemForm(GilesLogForm):
+    def __init__(self, *args, **kwargs):
+        super(GilesLogItemForm, self).__init__(*args, **kwargs)
+        self.fields.pop('apply_type')
+        self.fields.pop('resources')
