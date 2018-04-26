@@ -10,7 +10,7 @@ from django.db.models import Q
 from cookies import operations
 from cookies import authorization as auth
 from cookies.models import *
-from cookies.forms import ChooseCollectionForm, GilesLogForm
+from cookies.forms import ChooseCollectionForm, GilesLogForm, GilesLogItemForm
 from cookies import giles
 from cookies.filters import GilesUploadFilter
 
@@ -265,7 +265,6 @@ def _change_priority(request, form_data, filtered_objects):
 @login_required
 def log(request):
     state_changeable = (request.user.is_staff or request.user.is_superuser)
-    is_priority_changeable = lambda f: True if filtered_objects.data.get('state') == GilesUpload.PENDING else False
     def pop_success_skipped(params, key):
         try:
             return map(int, params.pop(key)[-1].split(','))
@@ -280,6 +279,7 @@ def log(request):
     priority_change_success, priority_change_skipped = pop_success_skipped(params, 'priority_changed')
     state_change_success, state_change_skipped = pop_success_skipped(params, 'state_changed')
     filtered_objects = GilesUploadFilter(params, queryset=qs)
+    priority_changeable = state_changeable or (filtered_objects.data.get('state') == GilesUpload.PENDING)
     form = None
 
     if request.method == 'POST':
@@ -287,12 +287,12 @@ def log(request):
         if form.is_valid():
             form_data = form.cleaned_data
             results = {}
-            if form_data.get('desired_priority'):
+            if priority_changeable and form_data.get('desired_priority'):
                 results['priority_changed'] = '{0[0]},{0[1]}'.format(
                     _change_priority(request, form_data, filtered_objects)
                 )
 
-            if form_data.get('desired_state'):
+            if state_changeable and form_data.get('desired_state'):
                 results['state_changed'] = '{0[0]},{0[1]}'.format(
                     _change_state(request, form_data, filtered_objects)
                 )
@@ -315,7 +315,7 @@ def log(request):
             },
         },
         'state_changeable': state_changeable,
-        'priority_changeable': is_priority_changeable(filtered_objects),
+        'priority_changeable': priority_changeable,
     }
     return render(request, 'giles_log.html', context)
 
@@ -361,5 +361,33 @@ def log_item(request, upload_id):
         'upload': upload,
         'checked': checked,
         'error': request.GET.get('error'),
+        'form': GilesLogForm(),
     }
     return render(request, 'giles_log_item.html', context)
+
+@auth.authorization_required(ResourceAuthorization.EDIT, _get_resource_by_upload_id)
+def log_item_edit(request, upload_id):
+    state_changeable = (request.user.is_staff or request.user.is_superuser)
+    priority_changeable = (state_changeable or upload.state==GilesUpload.PENDING),
+    upload = get_object_or_404(GilesUpload, pk=upload_id)
+    form = None
+
+    if request.method == 'POST':
+        form = GilesLogItemForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            upload.refresh_from_db()
+            if state_changeable and data.get('desired_state'):
+                upload.state = data.get('desired_state')
+            if priority_changeable and data.get('desired_priority'):
+                upload.priority = data.get('desired_priority')
+            upload.save()
+            return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)))
+
+    context = {
+        'priority_changeable': priority_changeable,
+        'state_changeable': state_changeable,
+        'upload': upload,
+        'form': form or GilesLogItemForm(),
+    }
+    return render(request, 'giles_log_item_edit.html', context)

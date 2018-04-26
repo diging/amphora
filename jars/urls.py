@@ -85,6 +85,7 @@ urlpatterns = [
 
     url(r'^giles/log/$', views.giles.log, name="giles-log"),
     url(r'^giles/log/([0-9A-Za-z]+)/$', views.giles.log_item, name="giles-log-item"),
+    url(r'^giles/log/([0-9A-Za-z]+)/edit$', views.giles.log_item_edit, name="giles-log-item-edit"),
     url(r'^giles/test/$', views.giles.test_giles, name='giles-test'),
     url(r'^giles/test/configuration/$', views.giles.test_giles_configuration, name='giles-test-configuration'),
     url(r'^giles/test/up/$', views.giles.test_giles_is_up, name='giles-test-is-up'),
