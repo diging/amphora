@@ -439,7 +439,7 @@ def process_upload(upload_id, username, reprocess=False):
 
         # Depending on configuration, we may want to do things like delete local
         #  copies of files.
-        if upload.on_complete and not is_processed:
+        if upload.on_complete:
             try:
                 process_on_complete(jsonpickle.decode(upload.on_complete))
             except Exception as E:
