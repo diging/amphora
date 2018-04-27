@@ -197,6 +197,33 @@ class Resource(ResourceBase):
     description = models.TextField(blank=True, null=True)
 
     name_index = TSVectorField(('name',), dictionary='simple')
+    _location = models.TextField(db_column='location', verbose_name='URL', blank=True, null=True)
+
+    location_id = models.CharField(
+        max_length=255, blank=True, null=True,
+        help_text="Instead of storing the complete resource URL in `location`, "
+                  "use this field to store the unique part of URL and generate "
+                  "the complete URL at runtime.""",
+    )
+
+    def __init__(self, *args, **kwargs):
+        try:
+            kwargs['_location'] = kwargs.pop('location')
+        except KeyError:
+            pass
+        super(Resource, self).__init__(*args, **kwargs)
+
+    @property
+    def location(self):
+        if self._location:
+            return self._location
+        if self.location_id and self.external_source == self.GILES:
+            return settings.GILES_CONTENT_FORMAT_STRING.format(giles_file_id=self.location_id)
+        return None
+
+    @location.setter
+    def location(self, value):
+        self._location = value
 
     @property
     def active_content(self):
