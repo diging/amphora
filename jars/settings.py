@@ -46,7 +46,7 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'pagination',
+    'dj_pagination',
     'django_extensions',
     'djcelery',
     'cookies',
@@ -69,7 +69,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
-    'pagination.middleware.PaginationMiddleware',
+    'dj_pagination.middleware.PaginationMiddleware',
 )
 
 REST_FRAMEWORK = {
@@ -181,7 +181,7 @@ LOGIN_URL = BASE_URL
 LOGIN_REDIRECT_URL = BASE_URL + 'dashboard/'
 
 # Giles and HTTP.
-GILES = os.environ.get('GILES', 'https://diging-dev.asu.edu/giles-review')
+GILES = os.environ.get('GILES', 'https://diging.asu.edu/geco-giles-staging')
 if GILES.endswith('/'):
     GILES = GILES[:-1]
 IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
