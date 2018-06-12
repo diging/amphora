@@ -23,22 +23,26 @@
         {% if can_edit_resource %}
         <a class="btn glyphicon glyphicon-pencil" aria-hidden="true"
             href="{% url "collection-edit" collection.id %}"
-            data-toggle="tooltip"
-            data-title="Edit collection"></a>
+            title="Edit collection"></a>
         {% endif %}
         {% is_authorized "collection_view_auth" user collection as can_view_authorizations %}
         {% if can_view_authorizations %}
         <a class="btn glyphicon glyphicon-lock" aria-hidden="true"
             href="{% url "collection-authorizations" collection.id %}"
-            data-toggle="tooltip"
-            data-title="Authorizations"></a>
+            title="Authorizations"></a>
         {% endif %}
         {% if can_edit_resource %}
 
             <a class="btn glyphicon glyphicon-plus"
-                href="{% url "create-collection" %}?parent_collection={{ collection.id }}"></a>
+               title="Create sub-collection"
+               href="{% url "create-collection" %}?parent_collection={{ collection.id }}"></a>
 
         {% endif %}
+        <a class="btn glyphicon glyphicon-hdd"
+           href="{% url "create-dataset" %}?filter_parameters=collection%3D{{ collection.id }}"
+           style="text-decoration:underline; text-decoration-style:double;"
+           title="Create dataset from this collection">
+        </a>
     </span>
     <div class="h3 collection_name">{{ collection.name }}</div>
     <p>

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load staticfiles %}
+{% load pagination_tags %}
+{% load addcss %}
+{% load breadcrumbs %}
+{% load authorization %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'index' %}">{% trans 'Home' %}</a>
+    {% breadcrumb_url 'Dashboard' 'dashboard' %}
+    {% breadcrumb_url 'Giles Log' 'giles-log' %}
+    {% breadcrumb_url upload.id 'giles-log-item' upload.id %}
+    {% breadcrumb_url 'Edit' 'giles-log-item-edit'  upload.id %}
+</div>
+{% endblock %}
+
+{% block extrastyle %}
+<style>
+.log-item-info {
+    border-left: 1px solid #80808066;
+}
+</style>
+{% endblock %}
+
+{% block extrahead %}
+<script>
+</script>
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-xs-2">
+            <form method="post">
+                {% csrf_token %}
+                {% for error in form.non_field_errors %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                {% endfor %}
+                {% if state_changeable %}
+                    {% with form.desired_state as field %}
+                        <div class="form-group" style="margin-right:10px">
+                            <label for="{{ field.id }}">{{ field.label }}</label>
+                            {% for error in field.errors %}
+                                <div class="alert alert-danger">{{ error }}</div>
+                            {% endfor %}
+                            {{ field|addcss:"form-control input-sm" }}
+                        </div>
+                    {% endwith %}
+                {% endif %}
+
+                {% if priority_changeable %}
+                    {% with form.desired_priority as field %}
+                        <div class="form-group" style="margin-right:10px">
+                            <label for="{{ field.id }}">{{ field.label }}</label>
+                            {% for error in field.errors %}
+                                <div class="alert alert-danger">{{ error }}</div>
+                            {% endfor %}
+                            {{ field|addcss:"form-control input-sm" }}
+                        </div>
+                    {% endwith %}
+                {% endif %}
+
+                <button type="submit" class="btn btn-primary btn-sm" name="apply_type" value="selected">Update</button>
+            </form>
+        </div>
+        <div class="col-xs-10 log-item-info">
+            <div class="h5 resource_name">{{ upload.upload_id }}</div>
+            <dl class="dl-horizontal">
+                <dt>Resource</dt>
+                <dd>
+                    <a href="{{ upload.resource.container.primary.get_absolute_url }}">{{ upload.resource.container.primary.name }}</a>
+                </dd>
+                <dt>State</dt>
+                <dd>
+                    <span class="label {% if upload.state in upload.ERROR_STATES %}label-danger{% elif upload.state == upload.DONE %}label-success{% elif upload.state == upload.SENT %}label-warning{% else %}label-primary{% endif %}">{{ upload.get_state_display }}</span>
+                </dd>
+                <dt>Priority</dt>
+                <dd>{{ upload.get_priority_display }}
+                <dt>Created</dt>
+                <dd>{{ upload.created }}</dd>
+                <dt>Updated</dt>
+                <dd>{{ upload.updated }}</dd>
+                <dt>File Path</dt>
+                <dd>{{ upload.file_path }}</dd>
+                <dt>On Complete</dt>
+                <dd>{{ upload.on_complete }}</dd>
+            </dl>
+            <p>{{ upload.message }}</p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

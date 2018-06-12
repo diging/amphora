@@ -530,17 +530,17 @@ class SnapshotForm(forms.Form):
         return cleaned_data
 
 class GilesLogForm(forms.Form):
-    UPLOAD_ALL = 'all'
-    UPLOAD_SELECTED = 'selected'
+    APPLY_ALL = 'all'
+    APPLY_SELECTED = 'selected'
 
     def __init__(self, *args, **kwargs):
         queryset = kwargs.pop('queryset', [])
         super(GilesLogForm, self).__init__(*args, **kwargs)
         upload_type = forms.ChoiceField(choices=[
-            (self.UPLOAD_SELECTED, 'Reupload Selected'),
-            (self.UPLOAD_ALL, 'Reupload All'),
-        ], required=False)
-        self.fields['upload_type'] = upload_type
+            (self.APPLY_SELECTED, 'Apply Selected'),
+            (self.APPLY_ALL, 'Apply All'),
+        ], required=True)
+        self.fields['apply_type'] = upload_type
 
         resources = forms.ModelMultipleChoiceField(
             queryset=queryset,
@@ -548,11 +548,32 @@ class GilesLogForm(forms.Form):
         )
         self.fields['resources'] = resources
 
-        priority = forms.ChoiceField(choices=GilesUpload.PRIORITIES, required=False)
-        self.fields['priority'] = priority
+        choices = [('', '--------')]
+        choices.extend(GilesUpload.PRIORITIES)
+        desired_priority = forms.ChoiceField(initial='',
+                                             choices=choices,
+                                             label='Priority',
+                                             required=False)
+        self.fields['desired_priority'] = desired_priority
+
+        choices = [(state, text) if state != GilesUpload.PENDING else (state, text + ' (reupload)') for (state, text) in GilesUpload.STATES]
+        choices.insert(0, ('','--------'))
+
+        desired_state = forms.ChoiceField(initial='',
+                                          choices=choices,
+                                          label='State',
+                                          required=False)
+        self.fields['desired_state'] = desired_state
 
     def clean(self):
         cleaned_data = super(GilesLogForm, self).clean()
-        if not (cleaned_data.get('upload_type') or cleaned_data.get('priority')):
-            raise forms.ValidationError('One of "upload_type", "priority" is required')
+        if not (cleaned_data.get('desired_state') or cleaned_data.get('desired_priority')):
+            raise forms.ValidationError('One of State, Priority is required.')
         return cleaned_data
+
+
+class GilesLogItemForm(GilesLogForm):
+    def __init__(self, *args, **kwargs):
+        super(GilesLogItemForm, self).__init__(*args, **kwargs)
+        self.fields.pop('apply_type')
+        self.fields.pop('resources')

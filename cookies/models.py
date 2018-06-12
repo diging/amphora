@@ -141,8 +141,7 @@ class ResourceBase(Entity):
     file = models.FileField(upload_to=_resource_file_name, blank=True,
                             null=True, max_length=2000)
 
-    location = models.URLField(max_length=255, verbose_name='URL', blank=True,
-                               null=True)
+    location = models.TextField(db_column='location', verbose_name='URL', blank=True, null=True)
 
     # TODO: remove this property.
     @property

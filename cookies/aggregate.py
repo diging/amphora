@@ -26,9 +26,13 @@ from cookies.accession import get_remote
 import smart_open, zipfile, logging, cStringIO, mimetypes
 import os, urlparse, mimetypes
 import unicodecsv as csv
+import posixpath
 
 from django.utils.text import slugify
+from cookies import authorization as auth
 from cookies.models import Resource, Value
+from cookies.models import ResourceAuthorization, CollectionAuthorization
+from cookies.models import ResourceContainer, Collection
 
 cache = caches['remote_content']
 
@@ -50,18 +54,25 @@ METADATA_CSV_HEADER = [
     'target_uri',
 ]
 
+CONTENT_TYPE_EXTENSIONS = {
+    'text/plain'      : '.txt',
+    'text/csv'        : '.csv',
+    'image/tiff'      : '.tiff',
+    'application/pdf' : '.pdf',
+}
+
 def get_filename(resource):
     if resource.is_external:
         if resource.name:
             filename = resource.name
         else:
             filename = urlparse.urlparse(resource.location).path.split('/')[-1]
+
+        ext = CONTENT_TYPE_EXTENSIONS.get(resource.content_type,
+                                          mimetypes.guess_extension(resource.content_type))
+        return slugify(filename) + ext
     else:
-        filename = os.path.split(resource.file.path)[-1]
-
-    ext = mimetypes.guess_extension(resource.content_type)
-    return slugify(filename) + ext
-
+        return os.path.basename(resource.file.path)
 
 def get_content(content_resource):
     """
@@ -85,6 +96,25 @@ def get_content(content_resource):
         with open(content_resource.file.path) as f:
             return f.read()
     return
+
+def get_collection_containers(user, collection):
+    """
+    Yield containers recursively for the supplied collection object.
+    """
+    containers = auth.apply_filter(ResourceAuthorization.VIEW,
+                                   user,
+                                   ResourceContainer.active.filter(part_of=collection.id))
+    for container in containers:
+        yield container
+
+    subcollections = auth.apply_filter(CollectionAuthorization.VIEW,
+                                       user,
+                                       Collection.objects.filter(part_of=collection.id,
+                                                                 hidden=False))
+    for subcollection in subcollections:
+        for container in get_collection_containers(user, subcollection):
+            yield container
+
 
 def write_metadata_csv(filehandle, resource=None, write_header=False):
     writer = csv.writer(filehandle)
@@ -255,11 +285,12 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
     index = cStringIO.StringIO()
     metadata = cStringIO.StringIO()
     index_writer = csv.writer(index)
-    index_writer.writerow(['ID', 'Name', 'PrimaryID', 'PrimaryURI', 'PrimaryName', 'Location'])
+    index_writer.writerow(['ID', 'Name', 'PrimaryID', 'PrimaryURI', 'PrimaryName', 'Location', 'CollectionID', 'CollectionName'])
 
     # Write header only
     write_metadata_csv(metadata, resource=None, write_header=True)
 
+    files_in_zip = set()
     with zipfile.ZipFile(target_path, 'w', allowZip64=True) as target:
         for queryset_resource in queryset:
             for content, resource in aggregate_content([queryset_resource], proc=export_proc, **kwargs):
@@ -268,9 +299,23 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
                 elif isinstance(content, Exception):
                     log.append('Encountered exception while retrieving content for %i (%s): %s' % (resource.id, resource.name, content.message))
                 else:
-                    filename = fname(resource)
-                    index_writer.writerow([resource.id, resource.name, resource.container.primary.id, resource.container.primary.uri, resource.container.primary.name, filename])
-                    target.writestr(base + filename, content)
+                    filepath = fname(resource)
+                    if filepath in files_in_zip:
+                        filename, ext = os.path.splitext(os.path.basename(filepath))
+                        filepath = os.path.join(os.path.dirname(filepath),
+                                                '{}_{}{}'.format(filename,
+                                                                 resource.id,
+                                                                 ext))
+                    files_in_zip.add(filepath)
+                    target.writestr(base + filepath, content)
+                    index_writer.writerow([resource.id, resource.name,
+                                           resource.container.primary.id,
+                                           resource.container.primary.uri,
+                                           resource.container.primary.name,
+                                           filepath,
+                                           resource.container.part_of.id,
+                                           get_collection_name(resource, concat_fn=posixpath.join),
+                                          ])
 
             if has_metadata:
                 for resource in aggregate_part_resources([queryset_resource]):
@@ -285,6 +330,13 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
         index.close()
     return target_path
 
+def get_collection_name(resource, concat_fn=os.path.join):
+    def recursive_collection_name(collection):
+        if not collection:
+            return ''
+        return concat_fn(recursive_collection_name(collection.part_of),
+                         collection.name)
+    return recursive_collection_name(resource.container.part_of)
 
 def export_with_collection_structure(queryset, target_path, **kwargs):
     """
@@ -292,21 +344,8 @@ def export_with_collection_structure(queryset, target_path, **kwargs):
     collection structure. Collection names are used to build file paths within
     the archive.
     """
-    import os, urlparse
-    def recursive_filename(resource):
-        def get_collection_name(collection):
-            if collection is None:
-                return ''
-            return get_collection_name(collection.part_of) + '/' + collection.name
-        if resource.is_external:
-            filename = urlparse.urlparse(resource.location).path.split('/')[-1]
-        else:
-            filename = os.path.split(resource.file.path)[-1]
-        name = get_collection_name(resource.container.part_of) + '/' + filename
-        if name.startswith('/'):
-            name = name[1:]
-        return name
-    return export_zip(queryset, target_path, fname=recursive_filename, **kwargs)
+    fname = lambda r: os.path.join(get_collection_name(r), get_filename(r))
+    return export_zip(queryset, target_path, fname=fname, **kwargs)
 
 
 def export_with_resource_structure(queryset, target_path, **kwargs):

@@ -140,8 +140,10 @@ $(document).ready(function(){
                     <div class="giles_status">
                         <dt>Giles Upload Status</dt>
                         <dd>
-                        <span {% if pending_counts %}title='There are {{ pending_counts.high}} high priority, {{ pending_counts.medium }} medium priority, and {{ pending_counts.low }} low priority uploads pending.'{% endif %}
-                            class="label {% if upload.state in upload.ERROR_STATES %}label-danger{% elif upload.state == upload.DONE %}label-success{% elif upload.state == upload.SENT %}label-warning{% else %}label-primary{% endif %}">{{ upload.get_state_display }}</span></dd>
+                            <a {% if pending_counts %}title='There are {{ pending_counts.high}} high priority, {{ pending_counts.medium }} medium priority, and {{ pending_counts.low }} low priority uploads pending.'{% endif %}
+                                class="label {% if upload.state in upload.ERROR_STATES %}label-danger{% elif upload.state == upload.DONE %}label-success{% elif upload.state == upload.SENT %}label-warning{% else %}label-primary{% endif %}"
+                                href="{% url "giles-log-item" upload.id %}">{{ upload.get_state_display }}</a>
+                        </dd>
                         {% if upload.state == upload.PENDING %}
                         <dt>Giles Upload Priority</dt>
                         <dd>

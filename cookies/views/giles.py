@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
-from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
+from django.http import HttpResponseRedirect, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import render, get_object_or_404
 from django.conf import settings
 from django.db.models import Q
@@ -10,14 +10,21 @@ from django.db.models import Q
 from cookies import operations
 from cookies import authorization as auth
 from cookies.models import *
-from cookies.forms import ChooseCollectionForm, GilesLogForm
+from cookies.forms import ChooseCollectionForm, GilesLogForm, GilesLogItemForm
 from cookies import giles
 from cookies.filters import GilesUploadFilter
 
+import pytz
+import calendar
+from datetime import datetime
+
+logger = settings.LOGGER
 
 def _get_upload_by_id(request, upload_id, *args):
     return get_object_or_404(GilesUpload, pk=upload_id)
 
+def _get_resource_by_upload_id(request, upload_id, *args):
+    return get_object_or_404(GilesUpload, pk=upload_id).resource
 
 @login_required
 def handle_giles_upload(request):
@@ -220,112 +227,167 @@ def test_giles_cleanup(request):
         pass
     return JsonResponse({'status': 'ok'})
 
-def _reupload_resources(request, form_data, filtered_objects):
-    upload_type = form_data.get('upload_type')
-    if upload_type == GilesLogForm.UPLOAD_ALL:
+def _change_state(request, form_data, filtered_objects):
+    if form_data.get('apply_type') == GilesLogForm.APPLY_ALL:
         resources = filtered_objects.qs
     else:
         resources = form_data.get('resources')
 
-    # FIXME: We don't want to reupload documents in Enqueued/Assigned/Sent
-    # state.
     auth_resources = auth.apply_filter(
         ResourceAuthorization.EDIT,
         request.user,
-        resources).filter(~Q(state__in=(GilesUpload.PENDING, GilesUpload.DONE)))
+        resources)
 
-    context = {}
     count_resources = resources.count()
     count_success = 0
     if auth_resources.count() > 0:
-        count_success = auth_resources.update(state=GilesUpload.PENDING)
-        context.update({
-            'reuploads_success': count_success,
-        })
-
-    if count_resources > 0:
-        context.update({
-            'reuploads_skipped': (count_resources - count_success),
-        })
-    return context
+        count_success = auth_resources.update(state=form_data['desired_state'])
+    return (count_success, count_resources-count_success)
 
 def _change_priority(request, form_data, filtered_objects):
-    priority = form_data.get('priority')
+    if form_data.get('apply_type') == GilesLogForm.APPLY_ALL:
+        resources = filtered_objects.qs
+    else:
+        resources = form_data.get('resources')
 
-    resources = form_data.get('resources')
-    count_resources = resources.count()
     auth_resources = auth.apply_filter(
         ResourceAuthorization.EDIT,
         request.user,
         resources).filter(state=GilesUpload.PENDING)
 
-    context = {}
+    count_resources = resources.count()
     count_success = 0
     if auth_resources.count() > 0:
-        count_success = auth_resources.update(priority=priority)
-        context.update({
-            'priority_change_success': count_success,
-        })
-
-    if count_resources > 0:
-        context.update({
-            'priority_change_skipped': (count_resources - count_success),
-        })
-    return context
+        count_success = auth_resources.update(priority=form_data['desired_priority'])
+    return (count_success, count_resources-count_success)
 
 
 @login_required
 def log(request):
+    state_changeable = (request.user.is_staff or request.user.is_superuser)
+    def pop_success_skipped(params, key):
+        try:
+            return map(int, params.pop(key)[-1].split(','))
+        except Exception:
+            # `key` not in URL params
+            return (0, 0)
 
-    # FIXME: We don't want upload enabled for Enqueued/Assigned/Sent state.
-    upload_enabled = lambda f: True if filtered_objects.data.get('state') not in (GilesUpload.PENDING, GilesUpload.DONE) else False
+    qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
+                           GilesUpload.objects.all())
+    params = QueryDict(mutable=True)
+    params.update(request.GET)
+    priority_change_success, priority_change_skipped = pop_success_skipped(params, 'priority_changed')
+    state_change_success, state_change_skipped = pop_success_skipped(params, 'state_changed')
+    filtered_objects = GilesUploadFilter(params, queryset=qs)
+    priority_changeable = state_changeable or (filtered_objects.data.get('state') == GilesUpload.PENDING)
+    form = None
 
-    priority_changeable = lambda f: True if filtered_objects.data.get('state') == GilesUpload.PENDING else False
-    if request.method == 'GET':
-        qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
-                               GilesUpload.objects.all())
-        filtered_objects = GilesUploadFilter(request.GET, queryset=qs)
-        context = {
-            'filtered_objects': filtered_objects,
-            'form': GilesLogForm(),
-            'upload_enabled': upload_enabled(filtered_objects),
-            'priority_changeable': priority_changeable(filtered_objects),
-        }
-        return render(request, 'giles_log.html', context)
-
-    elif request.method == 'POST':
-        qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
-                               GilesUpload.objects.all())
-        filtered_objects = GilesUploadFilter(request.GET, queryset=qs)
+    if request.method == 'POST':
         form = GilesLogForm(request.POST, queryset=filtered_objects.qs)
         if form.is_valid():
             form_data = form.cleaned_data
-            if form_data.get('priority'):
-                context = _change_priority(request, form_data, filtered_objects)
-            else:
-                context = _reupload_resources(request, form_data, filtered_objects)
+            results = {}
+            if priority_changeable and form_data.get('desired_priority'):
+                results['priority_changed'] = '{0[0]},{0[1]}'.format(
+                    _change_priority(request, form_data, filtered_objects)
+                )
 
-            qs = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
-                                   GilesUpload.objects.all())
-            filtered_objects = GilesUploadFilter(request.GET, queryset=qs)
-            context.update({
-                'filtered_objects': filtered_objects,
-                'form': GilesLogForm(),
-                'upload_enabled': upload_enabled(filtered_objects),
-                'priority_changeable': priority_changeable(filtered_objects),
-            })
-            return render(request, 'giles_log.html', context)
-        else:
-            context = {
-                'filtered_objects': filtered_objects,
-                'form': form,
-                'upload_enabled': upload_enabled(filtered_objects),
-                'priority_changeable': priority_changeable(filtered_objects),
-            }
-            return render(request, 'giles_log.html', context)
+            if state_changeable and form_data.get('desired_state'):
+                results['state_changed'] = '{0[0]},{0[1]}'.format(
+                    _change_state(request, form_data, filtered_objects)
+                )
 
+            querystring = '&'.join(('%s=%s'%(k, v) for k, v in results.items()))
+            querystring = '&'.join((filtered_objects.data.urlencode(), querystring))
+            return HttpResponseRedirect(reverse('giles-log') + '?' + querystring)
 
-@auth.authorization_required(ResourceAuthorization.VIEW, _get_upload_by_id)
+    context = {
+        'form': form or GilesLogForm(),
+        'filtered_objects': filtered_objects,
+        'updated': {
+            'Priority': {
+                'success': priority_change_success,
+                'skipped': priority_change_skipped,
+            },
+            'State': {
+                'success': state_change_success,
+                'skipped': state_change_skipped,
+            },
+        },
+        'state_changeable': state_changeable,
+        'priority_changeable': priority_changeable,
+    }
+    return render(request, 'giles_log.html', context)
+
+@auth.authorization_required(ResourceAuthorization.VIEW, _get_resource_by_upload_id)
 def log_item(request, upload_id):
     upload = get_object_or_404(GilesUpload, pk=upload_id)
-    return render(request, 'giles_log_item.html', {'upload': upload})
+    if request.method == 'POST':
+        if auth.check_authorization(ResourceAuthorization.EDIT,
+                                    request.user,
+                                    upload.resource):
+            if not upload.upload_id:
+                if upload.state == GilesUpload.PENDING:
+                    error = 'Resource is yet to be uploaded to Giles.'
+                else:
+                    error = 'Giles upload ID missing for the resource. Consider re-uploading.'
+                return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)) + '?error=' + error)
+
+            try:
+                giles.process_upload(upload.upload_id, upload.created_by.username,
+                                     reprocess=True)
+            except Exception, e:
+                logger.exception("Error rechecking upload")
+                upload.refresh_from_db()
+                upload.state = GilesUpload.GILES_ERROR
+                upload.message = str(e)
+                upload.save()
+                return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)) + '?error=' + str(e))
+
+            timestamp = str(calendar.timegm(datetime.utcnow().timetuple()))
+            return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)) + '?checked=' + timestamp)
+        else:
+            return HttpResponse('Forbidden', status=403)
+
+    checked = None
+    try:
+        checked = datetime.utcfromtimestamp(float(request.GET['checked'])).replace(tzinfo=pytz.utc)
+    except KeyError:
+        pass
+    except Exception, e:
+        logger.error("Error reading '{}' as timestamp: {}".format(checked, e))
+
+    context = {
+        'upload': upload,
+        'checked': checked,
+        'error': request.GET.get('error'),
+        'form': GilesLogForm(),
+    }
+    return render(request, 'giles_log_item.html', context)
+
+@auth.authorization_required(ResourceAuthorization.EDIT, _get_resource_by_upload_id)
+def log_item_edit(request, upload_id):
+    state_changeable = (request.user.is_staff or request.user.is_superuser)
+    priority_changeable = (state_changeable or upload.state==GilesUpload.PENDING),
+    upload = get_object_or_404(GilesUpload, pk=upload_id)
+    form = None
+
+    if request.method == 'POST':
+        form = GilesLogItemForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            upload.refresh_from_db()
+            if state_changeable and data.get('desired_state'):
+                upload.state = data.get('desired_state')
+            if priority_changeable and data.get('desired_priority'):
+                upload.priority = data.get('desired_priority')
+            upload.save()
+            return HttpResponseRedirect(reverse('giles-log-item', args=(upload_id,)))
+
+    context = {
+        'priority_changeable': priority_changeable,
+        'state_changeable': state_changeable,
+        'upload': upload,
+        'form': form or GilesLogItemForm(),
+    }
+    return render(request, 'giles_log_item_edit.html', context)

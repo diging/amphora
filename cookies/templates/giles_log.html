@@ -79,51 +79,58 @@
     <div class="text-center">
         {% paginate %}
     </div>
-    {% if reuploads_skipped > 0 %}
-        <div class="alert alert-warning" role="alert">
-            {% if reuploads_success %}
-                Reuploaded {{ reuploads_success }} document(s).
-            {% endif %}
-            {{ reuploads_skipped }} document(s) skipped.
-        </div>
-    {% elif reuploads_success > 0 %}
-        <div class="alert alert-success" role="alert">Reuploaded {{reuploads_success}} document(s).</div>
-    {% endif %}
 
-    {% if priority_change_skipped > 0 %}
-        <div class="alert alert-warning" role="alert">
-            {% if priority_change_success %}
-                Re-prioritized {{ priority_change_success }} document(s).
-            {% endif %}
-            {{ priority_change_skipped }} document(s) skipped.
-        </div>
-    {% elif priority_change_success > 0 %}
-        <div class="alert alert-success" role="alert">Re-prioritized {{priority_change_success}} document(s).</div>
-    {% endif %}
+    {% for key, value in updated.iteritems %}
+        {% if value.success or value.skipped %}
+            <div class="alert alert-{% if not value.skipped %}success{% else %}info{% endif %}">
+                <strong>{{ key }}</strong> updated for {{ value.success }} uploads ({{ value.skipped }} skipped).
+            </div>
+        {% endif %}
+    {% endfor %}
+
+    {% for error in form.non_field_errors %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endfor %}
 
     {% if uploads %}
+        {% if priority_changeable or state_changeable %}
         <form method="POST">
             {% csrf_token %}
-            {% if upload_enabled %}
-                <button type="submit" class="btn btn-primary btn-xs" name="upload_type" value="selected" title="Reupload selected documents">Reupload Selected</button>
-                <button type="submit" class="btn btn-warning btn-xs" name="upload_type" value="all" title="Reupload all {{ filtered_objects.qs.count }} document(s) matching current filters">Reupload All</button>
-            {% endif %}
-            {% if priority_changeable %}
-                <div class="btn-group">
-                    <button title="Change priority of selected documents" type="button" class="btn btn-default dropdown-toggle btn-xs" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                        Change Priority <span class="caret"></span>
-                    </button>
-                    <ul class="dropdown-menu">
-                        {% for value, label in form.fields.priority.choices %}
-                            <li><button type="submit" name="priority" value="{{ value }}" class="btn btn-xs">{{ label }}</button></li>
-                        {% endfor %}
-                    </ul>
+            <div class="panel panel-default">
+                <div class="panel-body">
+                    <div class="form-inline">
+                        <label class="help-block" style="display:inline; margin-right:20px"><span class="glyphicon glyphicon-edit" aria-hidden="true"></span> Edit</label>
+
+                        {% if state_changeable %}
+                            {% with form.desired_state as field %}
+                                <div class="form-group" style="margin-right:10px">
+                                    <label for="{{ field.id }}">{{ field.label }}</label>
+                                    {{ field|addcss:"form-control input-sm" }}
+                                </div>
+                            {% endwith %}
+                        {% endif %}
+
+                        {% if priority_changeable %}
+                            {% with form.desired_priority as field %}
+                                <div class="form-group" style="margin-right:10px">
+                                    <label for="{{ field.id }}">{{ field.label }}</label>
+                                    {{ field|addcss:"form-control input-sm" }}
+                                </div>
+                            {% endwith %}
+                        {% endif %}
+
+                        <span class="pull-right">
+                            <button type="submit" class="btn btn-primary btn-sm" name="apply_type" value="selected">Apply Selected</button>
+                            <button type="submit" class="btn btn-warning btn-sm" name="apply_type" value="all">Apply All</button>
+                        </span>
+                    </div>
                 </div>
-            {% endif %}
+            </div>
+        {% endif %}
 
         <table class="table table-compact table-responsive">
             <thead>
-                {% if upload_enabled or priority_changeable %}<th><input id="form_select_all" type="checkbox"></th>{% endif %}
+                {% if priority_changeable or state_changeable %}<th><input id="form_select_all" type="checkbox"></th>{% endif %}
                 <th>Progress ID</th>
                 <th>Resource</th>
                 <th>State</th>
@@ -135,7 +142,7 @@
             <tbody>
                 {% for upload in uploads %}
                 <tr>
-                    {% if upload_enabled or priority_changeable %}<td><input type="checkbox" name="resources" value="{{ upload.id }}"/></td>{% endif %}
+                    {% if priority_changeable or state_changeable %}<td><input type="checkbox" name="resources" value="{{ upload.id }}"/></td>{% endif %}
                     <td><a class="btn btn-xs btn-xxs glyphicon glyphicon-eye-open" style="margin-right: 5px;" href="{% url "giles-log-item" upload.id %}"></a>{{ upload.upload_id }}</td>
                     <td>
                         <a href="{{ upload.resource.container.primary.get_absolute_url }}">{{ upload.resource.container.primary.name }}</a>
@@ -149,7 +156,7 @@
                 {% endfor %}
             </tbody>
         </table>
-        {% if upload_enabled or priority_changeable %}
+        {% if priority_changeable or state_changeable %}
                 <script>
                     $(document).ready(function(){
                         $("#form_select_all").change(function(){
