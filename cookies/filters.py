@@ -1,6 +1,6 @@
 from django.db.models import Q, Count
 from django.http import QueryDict
-
+from django.shortcuts import get_object_or_404
 import django_filters
 
 from cookies.models import *
@@ -109,6 +109,7 @@ class ResourceContainerFilter(django_filters.FilterSet):
     content = django_filters.CharFilter(name='primary__indexable_content',
                                         lookup_expr='icontains')
     part_of = django_filters.ModelChoiceFilter(name='part_of', queryset=Collection.objects.all())
+    dataset = django_filters.CharFilter(method='get_resources_explicit_dataset')
 
     # FIXME: The following statement results in a very expensive Postgres query.
     # entity_type = django_filters.ModelChoiceFilter(
@@ -190,6 +191,13 @@ class ResourceContainerFilter(django_filters.FilterSet):
 
     def lookup_using_name_index(self, queryset, name, value):
         return queryset.filter(primary__name_index__plain_tsquery=value)
+
+    def get_resources_explicit_dataset(self, queryset, name, value):
+        dataset = get_object_or_404(Dataset, pk=value)
+        list_of_ids = []
+        for i in dataset.resources.all():
+            list_of_ids.append(i.primary_id / 2)
+        return queryset.filter(pk__in=list_of_ids)
 
     o = django_filters.OrderingFilter(
         # tuple-mapping retains order

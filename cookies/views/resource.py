@@ -886,12 +886,15 @@ def dataset(request, dataset_id):
     Details about a dataset.
     """
     dataset = get_object_or_404(Dataset, pk=dataset_id)
+    resource_param = None
     if dataset.dataset_type == Dataset.EXPLICIT:
         resource_count = dataset.resources.count()
         collection_count = 0
+        resource_param = '?dataset=' + dataset_id
     else:
         collections, containers = apply_dataset_filters(request.user,
                                                         dataset.filter_parameters)
+        resource_param = '?entity_type=' + dataset.filter_parameters.split('entity_type=')[1]
         resource_count = containers.count()
         collection_count = collections.count()
 
@@ -899,6 +902,7 @@ def dataset(request, dataset_id):
         'dataset': dataset,
         'resource_count': resource_count,
         'collection_count': collection_count,
+        'resource_param': resource_param
     }
     return render(request, 'dataset.html', context)
 
