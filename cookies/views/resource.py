@@ -150,18 +150,6 @@ def resource_list(request):
         del params['page']
     filter_parameters = urlquote_plus(params.urlencode())
     filtered_resources = ResourceContainerFilter(request.GET, queryset=resources)
-    # print '1:', filtered_resources.data
-    #
-    # if 'dataset' in params:
-    #     dataset = get_object_or_404(Dataset, pk=params['dataset'])
-    #     temp = []
-    #     for i in dataset.resources.all():
-    #         temp.append(i.primary_id)
-    #     for i in Resource.objects.all():
-    #         print i
-    #     filtered_resources = ResourceContainerFilter('', queryset=Resource.objects.all().filter(pk__in=temp))
-    #     print filtered_resources.data
-    # print '2:', filtered_resources.data
 
     # The following statement results in an expensive Postgres Query.
     # Disable tags in this view for now.
@@ -898,16 +886,15 @@ def dataset(request, dataset_id):
     Details about a dataset.
     """
     dataset = get_object_or_404(Dataset, pk=dataset_id)
+    resource_param = None
     if dataset.dataset_type == Dataset.EXPLICIT:
         resource_count = dataset.resources.count()
         collection_count = 0
-        print 'Dataset parameters:', type(dataset.resources)
-        for i in dataset.resources.all():
-            print i.primary_id
+        resource_param = '?dataset=' + dataset_id
     else:
         collections, containers = apply_dataset_filters(request.user,
                                                         dataset.filter_parameters)
-        print 'Dataset parameters:', dataset.filter_parameters.split('entity_type=')[1]
+        resource_param = '?entity_type=' + dataset.filter_parameters.split('entity_type=')[1]
         resource_count = containers.count()
         collection_count = collections.count()
 
@@ -915,6 +902,7 @@ def dataset(request, dataset_id):
         'dataset': dataset,
         'resource_count': resource_count,
         'collection_count': collection_count,
+        'resource_param': resource_param
     }
     return render(request, 'dataset.html', context)
 
