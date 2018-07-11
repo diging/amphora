@@ -23,7 +23,7 @@ class CustomModelChoiceField(forms.ModelChoiceField):
     """
 
     def label_from_instance(self, obj):
-         return obj.name
+        return obj.name + ' (' + str(obj.schema) + ')'
 
 
 class TypeModelChoiceField(forms.ModelChoiceField):
