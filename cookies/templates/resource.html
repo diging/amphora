@@ -131,6 +131,7 @@ $(document).ready(function(){
                             &mdash; <em>{{ creator }}</em>
                         {% endif %}
                     </span>
+                    <a class="label label-primary" href="{% url "create-resource-file" %}?reupload={{resource.id}}">Re-Upload</a>
                 </dd>
                 {% endfor %}
                 {% endif %}
