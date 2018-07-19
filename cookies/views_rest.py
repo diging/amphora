@@ -589,18 +589,14 @@ class ResourceContentView(APIView):
 
 def _create_resource_file(request, uploaded_file, upload_interface):
     reupload_resource_id = request.GET.get('reupload', None)
-    container = ResourceContainer.objects.create(created_by=request.user)
     if reupload_resource_id:
-        print "Re"
         content = Resource.objects.get(id=reupload_resource_id)
         content.content_type = uploaded_file.content_type
         content.content_resource = False
-        content.name = uploaded_file._name
         content.created_by = request.user
         content.created_through = upload_interface
-        content.container = container
     else:
-        print "No Re"
+        container = ResourceContainer.objects.create(created_by=request.user)
         content = Resource.objects.create(**{
             'content_type': uploaded_file.content_type,
             'content_resource': True,
@@ -611,17 +607,13 @@ def _create_resource_file(request, uploaded_file, upload_interface):
         })
     collection = request.GET.get('collection')
     if collection:
-        print "Container Save"
         container.part_of_id = collection
         container.save()
-    print "Resource", content.id, content.container
     if reupload_resource_id is None:
         operations.add_creation_metadata(content, request.user)
-    print "Resource", content.id, content.container
     # The file upload handler needs the Resource to have an ID first,
     #  so we add the file after creation.
     content.file = uploaded_file
-    print "File", content.file
     content.save()
     return content
 
