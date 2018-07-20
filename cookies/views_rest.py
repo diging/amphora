@@ -634,11 +634,8 @@ def _create_resource_details(request, content_resource, resource_data, upload_in
     content_resource.container.save()
 
     operations.add_creation_metadata(resource, request.user)
-    print 'Request Check: ', request.GET.get('reupload')
     if request.GET.get('reupload'):
-        print 'Here'
         content_relation = ContentRelation.objects.get(for_resource_id=request.GET.get('reupload'))
-        print 'RId:', content_relation.for_resource_id
         content_relation.for_resource = resource
         content_relation.content_resource = content_resource
         content_relation.content_type = content_resource.content_type
