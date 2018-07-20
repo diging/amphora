@@ -25,7 +25,6 @@ import os, posixpath
 
 from cStringIO import StringIO
 
-
 logger = logging.getLogger(__name__)
 
 def _get_resource_by_id(request, resource_id, *args):
@@ -886,15 +885,16 @@ def dataset(request, dataset_id):
     Details about a dataset.
     """
     dataset = get_object_or_404(Dataset, pk=dataset_id)
-    resource_param = None
+    source_resources = None
     if dataset.dataset_type == Dataset.EXPLICIT:
         resource_count = dataset.resources.count()
         collection_count = 0
-        resource_param = '?dataset=' + dataset_id
+        source_resources = '?dataset=' + dataset_id
     else:
         collections, containers = apply_dataset_filters(request.user,
                                                         dataset.filter_parameters)
-        resource_param = '?entity_type=' + dataset.filter_parameters.split('entity_type=')[1]
+        source_resources = '?entity_type=' + \
+                         dict(x.split('=') for x in dataset.filter_parameters.split('&')).get('entity_type')
         resource_count = containers.count()
         collection_count = collections.count()
 
@@ -902,7 +902,7 @@ def dataset(request, dataset_id):
         'dataset': dataset,
         'resource_count': resource_count,
         'collection_count': collection_count,
-        'resource_param': resource_param
+        'source_resources': source_resources
     }
     return render(request, 'dataset.html', context)
 
