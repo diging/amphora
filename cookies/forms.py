@@ -23,7 +23,7 @@ class CustomModelChoiceField(forms.ModelChoiceField):
     """
 
     def label_from_instance(self, obj):
-         return obj.name
+        return obj.name + ' (' + str(obj.schema) + ')'
 
 
 class TypeModelChoiceField(forms.ModelChoiceField):
@@ -33,7 +33,7 @@ class TypeModelChoiceField(forms.ModelChoiceField):
 
     def label_from_instance(self, obj):
         if obj.schema is not None:
-            return u'%s: %s' % (obj.schema.name, obj.name)
+            return u'%s (%s)' % (obj.name, obj.schema)
         else:
             return obj.name
 
