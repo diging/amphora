@@ -634,20 +634,12 @@ def _create_resource_details(request, content_resource, resource_data, upload_in
     content_resource.container.save()
 
     operations.add_creation_metadata(resource, request.user)
-    if request.GET.get('reupload'):
-        content_relation = ContentRelation.objects.get(for_resource_id=request.GET.get('reupload'))
-        content_relation.for_resource = resource
-        content_relation.content_resource = content_resource
-        content_relation.content_type = content_resource.content_type
-        content_relation.container = content_resource.container
-        content_relation.save()
-    else:
-        content_relation = ContentRelation.objects.create(**{
+    content_relation = ContentRelation.objects.create(**{
             'for_resource': resource,
             'content_resource': content_resource,
             'content_type': content_resource.content_type,
             'container': content_resource.container,
-        })
+    })
     resource.container = content_resource.container
     resource.save()
 

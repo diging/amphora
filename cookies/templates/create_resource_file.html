@@ -32,7 +32,7 @@
 
     <div class="text-center">
         {% if request.GET.reupload %}
-        <button class="btn btn-success" type="button" data-toggle="modal" data-target="#confirmModal">ReUpload</button>
+        <button class="btn btn-success" type="button" data-toggle="modal" data-target="#confirmModal">Reupload</button>
         <a href="{% url 'resource' request.GET.reupload %}" class="btn btn-warning">Cancel</a>
         {% else %}
         <input class="btn btn-success" type="submit" value="Upload" >
