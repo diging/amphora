@@ -893,8 +893,7 @@ def dataset(request, dataset_id):
     else:
         collections, containers = apply_dataset_filters(request.user,
                                                         dataset.filter_parameters)
-        source_resources = '?entity_type=' + \
-                         dict(x.split('=') for x in dataset.filter_parameters.split('&')).get('entity_type')
+        source_resources = '?' + dataset.filter_parameters
         resource_count = containers.count()
         collection_count = collections.count()
 
