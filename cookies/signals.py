@@ -37,8 +37,6 @@ def send_all_files_to_giles(sender, **kwargs):    # Hey, that rhymes!
     if not instance.content_resource.file:
         return
 
-    print 'Reupload signal', sender, kwargs
-
     logger.debug('create giles upload for %i' % instance.id)
     giles.create_giles_upload(instance.for_resource.id, instance.id,
                               instance.for_resource.created_by.username,
