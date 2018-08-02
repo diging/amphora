@@ -135,11 +135,12 @@ $(document).ready(function(){
                 {% endfor %}
                 {% endif %}
 
+                {% if show_reupload %}
+                    <dd><a class="label label-primary" href="{% url "create-resource-file" %}?reupload={{resource.id}}">Reupload</a></dd>
+                {% endif %}
+
                 {% with resource.giles_uploads.all.0 as upload %}
                     {% if upload.state != upload.DONE %}
-                        {% if upload.state != upload.SENT and upload.state != upload.ENQUEUED %}
-                            <dd><a class="label label-primary" href="{% url "create-resource-file" %}?reupload={{resource.id}}">Reupload</a></dd>
-                        {% endif %}
                     <div class="giles_status">
                         <dt>Giles Upload Status</dt>
                         <dd>

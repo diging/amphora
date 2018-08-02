@@ -587,6 +587,7 @@ class ResourceContentView(APIView):
 
         return Response(status=204)
 
+
 def _create_resource_file(request, uploaded_file, upload_interface):
     reupload_resource_id = request.GET.get('reupload', None)
     if reupload_resource_id:
