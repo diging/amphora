@@ -26,15 +26,6 @@ class CustomModelChoiceField(forms.ModelChoiceField):
         return obj.name
 
 
-class TestModelChoiceField(forms.ModelChoiceField):
-    """
-    Overriding label_from_instance function in ModelChoiceField
-    """
-
-    def label_from_instance(self, obj):
-        return obj.schema.name
-
-
 class TypeModelChoiceField(forms.ModelChoiceField):
     """
     Overriding label_from_instance function in ModelChoiceField
