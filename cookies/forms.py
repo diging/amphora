@@ -441,7 +441,7 @@ VALUE_FORMS = dict([
 class DatasetForm(forms.ModelForm):
     filter_parameters = forms.CharField(widget=forms.HiddenInput())
 
-    description = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}),
+    description = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 3}),
                                   help_text="Please describe the purpose and"
                                             " content of the dataset"
                                             " (optional).")
