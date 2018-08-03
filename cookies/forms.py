@@ -23,7 +23,16 @@ class CustomModelChoiceField(forms.ModelChoiceField):
     """
 
     def label_from_instance(self, obj):
-        return u'%s (%s)' % (obj.name, obj.schema.name)
+        return obj.name
+
+
+class TestModelChoiceField(forms.ModelChoiceField):
+    """
+    Overriding label_from_instance function in ModelChoiceField
+    """
+
+    def label_from_instance(self, obj):
+        return obj.schema.name
 
 
 class TypeModelChoiceField(forms.ModelChoiceField):
@@ -195,7 +204,7 @@ class UserEditResourceForm(forms.Form):
     """
 
     name = forms.CharField(help_text='Give your resource a unique name')
-    resource_type = CustomModelChoiceField(**{
+    resource_type = TypeModelChoiceField(**{
         'queryset': Type.objects.all().order_by('name'),
         'help_text': 'Types help JARS determine what metadata fields are' \
                    + ' appropriate for your resource.',
