@@ -328,7 +328,7 @@ class MetadatumTypeForm(forms.Form):
 
 
 class MetadatumForm(forms.Form):
-    predicate = CustomModelChoiceField(queryset=Field.objects.all().order_by('-name'))
+    predicate = TypeModelChoiceField(queryset=Field.objects.all().order_by('-name'))
     value_type = forms.ChoiceField(choices=(
         ('Int', 'Integer'),
         ('Float', 'Float'),
