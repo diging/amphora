@@ -13,7 +13,7 @@
 {% endblock %}
 
 {% block content %}
-<form class="form" action="{% if collection %}?collection={{collection}}{% endif %}" method="POST" enctype="multipart/form-data">
+<form id="UploadFileForm" class="form" action="{% if collection %}?collection={{collection}}{% endif %}" method="POST" enctype="multipart/form-data">
     {% csrf_token %}
     {% for error in form.non_field_errors %}
     <div class="alert alert-warning">{{ error }}</div>
@@ -31,7 +31,33 @@
     {% endfor %}
 
     <div class="text-center">
-        <input class="btn btn-success" type="submit" value="Upload">
+        {% if request.GET.reupload %}
+        <button class="btn btn-success" type="button" data-toggle="modal" data-target="#confirmModal">Reupload</button>
+        <a href="{% url 'resource' request.GET.reupload %}" class="btn btn-warning">Cancel</a>
+        {% else %}
+        <input class="btn btn-success" type="submit" value="Upload" >
+        {% endif %}
     </div>
 </form>
+
+<div id="confirmModal" class="modal fade" role="dialog">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">Confirm Action</h4>
+      </div>
+      <div class="modal-body">
+        <p>You are about to replace the file currently associated with this resource. It will be deleted and you won't have access to it anymore.
+            <br>If another application uses the currently file there might be unanticipated side effects. Are you sure you want to proceed?</p>
+      </div>
+      <div class="modal-footer">
+        <input type="submit" form="UploadFileForm" class="btn btn-success" value="Yes">
+        <button type="button" class="btn btn-danger" data-dismiss="modal">No</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
+

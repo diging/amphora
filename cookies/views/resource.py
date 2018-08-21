@@ -62,9 +62,11 @@ def resource(request, obj_id):
         'content_relations': resource.content.filter(is_deleted=False),
         'part_relations': part_relations,
         'content_region_relations': content_region_relations,
+        'show_reupload': False
     }
 
     resource_pending_uploads = resource.giles_uploads.filter(state=GilesUpload.PENDING)
+    if resource.giles_uploads.count() - resource_pending_uploads.count() == 0: context['show_reupload'] = True
     if resource_pending_uploads.count() > 0:
         pending_stats = GilesUpload.objects.filter(state=GilesUpload.PENDING).values('priority').annotate(total=Count('priority'))
         pending_stats = {e['priority']: e['total'] for e in pending_stats}
@@ -191,8 +193,19 @@ def create_resource_file(request):
         if form.is_valid():
             with transaction.atomic():
                 content = _create_resource_file(request, request.FILES['upload_file'], Resource.INTERFACE_WEB)
-            return HttpResponseRedirect(reverse('create-resource-details',
-                                                args=(content.id,)))
+                if request.GET.get('reupload'):
+                    ContentRelation.objects.filter(for_resource_id=request.GET.get('reupload')).update(
+                        content_resource=content,
+                        content_type=content.content_type,
+                        container=content.container
+                    )
+                    GilesUpload.objects.filter(resource_id=request.GET.get('reupload')).update(
+                        file_path=content.file
+                    )
+                    return HttpResponseRedirect(reverse('resource', args=(content.id,)))
+
+                return HttpResponseRedirect(reverse('create-resource-details',
+                                                    args=(content.id,)))
 
     context.update({'form': form})
     return render(request, 'create_resource_file.html', context)

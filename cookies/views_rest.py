@@ -587,22 +587,31 @@ class ResourceContentView(APIView):
 
         return Response(status=204)
 
+
 def _create_resource_file(request, uploaded_file, upload_interface):
-    container = ResourceContainer.objects.create(created_by=request.user)
-    content = Resource.objects.create(**{
-        'content_type': uploaded_file.content_type,
-        'content_resource': True,
-        'name': uploaded_file._name,
-        'created_by': request.user,
-        'created_through': upload_interface,
-        'container': container,
-    })
+    reupload_resource_id = request.GET.get('reupload', None)
+    if reupload_resource_id:
+        content = Resource.objects.get(id=reupload_resource_id)
+        content.content_type = uploaded_file.content_type
+        content.content_resource = False
+        content.created_by = request.user
+        content.created_through = upload_interface
+    else:
+        container = ResourceContainer.objects.create(created_by=request.user)
+        content = Resource.objects.create(**{
+            'content_type': uploaded_file.content_type,
+            'content_resource': True,
+            'name': uploaded_file._name,
+            'created_by': request.user,
+            'created_through': upload_interface,
+            'container': container,
+        })
     collection = request.GET.get('collection')
     if collection:
         container.part_of_id = collection
         container.save()
-
-    operations.add_creation_metadata(content, request.user)
+    if reupload_resource_id is None:
+        operations.add_creation_metadata(content, request.user)
     # The file upload handler needs the Resource to have an ID first,
     #  so we add the file after creation.
     content.file = uploaded_file
@@ -627,10 +636,10 @@ def _create_resource_details(request, content_resource, resource_data, upload_in
 
     operations.add_creation_metadata(resource, request.user)
     content_relation = ContentRelation.objects.create(**{
-        'for_resource': resource,
-        'content_resource': content_resource,
-        'content_type': content_resource.content_type,
-        'container': content_resource.container,
+            'for_resource': resource,
+            'content_resource': content_resource,
+            'content_type': content_resource.content_type,
+            'container': content_resource.container,
     })
     resource.container = content_resource.container
     resource.save()
