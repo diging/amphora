@@ -593,7 +593,6 @@ def _create_resource_file(request, uploaded_file, upload_interface):
     if reupload_resource_id:
         content = Resource.objects.get(id=reupload_resource_id)
         content.content_type = uploaded_file.content_type
-        content.content_resource = False
         content.created_by = request.user
         content.created_through = upload_interface
     else:
@@ -617,6 +616,22 @@ def _create_resource_file(request, uploaded_file, upload_interface):
     content.file = uploaded_file
     content.save()
     return content
+
+
+def _reupload_resource_file(request, uploaded_file, upload_interface, reupload_resource_id):
+    content = Resource.objects.get(id=reupload_resource_id)
+    content.content_type = uploaded_file.content_type
+    content.created_by = request.user
+    content.created_through = upload_interface
+    ContentRelation.objects.filter(for_resource_id=reupload_resource_id).update(
+        content_resource=content,
+        content_type=content.content_type,
+        container=content.container
+    )
+    GilesUpload.objects.filter(resource_id=reupload_resource_id).update(
+        file_path=content.file
+    )
+
 
 def _create_resource_details(request, content_resource, resource_data, upload_interface):
     resource_data['entity_type'] = resource_data.pop('resource_type')
