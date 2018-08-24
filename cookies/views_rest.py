@@ -589,28 +589,21 @@ class ResourceContentView(APIView):
 
 
 def _create_resource_file(request, uploaded_file, upload_interface):
-    reupload_resource_id = request.GET.get('reupload', None)
-    if reupload_resource_id:
-        content = Resource.objects.get(id=reupload_resource_id)
-        content.content_type = uploaded_file.content_type
-        content.created_by = request.user
-        content.created_through = upload_interface
-    else:
-        container = ResourceContainer.objects.create(created_by=request.user)
-        content = Resource.objects.create(**{
-            'content_type': uploaded_file.content_type,
-            'content_resource': True,
-            'name': uploaded_file._name,
-            'created_by': request.user,
-            'created_through': upload_interface,
-            'container': container,
-        })
+    container = ResourceContainer.objects.create(created_by=request.user)
+    content = Resource.objects.create(**{
+        'content_type': uploaded_file.content_type,
+        'content_resource': True,
+        'name': uploaded_file._name,
+        'created_by': request.user,
+        'created_through': upload_interface,
+        'container': container,
+    })
     collection = request.GET.get('collection')
     if collection:
         container.part_of_id = collection
         container.save()
-    if reupload_resource_id is None:
-        operations.add_creation_metadata(content, request.user)
+
+    operations.add_creation_metadata(content, request.user)
     # The file upload handler needs the Resource to have an ID first,
     #  so we add the file after creation.
     content.file = uploaded_file
@@ -621,8 +614,10 @@ def _create_resource_file(request, uploaded_file, upload_interface):
 def _reupload_resource_file(request, uploaded_file, upload_interface, reupload_resource_id):
     content = Resource.objects.get(id=reupload_resource_id)
     content.content_type = uploaded_file.content_type
+    content.file = uploaded_file
     content.created_by = request.user
     content.created_through = upload_interface
+    content.save()
     ContentRelation.objects.filter(for_resource_id=reupload_resource_id).update(
         content_resource=content,
         content_type=content.content_type,

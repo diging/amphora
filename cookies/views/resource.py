@@ -9,6 +9,7 @@ from django.db.models import Q, Max, Count
 from django.db import transaction
 from django.utils.http import urlquote_plus
 from django.utils.encoding import smart_str
+from django.contrib import messages
 
 from cookies.models import *
 from cookies.filters import *
@@ -192,10 +193,15 @@ def create_resource_file(request):
         form = UserResourceFileForm(request.POST, request.FILES)
         if form.is_valid():
             with transaction.atomic():
-                GilesUpload.objects.filter(resource_id=request.POST['reupload'])
-                if request.POST['reupload']:
-                    _reupload_resource_file(request, request.FILES['upload_file'], Resource.INTERFACE_WEB, request.POST['reupload'])
-                    return HttpResponseRedirect(reverse('resource', args=(request.POST['reupload'],)))
+                if request.GET.get('reupload'):
+                    resource_status = \
+                        GilesUpload.objects.filter(resource_id=request.GET.get('reupload')).values_list('state')[0][0]
+                    if resource_status == GilesUpload.PENDING:
+                        _reupload_resource_file(request, request.FILES['upload_file'], Resource.INTERFACE_WEB, request.GET.get('reupload'))
+                        messages.success(request, 'Your file was reuploaded successfully')
+                    else:
+                        messages.error(request, 'Sorry, your file was not reuploaded as it has already been sent to Giles')
+                    return HttpResponseRedirect(reverse('resource', args=(request.GET.get('reupload'),)))
                 else:
                     content = _create_resource_file(request, request.FILES['upload_file'], Resource.INTERFACE_WEB)
                 return HttpResponseRedirect(reverse('create-resource-details',
