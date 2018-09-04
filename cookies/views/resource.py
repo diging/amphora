@@ -126,6 +126,14 @@ def resource_list(request):
     Display all :class:`.Resource` instances to which the user has access.
     """
 
+    # Check for removing empty text
+    print list(ResourceContainer.objects.values_list('primary_id', flat=True))
+    if None in ResourceContainer.objects.values_list('primary_id'):
+        print "Found"
+        for resource_container in ResourceContainer.objects.all():
+            if resource_container.primary_id is None:
+                resource_container.delete()
+
     resources = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
                                   ResourceContainer.active.all())
 
@@ -191,10 +199,10 @@ def create_resource_file(request):
         form = UserResourceFileForm(request.POST, request.FILES)
         if form.is_valid():
             with transaction.atomic():
+                print request.FILES['upload_file'], Resource.objects.latest('id')
                 content = _create_resource_file(request, request.FILES['upload_file'], Resource.INTERFACE_WEB)
             return HttpResponseRedirect(reverse('create-resource-details',
                                                 args=(content.id,)))
-
     context.update({'form': form})
     return render(request, 'create_resource_file.html', context)
 
