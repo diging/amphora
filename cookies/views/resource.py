@@ -194,7 +194,6 @@ def create_resource_file(request):
         form = UserResourceFileForm(request.POST, request.FILES)
         if form.is_valid():
             with transaction.atomic():
-                print request.FILES['upload_file'], Resource.objects.latest('id')
                 content = _create_resource_file(request, request.FILES['upload_file'], Resource.INTERFACE_WEB)
             return HttpResponseRedirect(reverse('create-resource-details',
                                                 args=(content.id,)))
