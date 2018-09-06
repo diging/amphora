@@ -126,13 +126,8 @@ def resource_list(request):
     Display all :class:`.Resource` instances to which the user has access.
     """
 
-    # Check for removing empty text
-    print list(ResourceContainer.objects.values_list('primary_id', flat=True))
-    if None in ResourceContainer.objects.values_list('primary_id'):
-        print "Found"
-        for resource_container in ResourceContainer.objects.all():
-            if resource_container.primary_id is None:
-                resource_container.delete()
+    # Check for removing empty text. Find and delete entries which do not have a primary id
+    ResourceContainer.objects.filter(primary_id=None).delete()
 
     resources = auth.apply_filter(ResourceAuthorization.VIEW, request.user,
                                   ResourceContainer.active.all())
