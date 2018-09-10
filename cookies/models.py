@@ -639,7 +639,7 @@ class GilesUpload(models.Model):
     on_complete = models.TextField()
     """Serialized callback instructions."""
 
-    file_path = models.CharField(max_length=1000, blank=True, null=True)
+    file_path = models.TextField(blank=True, null=True)
     """Relative to MEDIA_ROOT."""
 
 
