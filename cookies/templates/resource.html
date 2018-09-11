@@ -136,7 +136,7 @@ $(document).ready(function(){
                 {% endfor %}
                 {% endif %}
 
-                {% if show_reupload %}
+                {% if user.is_authenticated and show_reupload %}
                     <dd><a class="label label-primary" href="{% url "create-resource-file" %}?reupload={{resource.id}}">Reupload</a></dd>
                 {% endif %}
 
