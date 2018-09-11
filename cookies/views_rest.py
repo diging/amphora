@@ -587,6 +587,7 @@ class ResourceContentView(APIView):
 
         return Response(status=204)
 
+
 def _create_resource_file(request, uploaded_file, upload_interface):
     container = ResourceContainer.objects.create(created_by=request.user)
     content = Resource.objects.create(**{
@@ -609,6 +610,24 @@ def _create_resource_file(request, uploaded_file, upload_interface):
     content.save()
     return content
 
+
+def _reupload_resource_file(request, uploaded_file, upload_interface, reupload_resource_id):
+    content = Resource.objects.get(id=reupload_resource_id)
+    content.content_type = uploaded_file.content_type
+    content.file = uploaded_file
+    content.created_by = request.user
+    content.created_through = upload_interface
+    content.save()
+    ContentRelation.objects.filter(for_resource_id=reupload_resource_id).update(
+        content_resource=content,
+        content_type=content.content_type,
+        container=content.container
+    )
+    GilesUpload.objects.filter(resource_id=reupload_resource_id).update(
+        file_path=content.file
+    )
+
+
 def _create_resource_details(request, content_resource, resource_data, upload_interface):
     resource_data['entity_type'] = resource_data.pop('resource_type')
     collection = resource_data.pop('collection', None)
@@ -627,10 +646,10 @@ def _create_resource_details(request, content_resource, resource_data, upload_in
 
     operations.add_creation_metadata(resource, request.user)
     content_relation = ContentRelation.objects.create(**{
-        'for_resource': resource,
-        'content_resource': content_resource,
-        'content_type': content_resource.content_type,
-        'container': content_resource.container,
+            'for_resource': resource,
+            'content_resource': content_resource,
+            'content_type': content_resource.content_type,
+            'container': content_resource.container,
     })
     resource.container = content_resource.container
     resource.save()

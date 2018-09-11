@@ -64,6 +64,7 @@ $(document).ready(function(){
 {% endblock %}
 
 {% block content %}
+
 <div class="row">
     <div class="col-md-{% if preview_content %}7{% else %}12{% endif %}">
         <div class="resource_summary">
@@ -133,6 +134,10 @@ $(document).ready(function(){
                     </span>
                 </dd>
                 {% endfor %}
+                {% endif %}
+
+                {% if user.is_authenticated and show_reupload %}
+                    <dd><a class="label label-primary" href="{% url "create-resource-file" %}?reupload={{resource.id}}">Reupload</a></dd>
                 {% endif %}
 
                 {% with resource.giles_uploads.all.0 as upload %}

@@ -9,6 +9,7 @@ from django.db.models import Q, Max, Count
 from django.db import transaction
 from django.utils.http import urlquote_plus
 from django.utils.encoding import smart_str
+from django.contrib import messages
 
 from cookies.models import *
 from cookies.filters import *
@@ -17,7 +18,7 @@ from cookies.tasks import *
 from cookies import giles, operations
 from cookies import authorization as auth
 from cookies.accession import get_remote
-from cookies.views_rest import ResourceDetailSerializer, _create_resource_details, _create_resource_file
+from cookies.views_rest import ResourceDetailSerializer, _create_resource_details, _create_resource_file, _reupload_resource_file
 from cookies.aggregate import write_metadata_csv, get_collection_containers
 
 import hmac, base64, time, urllib, datetime, mimetypes, copy, urlparse
@@ -63,9 +64,11 @@ def resource(request, obj_id):
         'content_relations': resource.content.filter(is_deleted=False),
         'part_relations': part_relations,
         'content_region_relations': content_region_relations,
+        'show_reupload': False
     }
 
     resource_pending_uploads = resource.giles_uploads.filter(state=GilesUpload.PENDING)
+    context['show_reupload'] = True if resource.giles_uploads.count() == resource_pending_uploads.count() else False
     if resource_pending_uploads.count() > 0:
         pending_stats = GilesUpload.objects.filter(state=GilesUpload.PENDING).values('priority').annotate(total=Count('priority'))
         pending_stats = {e['priority']: e['total'] for e in pending_stats}
@@ -191,9 +194,19 @@ def create_resource_file(request):
         form = UserResourceFileForm(request.POST, request.FILES)
         if form.is_valid():
             with transaction.atomic():
-                content = _create_resource_file(request, request.FILES['upload_file'], Resource.INTERFACE_WEB)
-            return HttpResponseRedirect(reverse('create-resource-details',
-                                                args=(content.id,)))
+                if request.GET.get('reupload'):
+                    resource_status = \
+                        GilesUpload.objects.filter(resource_id=request.GET.get('reupload')).values_list('state')[0][0]
+                    if resource_status == GilesUpload.PENDING:
+                        _reupload_resource_file(request, request.FILES['upload_file'], Resource.INTERFACE_WEB, request.GET.get('reupload'))
+                        messages.success(request, 'Your file was reuploaded successfully')
+                    else:
+                        messages.error(request, 'Sorry, your file was not reuploaded as it has already been sent to Giles')
+                    return HttpResponseRedirect(reverse('resource', args=(request.GET.get('reupload'),)))
+                else:
+                    content = _create_resource_file(request, request.FILES['upload_file'], Resource.INTERFACE_WEB)
+                return HttpResponseRedirect(reverse('create-resource-details',
+                                                    args=(content.id,)))
 
     context.update({'form': form})
     return render(request, 'create_resource_file.html', context)
