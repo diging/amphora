@@ -58,3 +58,5 @@ target/
 
 db.sqlite3
 jars/static/*
+dump.rdb
+celerybeat-schedule.db
