@@ -455,12 +455,12 @@ class IngestManager(object):
         relation_data = {}
         for key, value in content_data.items():
             if key in self.model_fields + ['link', 'url']:
-                if key in ['url', 'location']:
+                if key in ['url', 'location', 'link']:
                     if value and type(value) is list:
                         value = value[0]
                     if value.startswith('http'):
                         resource_data['is_external'] = True
-                    resource_data['location'] = value
+                    resource_data['location'] = value.replace("%20", ' ')
                 elif key in ['external_source', 'content_type']:
                     resource_data[key] = value
                     if key == 'content_type':
