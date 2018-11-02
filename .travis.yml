@@ -7,6 +7,7 @@ env:
     - BACKEND='postgres'
     - LOGLEVEL='ERROR'
     - DATABASE_URL='postgres://jars@localhost:5432/jars_tests'
+    - BOTO_CONFIG=/dev/null
 before_script:
   - createuser -d -U postgres jars;
   - psql -c 'alter role jars createdb;' -U postgres
