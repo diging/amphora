@@ -340,7 +340,7 @@ class IngestManager(object):
         """
         data = copy.copy(self.resource_data)
         data.update(resource_data)
-        file_path = data.pop('link', None)
+        file_path = data.pop('location', None)
         location = data.pop('url', None)
         uri = data.get('uri')
 
