@@ -5,7 +5,7 @@ from django.db.models import QuerySet
 from django.db import transaction
 from django.utils import timezone
 
-import importlib, mimetypes, copy, os, logging, requests
+import importlib, mimetypes, copy, os, logging, requests, urllib
 from cookies.models import *
 from uuid import uuid4
 from cookies import metadata
@@ -460,7 +460,7 @@ class IngestManager(object):
                         value = value[0]
                     if value.startswith('http'):
                         resource_data['is_external'] = True
-                    resource_data['location'] = value.replace("%20", ' ')
+                    resource_data['location'] = urllib.unquote(value)
                 elif key in ['external_source', 'content_type']:
                     resource_data[key] = value
                     if key == 'content_type':
