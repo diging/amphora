@@ -52,6 +52,15 @@ def dashboard(request):
         'GILES_ERROR': GilesUpload.GILES_ERROR,
         'CALLBACK_ERROR': GilesUpload.CALLBACK_ERROR,
         'ASSIGNED': GilesUpload.ASSIGNED,
+        'all_uploads_pending': GilesUpload.objects.filter(state=GilesUpload.PENDING).count(),
+        'all_uploads_enqueued': GilesUpload.objects.filter(state=GilesUpload.ENQUEUED).count(),
+        'all_uploads_send_error': GilesUpload.objects.filter(state=GilesUpload.SEND_ERROR).count(),
+        'all_uploads_giles_error': GilesUpload.objects.filter(state=GilesUpload.GILES_ERROR).count(),
+        'all_uploads_sent': GilesUpload.objects.filter(state=GilesUpload.SENT).count(),
+        'all_uploads_process_error': GilesUpload.objects.filter(state=GilesUpload.PROCESS_ERROR).count(),
+        'all_uploads_callback_error': GilesUpload.objects.filter(state=GilesUpload.CALLBACK_ERROR).count(),
+        'all_uploads_done': GilesUpload.objects.filter(state=GilesUpload.DONE).count(),
+        'all_uploads_assigned': GilesUpload.objects.filter(state=GilesUpload.ASSIGNED).count(),
     }
     return render(request, 'dashboard.html', context)
 

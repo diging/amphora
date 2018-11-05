@@ -5,7 +5,7 @@ from django.db.models import QuerySet
 from django.db import transaction
 from django.utils import timezone
 
-import importlib, mimetypes, copy, os, logging, requests
+import importlib, mimetypes, copy, os, logging, requests, urllib
 from cookies.models import *
 from uuid import uuid4
 from cookies import metadata
@@ -340,7 +340,7 @@ class IngestManager(object):
         """
         data = copy.copy(self.resource_data)
         data.update(resource_data)
-        file_path = data.pop('link', None)
+        file_path = data.pop('location', None)
         location = data.pop('url', None)
         uri = data.get('uri')
 
@@ -455,12 +455,12 @@ class IngestManager(object):
         relation_data = {}
         for key, value in content_data.items():
             if key in self.model_fields + ['link', 'url']:
-                if key in ['url', 'location']:
+                if key in ['url', 'location', 'link']:
                     if value and type(value) is list:
                         value = value[0]
                     if value.startswith('http'):
                         resource_data['is_external'] = True
-                    resource_data['location'] = value
+                    resource_data['location'] = urllib.unquote(value)
                 elif key in ['external_source', 'content_type']:
                     resource_data[key] = value
                     if key == 'content_type':

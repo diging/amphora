@@ -498,7 +498,9 @@ class _GilesDetailsProcessor(object):
         resource_type = self.CONTENT_RESOURCE_TYPE_MAP.get(content_type,
                                                            self.__image__)
         self._save_content_resource(self._resource, resource_type, resource_uri,
-                                    giles_url, content_type=content_type)
+                                    giles_url, content_type=content_type,
+                                    name='%s (uploaded)' % (self._resource.name),
+                                    file_id=upload_data['id'])
 
     def _process_extracted_text(self):
         text_data = self._data.get('extractedText', None)
@@ -506,9 +508,12 @@ class _GilesDetailsProcessor(object):
             return
         text_content_type = text_data.get('content-type')
         text_uri = text_data.get('url')
-        content_resource = self._save_content_resource(self._resource, self.__text__,
-                                                       text_uri, text_uri,
-                                                       content_type=text_content_type)
+        content_resource = self._save_content_resource(
+            self._resource, self.__text__, text_uri, text_uri,
+            content_type=text_content_type,
+            name='%s (extracted)' % (self._resource.name),
+            file_id=text_data['id'],
+        )
         self._save_resource_creator(content_resource,
                                     self.__creator__,
                                     GILES_RESPONSE_CREATOR_MAP['extractedText'])
@@ -539,6 +544,7 @@ class _GilesDetailsProcessor(object):
                     page_resource, self.__image__ if fmt == 'image' else self.__text__,
                     page_fmt_uri, fmt_data.get('url'),
                     public=False, content_type=fmt_data.get('content-type'),
+                    file_id=fmt_data['id'],
                     name='%s (%s)' % (page_resource.name, fmt)
                 )
 
@@ -607,6 +613,7 @@ class _GilesDetailsProcessor(object):
                 resource_type,
                 uri, uri,
                 content_type=content_type,
+                file_id=additional_file['id'],
                 name=name_fn(additional_file),
             )
 
@@ -624,8 +631,12 @@ class _GilesDetailsProcessor(object):
         # Content resource for extracted text, if available.
         self._process_extracted_text()
 
+        name_fn = lambda d: '%s - %s (%s)' % (self._resource.name, d.get('id'),
+                                              d.get('content-type'))
         # Content resource for each additional file, if available.
-        self._process_additional_files(self._data.get('additionalFiles', []), self._resource)
+        self._process_additional_files(self._data.get('additionalFiles', []),
+                                       self._resource,
+                                       name_fn=name_fn)
 
         self._process_pages()
 
@@ -681,9 +692,8 @@ class _GilesDetailsProcessor(object):
                 content_rel.save()
 
         except KeyError:
-            content_resource = Resource.objects.create(**{
+            kwargs = {
                 'name': meta.get('name', url),
-                'location': url,
                 'public': meta.get('public', False),
                 'content_resource': True,
                 'created_by_id': self._user.id,
@@ -694,8 +704,13 @@ class _GilesDetailsProcessor(object):
                 'external_source': Resource.GILES,
                 'uri': uri,
                 'container': parent_resource.container,
-            })
+            }
+            try:
+                kwargs['location_id'] = meta['file_id']
+            except KeyError:
+                kwargs['location'] = url
 
+            content_resource = Resource.objects.create(**kwargs)
             content_rel = ContentRelation.objects.create(**{
                 'for_resource': parent_resource,
                 'content_resource': content_resource,

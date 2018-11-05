@@ -197,6 +197,22 @@ class Resource(ResourceBase):
     description = models.TextField(blank=True, null=True)
 
     name_index = TSVectorField(('name',), dictionary='simple')
+    location_id = models.CharField(
+        max_length=255, blank=True, null=True,
+        help_text="Instead of storing the complete resource URL in `location`, "
+                  "use this field to store the unique part of URL and generate "
+                  "the complete URL at runtime.""",
+    )
+
+    def __getattribute__(self, attr):
+        if attr != 'location':
+            return super(Resource, self).__getattribute__(attr)
+        location = super(Resource, self).__getattribute__(attr)
+        if location:
+            return location
+        if self.location_id and self.external_source == self.GILES:
+            return settings.GILES_CONTENT_FORMAT_STRING.format(giles_file_id=self.location_id)
+        return None
 
     @property
     def active_content(self):
@@ -639,7 +655,7 @@ class GilesUpload(models.Model):
     on_complete = models.TextField()
     """Serialized callback instructions."""
 
-    file_path = models.CharField(max_length=1000, blank=True, null=True)
+    file_path = models.TextField(blank=True, null=True)
     """Relative to MEDIA_ROOT."""
 
 

@@ -23,7 +23,7 @@ class CustomModelChoiceField(forms.ModelChoiceField):
     """
 
     def label_from_instance(self, obj):
-         return obj.name
+        return obj.name
 
 
 class TypeModelChoiceField(forms.ModelChoiceField):
@@ -33,7 +33,7 @@ class TypeModelChoiceField(forms.ModelChoiceField):
 
     def label_from_instance(self, obj):
         if obj.schema is not None:
-            return u'%s: %s' % (obj.schema.name, obj.name)
+            return u'%s (%s)' % (obj.name, obj.schema.name)
         else:
             return obj.name
 
@@ -195,7 +195,7 @@ class UserEditResourceForm(forms.Form):
     """
 
     name = forms.CharField(help_text='Give your resource a unique name')
-    resource_type = CustomModelChoiceField(**{
+    resource_type = TypeModelChoiceField(**{
         'queryset': Type.objects.all().order_by('name'),
         'help_text': 'Types help JARS determine what metadata fields are' \
                    + ' appropriate for your resource.',
@@ -328,7 +328,7 @@ class MetadatumTypeForm(forms.Form):
 
 
 class MetadatumForm(forms.Form):
-    predicate = CustomModelChoiceField(queryset=Field.objects.all().order_by('-name'))
+    predicate = TypeModelChoiceField(queryset=Field.objects.all().order_by('-name'))
     value_type = forms.ChoiceField(choices=(
         ('Int', 'Integer'),
         ('Float', 'Float'),
@@ -441,7 +441,7 @@ VALUE_FORMS = dict([
 class DatasetForm(forms.ModelForm):
     filter_parameters = forms.CharField(widget=forms.HiddenInput())
 
-    description = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}),
+    description = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 3}),
                                   help_text="Please describe the purpose and"
                                             " content of the dataset"
                                             " (optional).")

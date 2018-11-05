@@ -1,5 +1,5 @@
 import os, socket, sys, requests, dj_database_url
-from urlparse import urlparse
+from urlparse import urlparse, urljoin
 from datetime import timedelta
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -89,7 +89,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         # 'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.TokenAuthentication',
-        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
+        'oauth2_provider.ext.rest_framework.OAuth2Authentication',
         'jars.auth.GithubTokenBackend',
         'rest_framework.authentication.SessionAuthentication',
     ),
@@ -188,6 +188,7 @@ IMAGE_AFFIXES = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 GILES_APP_TOKEN = os.environ.get('GILES_APP_TOKEN', 'nope')
 GILES_DEFAULT_PROVIDER = os.environ.get('GILES_DEFAULT_PROVIDER', 'github')
 GILES_TOKEN_EXPIRATION = os.environ.get('GILES_TOKEN_EXPIRATION', 120)    # min.
+GILES_CONTENT_FORMAT_STRING = GILES + '/rest/files/{giles_file_id}/content'
 MAX_GILES_UPLOADS = 200
 
 # Defines creators for each type of document keys in Giles response.
