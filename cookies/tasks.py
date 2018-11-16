@@ -132,7 +132,7 @@ def handle_bulk(self, file_path, form_data, file_name, job=None,
         operations.add_creation_metadata(resource, creator)
 
         if job:
-            job.progress += 1./N
+            job.progress += 1./N if N > 0 else 0
             job.save()
     ResourceAuthorization.objects.bulk_create(resource_auths)
     job.result = jsonpickle.encode({'view': 'collection', 'id': collection.id})

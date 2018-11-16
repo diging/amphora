@@ -29,7 +29,7 @@ RESOURCE_CLASSES = [
     BIB.Illustration, BIB.Recording, BIB.Legislation, BIB.Document,
     BIB.BookSection, BIB.Book, BIB.Data, BIB.Letter, BIB.Report,
     BIB.Article, BIB.Thesis, BIB.Manuscript, BIB.Image,
-    BIB.ConferenceProceedings,
+    BIB.ConferenceProceedings
 ]
 
 
@@ -141,15 +141,14 @@ class ZoteroIngest(object):
         self.graph = rdflib.Graph()
         self.graph.parse(rdf_path)
         self.entries = []
-
         self.classes = copy.deepcopy(classes)
         self.current_class = None
-        self.current_entries = None
+        self.current_entries = self.graph.subjects(ZOTERO.itemType)
 
     def _init_dtemp(self):
         self.dtemp = tempfile.mkdtemp()
 
-    def _get_resources_nodes(self, resource_class):
+    def _get_resources_nodes(self, resource_class=None):
         """
         Retrieve all nodes in the graph with type ``resource_class``.
 
@@ -430,14 +429,11 @@ class ZoteroIngest(object):
     def next(self):
         next_entry = None
         while next_entry is None:
-            try:
-                next_entry = self.current_entries.next()
-            except (StopIteration, AttributeError):
-                try:
-                    self.current_class = self.classes.pop()
-                except IndexError:    # Out of classes.
-                    raise StopIteration()
-                self.current_entries = self._get_resources_nodes(self.current_class)
+            next_entry = self.current_entries.next()
+            for i in self.graph.objects(subject=next_entry):
+                if str(i) == 'attachment':
+                    next_entry = None
+                    break
 
         self._new_entry()
         self.process(next_entry)
