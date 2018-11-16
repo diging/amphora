@@ -148,7 +148,7 @@ class ZoteroIngest(object):
     def _init_dtemp(self):
         self.dtemp = tempfile.mkdtemp()
 
-    def _get_resources_nodes(self, resource_class=None):
+    def _get_resources_nodes(self, resource_class):
         """
         Retrieve all nodes in the graph with type ``resource_class``.
 
