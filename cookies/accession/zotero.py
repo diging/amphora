@@ -430,10 +430,9 @@ class ZoteroIngest(object):
         next_entry = None
         while next_entry is None:
             next_entry = self.current_entries.next()
-            for i in self.graph.objects(subject=next_entry):
-                if str(i) == 'attachment':
-                    next_entry = None
-                    break
+            if str(next(self.graph.objects(subject=next_entry, predicate=ZOTERO.itemType))) == \
+                    settings.ATTACHMENT_ITEMTYPE:
+                next_entry = None
 
         self._new_entry()
         self.process(next_entry)
