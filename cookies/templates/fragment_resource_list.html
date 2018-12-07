@@ -66,7 +66,12 @@
       {% for resource in resources %}
       <div class="list-group-item resource-item" id="resource-{{ resource.primary.id }}">
           {% if user.is_authenticated %}<input type="checkbox" name="addresources" id="select-{{ resource.primary.id }}" value={{resource.primary.id}}>{% endif %}
+          {% if resource.primary.id %}
           <a href="{{ resource.primary.get_absolute_url }}">{{ resource.primary.name }}</a> <span class="text-muted">{{ resource.primary.entity_type }}</span>
+          {% else %}
+          Invalid entry
+          <span class="glyphicon glyphicon-trash opendeleteResourceModal" data-url="{% url 'delete-resource' resource.id %}" style="color:red;"></span>
+          {% endif %}
           <div>
               <span class="text-muted">Added by <span class="text-warning">{{ resource.primary.created_by }}</span> on {{ resource.primary.created }} Last updated on {{ resource.primary.updated }}</span>
               <span class="pull-right btn-group">

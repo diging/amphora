@@ -52,6 +52,7 @@ urlpatterns = [
     url(r'^resource/create/giles/process/([0-9]+)/$', views.giles.set_giles_upload_collection, name="create-process-giles"),
     url(r'^resource/create/details/([0-9]+)/$', views.resource.create_resource_details, name="create-resource-details"),
     url(r'^resource/create/bulk/$', views.resource.create_resource_bulk, name="create-resource-bulk"),
+    url(r'^resource/([0-9]+)/delete/$', views.resource.delete_resource, name="delete-resource"),
     url(r'^collection/([0-9]+)/$', views.collection.collection, name="collection"),
     url(r'^collection/([0-9]+)/edit/$', views.collection.collection_edit, name="collection-edit"),
     url(r'^collection/([0-9]+)/authorizations/$', views.collection.collection_authorizations, name="collection-authorizations"),
