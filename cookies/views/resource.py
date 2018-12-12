@@ -942,6 +942,7 @@ def create_dataset(request):
 
 
 @login_required
+@auth.authorization_required(CollectionAuthorization.REMOVE, _get_resource_by_id)
 def delete_resource(request, resource_id):
     # Extra check to ensure that only resources which do not have primary id get deleted.
     resource_container = ResourceContainer.objects.get(pk=resource_id)
