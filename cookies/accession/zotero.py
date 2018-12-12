@@ -114,8 +114,8 @@ class ZoteroIngest(object):
 
         self.paths = []
         for file_path in self.zipfile.namelist():
-
-            if path.startswith('.'):
+            filename = os.path.basename(file_path)
+            if filename.startswith('.'):
                 continue
             temp_path = self.zipfile.extract(file_path, self.dtemp)
             if temp_path.endswith('.rdf'):
@@ -443,7 +443,9 @@ class ZoteroIngest(object):
         return EntryWrapper(self.data[-1])
 
     def __len__(self):
-        return sum([len(list(self._get_resources_nodes(cl))) for cl in self.classes])
+        return len([entry for entry in self.graph.subjects(ZOTERO.itemType)
+                    if str(self.graph.objects(subject=entry, predicate=ZOTERO.itemType)) !=
+                    settings.ATTACHMENT_ITEMTYPE])
 
     def __del__(self):
         """
