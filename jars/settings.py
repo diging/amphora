@@ -265,3 +265,7 @@ CACHES = {
 
 
 SESSION_COOKIE_NAME = 'amphora'
+
+
+# Zotero item-type for attachment
+ATTACHMENT_ITEMTYPE = 'attachment'
