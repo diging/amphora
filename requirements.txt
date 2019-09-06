@@ -46,7 +46,7 @@ networkx==1.10
 oauthlib==2.0.7
 packaging==16.8
 pbr==1.10.0
-psycopg2==2.7
+psycopg2==2.7.2
 PyJWT==1.4.2
 pyoai==2.4.5
 pyparsing==2.0.3
