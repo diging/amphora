@@ -356,6 +356,12 @@ class CollectionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self, *args, **kwargs):
         qs = super(CollectionViewSet, self).get_queryset(*args, **kwargs)
+        q  = self.request.query_params.get("q", None)
+        user = self.request.query_params.get("user", None)
+        if q:
+            qs = qs.filter(name__icontains=q)
+        if user:
+            qs = qs.filter(created_by=self.request.user)
         return authorization.apply_filter(CollectionAuthorization.VIEW, self.request.user, qs)
 
     def retrieve(self, request, pk=None):
