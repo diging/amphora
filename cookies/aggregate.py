@@ -264,6 +264,7 @@ def export(queryset, target_path, fname=get_filename, **kwargs):
 
 
 def manifest(log):
+    log = [str(l) for l in log]
     return "Bulk export from Amphora\n\n" + \
            "Process Log\n----------{}\n\n".format('\n'.join(log)) + \
            "Finished at at %s" % timezone.now().strftime('%Y-%m-%d at %H:%m:%s')
