@@ -297,7 +297,10 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
                 if content is None:
                     log.append('No content for resource %i (%s)' % (resource.id, resource.name))
                 elif isinstance(content, Exception):
-                    log.append('Encountered exception while retrieving content for %i (%s): %s' % (resource.id, resource.name, content.message))
+                    log.append('Encountered exception while retrieving content for: ')
+                    log.append(resource.id)
+                    log.append(resource.name)
+                    log.append(content.message)
                 else:
                     filepath = fname(resource)
                     if filepath in files_in_zip:
