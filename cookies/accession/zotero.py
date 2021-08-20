@@ -29,7 +29,7 @@ RESOURCE_CLASSES = [
     BIB.Illustration, BIB.Recording, BIB.Legislation, BIB.Document,
     BIB.BookSection, BIB.Book, BIB.Data, BIB.Letter, BIB.Report,
     BIB.Article, BIB.Thesis, BIB.Manuscript, BIB.Image,
-    BIB.ConferenceProceedings,
+    BIB.ConferenceProceedings
 ]
 
 
@@ -114,8 +114,8 @@ class ZoteroIngest(object):
 
         self.paths = []
         for file_path in self.zipfile.namelist():
-
-            if path.startswith('.'):
+            filename = os.path.basename(file_path)
+            if filename.startswith('.'):
                 continue
             temp_path = self.zipfile.extract(file_path, self.dtemp)
             if temp_path.endswith('.rdf'):
@@ -141,10 +141,9 @@ class ZoteroIngest(object):
         self.graph = rdflib.Graph()
         self.graph.parse(rdf_path)
         self.entries = []
-
         self.classes = copy.deepcopy(classes)
         self.current_class = None
-        self.current_entries = None
+        self.current_entries = self.graph.subjects(ZOTERO.itemType)
 
     def _init_dtemp(self):
         self.dtemp = tempfile.mkdtemp()
@@ -430,14 +429,10 @@ class ZoteroIngest(object):
     def next(self):
         next_entry = None
         while next_entry is None:
-            try:
-                next_entry = self.current_entries.next()
-            except (StopIteration, AttributeError):
-                try:
-                    self.current_class = self.classes.pop()
-                except IndexError:    # Out of classes.
-                    raise StopIteration()
-                self.current_entries = self._get_resources_nodes(self.current_class)
+            next_entry = self.current_entries.next()
+            if str(next(self.graph.objects(subject=next_entry, predicate=ZOTERO.itemType))) == \
+                    settings.ATTACHMENT_ITEMTYPE:
+                next_entry = None
 
         self._new_entry()
         self.process(next_entry)
@@ -448,7 +443,9 @@ class ZoteroIngest(object):
         return EntryWrapper(self.data[-1])
 
     def __len__(self):
-        return sum([len(list(self._get_resources_nodes(cl))) for cl in self.classes])
+        return len([entry for entry in self.graph.subjects(ZOTERO.itemType)
+                    if str(self.graph.objects(subject=entry, predicate=ZOTERO.itemType)) !=
+                    settings.ATTACHMENT_ITEMTYPE])
 
     def __del__(self):
         """
