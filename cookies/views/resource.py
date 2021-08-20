@@ -939,3 +939,13 @@ def create_dataset(request):
         'collection_count': collections.count(),
     }
     return render(request, 'create_dataset.html', context)
+
+
+@login_required
+@auth.authorization_required(CollectionAuthorization.REMOVE, _get_resource_by_id)
+def delete_resource(request, resource_id):
+    # Extra check to ensure that only resources which do not have primary id get deleted.
+    resource_container = ResourceContainer.objects.get(pk=resource_id)
+    if resource_container.primary_id is None and request.user.id == resource_container.created_by_id:
+        ResourceContainer.objects.filter(id=resource_id).delete()
+    return HttpResponseRedirect(reverse('resources'))
