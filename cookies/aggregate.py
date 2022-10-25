@@ -320,10 +320,11 @@ def export_zip(queryset, target_path, fname=get_filename, **kwargs):
                                            resource.container.part_of.id,
                                            get_collection_name(resource, concat_fn=posixpath.join),
                                           ])
-
-            if has_metadata:
-                for resource in aggregate_part_resources([queryset_resource]):
                     write_metadata_csv(metadata, resource, write_header=False)
+
+            #if has_metadata:
+            #    for resource in aggregate_part_resources([queryset_resource]):
+            #        write_metadata_csv(metadata, resource, write_header=False)
 
         target.writestr(base + 'MANIFEST.txt', manifest(log))
         target.writestr(base + 'index.csv', index.getvalue())
