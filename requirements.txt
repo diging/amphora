@@ -39,7 +39,7 @@ iso8601==0.1.10
 isodate==0.5.1
 jsonpickle==0.9.4
 kombu==3.0.35
-lxml==3.7.2
+lxml==4.9.1
 Markdown==2.6.2
 mock==2.0.0
 networkx==1.10
