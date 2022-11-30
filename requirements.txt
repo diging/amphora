@@ -68,6 +68,6 @@ static3==0.6.1
 typing==3.6.4
 unicodecsv==0.14.1
 Unidecode==0.4.18
-urllib3==1.22
+urllib3==1.26.5
 whitenoise==2.0.4
 git+https://github.com/diging/django-pg-fts.git@1f251c09f3bfdaa58e85b8bdbe00a75ddce3d6a8
