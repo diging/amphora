@@ -7,7 +7,7 @@ black-goat-client==0.2.5
 boto==2.38.0
 bz2file==0.98
 celery==3.1.23
-certifi==2018.1.18
+certifi==2022.12.7
 chardet==3.0.4
 conceptpower-api==1.6
 decorator==4.0.11
