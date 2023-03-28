@@ -62,7 +62,7 @@ shortuuid==0.4.2
 six==1.10.0
 smart-open==1.5.3
 social-auth-app-django==2.1.0
-social-auth-core==1.1.0
+git+https://github.com/diging/social-core.git@v1.1.0-fixed#egg=social-auth-core
 SPARQLWrapper==1.6.4
 static3==0.6.1
 typing==3.6.4
