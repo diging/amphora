@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Peirson"
+  given-names: "Erick"
+- family-names: "Digital Innovation Group"
+  given-names: ""
+title: "Amphora"
+version: 0.10
+date-released: 2018-11-05
+url: "https://github.com/diging/amphora"
